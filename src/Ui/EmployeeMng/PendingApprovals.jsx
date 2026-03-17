@@ -1,3 +1,4 @@
+
 // src/Ui/EmployeeMng/PendingApprovals.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -42,7 +43,7 @@ const Avatar = ({ firstName, lastName, size = 'md' }) => {
     </div>
   );
 };
-
+//
 // ─── Document Viewer Modal ────────────────────────────────────────────────────
 const DocViewer = ({ url, title, onClose }) => {
   const fullUrl = `${BASE_URL}${url}`;
@@ -50,7 +51,6 @@ const DocViewer = ({ url, title, onClose }) => {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style={{ maxHeight: '92vh' }}>
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100" style={{ background: 'linear-gradient(90deg,#1e3a5f 0%,#1d4ed8 100%)' }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
@@ -79,7 +79,6 @@ const DocViewer = ({ url, title, onClose }) => {
             </button>
           </div>
         </div>
-        {/* Content */}
         <div className="flex-1 overflow-auto p-6 bg-gray-50">
           {isPdf ? (
             <iframe src={fullUrl} className="w-full rounded-xl shadow-lg bg-white" style={{ minHeight: '72vh' }} title={title} />
@@ -98,7 +97,6 @@ const DocViewer = ({ url, title, onClose }) => {
 const FullFormViewer = ({ employee, onClose }) => {
   const [docViewer, setDocViewer] = useState(null);
 
-  // helper to render a field in print HTML — must be defined before handlePrint
   const f = (label, value, span = false) =>
     `<div class="field${span ? ' span2' : ''}"><label>${label}</label><p${!value ? ' class="empty"' : ''}>${value || 'Not provided'}</p></div>`;
 
@@ -156,7 +154,6 @@ const FullFormViewer = ({ employee, onClose }) => {
         <body>
           <h1>Employee Registration Form</h1>
           <p class="subtitle">Generated on ${new Date().toLocaleString('en-IN')} &nbsp;|&nbsp; Confidential – For HR Use Only</p>
-
           <div class="header-banner">
             <div class="avatar">${(employee.first_name?.[0]||'N').toUpperCase()}${(employee.last_name?.[0]||'A').toUpperCase()}</div>
             <div>
@@ -165,7 +162,6 @@ const FullFormViewer = ({ employee, onClose }) => {
               <div class="badge">Applied: ${formatDateTime(employee.created_at)}</div>
             </div>
           </div>
-
           <div class="grid">
             <div>
               <div class="section">
@@ -263,7 +259,6 @@ const FullFormViewer = ({ employee, onClose }) => {
               </div>` : ''}
             </div>
           </div>
-
           <div class="declaration">
             <h4>Declaration</h4>
             <p>I hereby declare that all the information provided above is true and correct to the best of my knowledge. I understand that any false information may result in the rejection of my application or termination of employment.</p>
@@ -272,7 +267,6 @@ const FullFormViewer = ({ employee, onClose }) => {
               <div style="text-align:right"><div class="label">Submission Date</div><div class="value">${formatDate(employee.created_at)}</div></div>
             </div>
           </div>
-
           <div class="print-footer">This document is auto-generated and is confidential. Unauthorized distribution is prohibited.</div>
           <script>window.onload = function(){ window.print(); }<\/script>
         </body>
@@ -317,7 +311,6 @@ const FullFormViewer = ({ employee, onClose }) => {
       )}
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl my-4 flex flex-col" style={{ maxHeight: '95vh' }}>
-          {/* Modal Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0"
             style={{ background: 'linear-gradient(90deg,#1e3a5f 0%,#1d4ed8 100%)', borderRadius: '16px 16px 0 0' }}>
             <div className="flex items-center gap-4">
@@ -342,14 +335,9 @@ const FullFormViewer = ({ employee, onClose }) => {
             </div>
           </div>
 
-          {/* Scrollable Body */}
           <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-              {/* ── LEFT COLUMN ── */}
               <div className="space-y-5">
-
-                {/* 1. Personal Info */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="1" title="Personal Information" icon={<User className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -365,8 +353,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Mother's Name" value={employee.mother_name} />
                   </div>
                 </div>
-
-                {/* 2. Contact Info */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="2" title="Contact Information" icon={<Mail className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -378,8 +364,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Relationship" value={employee.emergency_contact_relationship} span={2} />
                   </div>
                 </div>
-
-                {/* 3. Address */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="3" title="Address Details" icon={<MapPin className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -391,8 +375,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Permanent Address" value={employee.permanent_address} span={2} />
                   </div>
                 </div>
-
-                {/* 4. Employment */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="4" title="Employment Details" icon={<Briefcase className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -408,10 +390,7 @@ const FullFormViewer = ({ employee, onClose }) => {
                 </div>
               </div>
 
-              {/* ── RIGHT COLUMN ── */}
               <div className="space-y-5">
-
-                {/* 5. Education */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="5" title="Education & Qualifications" icon={<Award className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -423,8 +402,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Certifications" value={employee.certifications} span={2} />
                   </div>
                 </div>
-
-                {/* 6. Experience */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="6" title="Professional Experience" icon={<Briefcase className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -435,8 +412,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Skills" value={employee.skills} span={2} />
                   </div>
                 </div>
-
-                {/* 7. Bank */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="7" title="Bank Account Details" icon={<CreditCard className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -448,8 +423,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Account Type" value={employee.account_type} />
                   </div>
                 </div>
-
-                {/* 8. Identity & Documents */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="8" title="Identity & Documents" icon={<Shield className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3 mb-5">
@@ -462,8 +435,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="ESI Number" value={employee.esi_number} />
                     <Field label="PF Number" value={employee.pf_number} />
                   </div>
-
-                  {/* ── Uploaded Documents ── */}
                   <div className="border-t border-gray-100 pt-4">
                     <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-blue-600" />
@@ -510,8 +481,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* 9. Additional */}
                 {(employee.notes || employee.references || employee.hobbies) && (
                   <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                     <SectionTitle num="9" title="Additional Information" icon={<FileText className="w-4 h-4" />} />
@@ -525,7 +494,6 @@ const FullFormViewer = ({ employee, onClose }) => {
               </div>
             </div>
 
-            {/* Declaration */}
             <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50/50 p-5">
               <h4 className="text-sm font-semibold text-blue-900 mb-2">Declaration</h4>
               <p className="text-xs text-gray-600 leading-relaxed mb-4">
@@ -558,7 +526,6 @@ const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        {/* Top bar */}
         <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#ef4444,#f97316)' }} />
         <div className="p-8">
           <div className="w-16 h-16 mx-auto mb-5 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#fee2e2,#fecaca)' }}>
@@ -603,95 +570,106 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting }) =
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
         {/* Top accent line */}
-        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)' }} />
+        <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)' }} />
 
         {/* Card Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+        <div className="px-5 pt-4 pb-3.5 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3.5">
               <Avatar firstName={employee.first_name} lastName={employee.last_name} size="md" />
               <div>
-                <h3 className="text-base font-bold text-gray-900">
+                <h3 className="text-sm font-bold text-gray-900 leading-tight">
                   {employee.first_name} {employee.middle_name ? employee.middle_name + ' ' : ''}{employee.last_name}
                 </h3>
-                <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
-                  <Briefcase className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                  <Briefcase className="w-3 h-3" />
                   <span>{employee.position || 'Not specified'}</span>
                   <span className="text-gray-300">•</span>
-                  <Building2 className="w-3.5 h-3.5" />
+                  <Building2 className="w-3 h-3" />
                   <span>{employee.department || 'Not specified'}</span>
                 </div>
               </div>
             </div>
 
+            {/* ── ACTION BUTTONS — compact, right-aligned in header ── */}
+            <div className="flex items-center gap-1.5">
+              {/* View Form */}
+              <button
+                onClick={() => setShowFullForm(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 transition-all duration-150 text-xs font-medium"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>View</span>
+              </button>
+
+              {/* Approve */}
+              <button
+                onClick={onApprove}
+                disabled={approving || rejecting}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: approving
+                    ? '#15803d'
+                    : 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+                  boxShadow: approving ? 'none' : '0 1px 6px rgba(34,197,94,0.35)',
+                }}
+              >
+                {approving ? (
+                  <><Loader className="w-3.5 h-3.5 animate-spin" /><span>Approving…</span></>
+                ) : (
+                  <><CheckCircle className="w-3.5 h-3.5" /><span>Approve</span></>
+                )}
+              </button>
+
+              {/* Reject */}
+              <button
+                onClick={onReject}
+                disabled={approving || rejecting}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 bg-white text-red-500 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition-all duration-150 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Reject</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Card Body */}
-        <div className="px-6 py-5">
+        {/* Card Body — info only, no action row at bottom */}
+        <div className="px-5 py-4">
           {/* Key Info Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             {[
-              { icon: <Mail className="w-4 h-4 text-blue-600" />, label: 'Email', value: employee.email },
-              { icon: <Phone className="w-4 h-4 text-blue-600" />, label: 'Phone', value: employee.phone },
-              { icon: <Calendar className="w-4 h-4 text-blue-600" />, label: 'Joining Date', value: formatDateShort(employee.joining_date) },
+              { icon: <Mail className="w-3.5 h-3.5 text-blue-500" />, label: 'Email', value: employee.email },
+              { icon: <Phone className="w-3.5 h-3.5 text-blue-500" />, label: 'Phone', value: employee.phone },
+              { icon: <Calendar className="w-3.5 h-3.5 text-blue-500" />, label: 'Joining Date', value: formatDateShort(employee.joining_date) },
             ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 border border-gray-100">
-                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div key={i} className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                <div className="w-7 h-7 bg-blue-50 rounded-md flex items-center justify-center flex-shrink-0">
                   {item.icon}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-gray-500">{item.label}</p>
-                  <p className="text-sm font-semibold text-gray-900 truncate">{item.value || '—'}</p>
+                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none mb-0.5">{item.label}</p>
+                  <p className="text-xs font-semibold text-gray-800 truncate">{item.value || '—'}</p>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Applied + Type */}
-          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 mb-5">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Clock className="w-4 h-4 text-gray-400" />
+          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-gray-100 bg-gray-50">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Clock className="w-3.5 h-3.5 text-gray-400" />
               <span>Applied:</span>
-              <span className="font-semibold text-gray-900">{formatDateTime(employee.created_at)}</span>
+              <span className="font-semibold text-gray-700">{formatDateTime(employee.created_at)}</span>
             </div>
             {employee.employment_type && (
-              <div className="flex items-center gap-1.5">
-                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full"
-                  style={{ background: '#dbeafe', color: '#1d4ed8' }}>
-                  {employee.employment_type}
-                </span>
-              </div>
+              <span
+                className="px-2 py-0.5 text-[11px] font-semibold rounded-full"
+                style={{ background: '#dbeafe', color: '#1d4ed8' }}
+              >
+                {employee.employment_type}
+              </span>
             )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              onClick={() => setShowFullForm(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-gray-700 rounded-xl font-semibold text-sm border border-gray-300 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-all"
-            >
-              <Eye className="w-4 h-4" />
-              View Form
-            </button>
-            <button
-              onClick={onApprove}
-              disabled={approving || rejecting}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-              style={{ background: approving ? '#16a34a' : 'linear-gradient(135deg,#16a34a,#22c55e)' }}
-            >
-              {approving
-                ? <><Loader className="w-4 h-4 animate-spin" />Approving…</>
-                : <><CheckCircle className="w-4 h-4" />Approve</>}
-            </button>
-            <button
-              onClick={onReject}
-              disabled={approving || rejecting}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-red-600 rounded-xl font-semibold text-sm border border-red-200 hover:bg-red-50 hover:border-red-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <XCircle className="w-4 h-4" />
-              Reject
-            </button>
           </div>
         </div>
       </div>
@@ -797,9 +775,9 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
           </div>
           <button
             onClick={fetchPending}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 transition-all shadow-sm"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </button>
         </div>
@@ -845,7 +823,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {pendingList.map((emp) => (
             <EmployeeCard
               key={emp.id}
