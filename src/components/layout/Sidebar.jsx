@@ -24,6 +24,7 @@ const Sidebar = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
+  const [logoutHovered, setLogoutHovered] = useState(false); // ← track hover with state
 
   const user = {
     name: localStorage.getItem("fullName") || "Admin User",
@@ -100,6 +101,10 @@ const Sidebar = ({
 
   const col = collapsed && !isMobile;
 
+  // ── Logout button colors driven by state, not DOM manipulation ──
+  const logoutColor = logoutHovered ? "#ffffff" : "#bfdbfe";
+  const logoutBg = logoutHovered ? "#dc2626" : "transparent";
+
   return (
     <div
       style={{
@@ -111,7 +116,7 @@ const Sidebar = ({
         overflow: "hidden",
       }}
     >
-      {/* ── Profile section with toggle button inside ── */}
+      {/* ── Profile section ── */}
       <div
         style={{
           borderBottom: "1px solid rgba(255,255,255,.15)",
@@ -123,7 +128,7 @@ const Sidebar = ({
           position: "relative",
         }}
       >
-        {/* Toggle button — top right corner */}
+        {/* Toggle button */}
         <button
           onClick={
             isMobile
@@ -239,18 +244,27 @@ const Sidebar = ({
                 color: on ? "#1d4ed8" : "#bfdbfe",
                 fontWeight: on ? 600 : 400,
                 fontSize: 14,
-                transition: "background .2s",
+                transition: "background .2s, color .2s",
               }}
               onMouseEnter={(e) => {
-                if (!on)
+                if (!on) {
                   e.currentTarget.style.background = "rgba(255,255,255,.15)";
+                  e.currentTarget.style.color = "#ffffff";
+                  const svg = e.currentTarget.querySelector("svg");
+                  if (svg) svg.style.color = "#ffffff";
+                }
               }}
               onMouseLeave={(e) => {
-                if (!on) e.currentTarget.style.background = "transparent";
+                if (!on) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "#bfdbfe";
+                  const svg = e.currentTarget.querySelector("svg");
+                  if (svg) svg.style.color = "#bfdbfe";
+                }
               }}
             >
               <div style={{ position: "relative", flexShrink: 0 }}>
-                <Icon size={col ? 22 : 18} />
+                <Icon size={col ? 22 : 18} style={{ color: "inherit" }} />
                 {col && badge > 0 && (
                   <span
                     style={{
@@ -276,7 +290,12 @@ const Sidebar = ({
               {!col && (
                 <>
                   <span
-                    style={{ flex: 1, textAlign: "left", whiteSpace: "nowrap" }}
+                    style={{
+                      flex: 1,
+                      textAlign: "left",
+                      whiteSpace: "nowrap",
+                      color: "inherit",
+                    }}
                   >
                     {label}
                   </span>
@@ -301,7 +320,7 @@ const Sidebar = ({
         })}
       </nav>
 
-      {/* ── Logout ── */}
+      {/* ── Logout — hover state via React state so icon color updates ── */}
       <div
         style={{
           padding: 12,
@@ -311,6 +330,8 @@ const Sidebar = ({
       >
         <button
           onClick={handleLogout}
+          onMouseEnter={() => setLogoutHovered(true)}
+          onMouseLeave={() => setLogoutHovered(false)}
           style={{
             width: "100%",
             display: "flex",
@@ -320,23 +341,21 @@ const Sidebar = ({
             padding: col ? "10px 0" : "10px 16px",
             borderRadius: 12,
             border: "none",
-            background: "transparent",
-            color: "#bfdbfe",
+            background: logoutBg, // ← driven by state
+            color: logoutColor, // ← driven by state
             fontSize: 14,
+            fontWeight: 500,
             cursor: "pointer",
             transition: "all .2s",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#dc2626";
-            e.currentTarget.style.color = "#fff";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "#bfdbfe";
-          }}
         >
-          <LogOut size={col ? 22 : 18} />
-          {!col && <span>Logout</span>}
+          {/* ── Icon color driven by state — always correct ── */}
+          <LogOut
+            size={col ? 22 : 18}
+            color={logoutColor} // ← explicit color prop, not currentColor
+            style={{ flexShrink: 0 }}
+          />
+          {!col && <span style={{ color: logoutColor }}>Logout</span>}
         </button>
       </div>
     </div>
