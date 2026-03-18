@@ -1,9 +1,28 @@
 // src/Ui/EmployeeMng/AddEmp/IDProof.jsx
-import React from 'react';
-import { Upload, Check, FileText, Shield, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import React from "react";
+import {
+  Upload,
+  Check,
+  FileText,
+  Shield,
+  Image as ImageIcon,
+  AlertCircle,
+} from "lucide-react";
 
-const DocumentUpload = ({ documents, handleFileUpload, handleFileRemove, errors = {} }) => {
-  const DocumentCard = ({ title, documentType, required = false, accept = 'image/*,application/pdf', icon, description }) => {
+const DocumentUpload = ({
+  documents,
+  handleFileUpload,
+  handleFileRemove,
+  errors = {},
+}) => {
+  const DocumentCard = ({
+    title,
+    documentType,
+    required = false,
+    accept = "image/*,application/pdf",
+    icon,
+    description,
+  }) => {
     const doc = documents[documentType];
 
     const onFileChange = (e) => {
@@ -12,20 +31,22 @@ const DocumentUpload = ({ documents, handleFileUpload, handleFileRemove, errors 
     };
 
     const getFileSize = (bytes) => {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
     };
 
     return (
       <div className="relative group">
-        <div className={`rounded-xl p-5 border-2 transition-all duration-200 ${
-          doc
-            ? 'border-green-400 bg-gradient-to-br from-green-50 to-emerald-50'
-            : errors[documentType]
-            ? 'border-red-300 bg-red-50'
-            : 'border-dashed border-gray-300 hover:border-blue-400 bg-white hover:bg-blue-50/30'
-        }`}>
+        <div
+          className={`rounded-xl p-5 border-2 transition-all duration-200 ${
+            doc
+              ? "border-green-400 bg-gradient-to-br from-green-50 to-emerald-50"
+              : errors[documentType]
+                ? "border-red-300 bg-red-50"
+                : "border-dashed border-gray-300 hover:border-blue-400 bg-white hover:bg-blue-50/30"
+          }`}
+        >
           <div className="text-center">
             {doc ? (
               <div className="space-y-3">
@@ -33,21 +54,31 @@ const DocumentUpload = ({ documents, handleFileUpload, handleFileRemove, errors 
                   <Check className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-gray-900 mb-1">{title}</div>
+                  <div className="text-sm font-bold text-gray-900 mb-1">
+                    {title}
+                  </div>
                   <div className="text-xs text-gray-600 truncate px-3 bg-white rounded py-1.5 border border-green-200">
                     {doc.name}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">{getFileSize(doc.file.size)}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {getFileSize(doc.file.size)}
+                  </div>
                 </div>
-                {doc.preview && doc.file?.type?.startsWith('image/') && (
+                {doc.preview && doc.file?.type?.startsWith("image/") && (
                   <div className="relative overflow-hidden rounded-lg border-2 border-green-200">
-                    <img src={doc.preview} alt={title} className="max-h-40 w-full object-contain bg-white" />
+                    <img
+                      src={doc.preview}
+                      alt={title}
+                      className="max-h-40 w-full object-contain bg-white"
+                    />
                   </div>
                 )}
-                {doc.file?.type === 'application/pdf' && (
+                {doc.file?.type === "application/pdf" && (
                   <div className="p-4 bg-white rounded-lg border-2 border-green-200">
                     <FileText className="w-12 h-12 mx-auto text-red-500" />
-                    <div className="text-xs text-gray-700 font-medium mt-2">PDF Document</div>
+                    <div className="text-xs text-gray-700 font-medium mt-2">
+                      PDF Document
+                    </div>
                   </div>
                 )}
                 <div className="flex gap-2 justify-center pt-1">
@@ -55,7 +86,12 @@ const DocumentUpload = ({ documents, handleFileUpload, handleFileRemove, errors 
                     <span className="text-xs text-green-700 hover:text-green-800 font-semibold px-4 py-2 bg-green-100 rounded-lg hover:bg-green-200 transition-all inline-block">
                       Replace
                     </span>
-                    <input type="file" accept={accept} onChange={onFileChange} className="hidden" />
+                    <input
+                      type="file"
+                      accept={accept}
+                      onChange={onFileChange}
+                      className="hidden"
+                    />
                   </label>
                   <button
                     type="button"
@@ -80,16 +116,28 @@ const DocumentUpload = ({ documents, handleFileUpload, handleFileRemove, errors 
                 </div>
                 <div>
                   <div className="text-sm font-bold text-gray-900 mb-0.5">
-                    {title}{required && <span className="text-red-500 ml-1">*</span>}
+                    {title}
+                    {required && <span className="text-red-500 ml-1">*</span>}
                   </div>
-                  {description && <div className="text-xs text-gray-600 mt-1">{description}</div>}
-                  <div className="text-xs text-gray-500 mt-2">PNG, JPG, PDF • Max 5MB</div>
+                  {description && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      {description}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500 mt-2">
+                    PNG, JPG, PDF • Max 5MB
+                  </div>
                 </div>
                 <label className="cursor-pointer">
                   <span className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all inline-block shadow-sm hover:shadow-md">
                     Choose File
                   </span>
-                  <input type="file" accept={accept} onChange={onFileChange} className="hidden" />
+                  <input
+                    type="file"
+                    accept={accept}
+                    onChange={onFileChange}
+                    className="hidden"
+                  />
                 </label>
               </div>
             )}
@@ -98,7 +146,8 @@ const DocumentUpload = ({ documents, handleFileUpload, handleFileRemove, errors 
         {errors[documentType] && (
           <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-xs text-red-600 font-medium flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />{errors[documentType]}
+              <AlertCircle className="w-3 h-3" />
+              {errors[documentType]}
             </p>
           </div>
         )}
@@ -106,59 +155,113 @@ const DocumentUpload = ({ documents, handleFileUpload, handleFileRemove, errors 
     );
   };
 
+  const iconCls =
+    "w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors";
+
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
+    <div className="space-y-8">
+      <div className="text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full mb-3 shadow-lg">
           <Shield className="w-8 h-8 text-white" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">Document Upload</h2>
-        <p className="text-gray-600 text-sm">Upload required documents for verification</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">
+          Document Upload
+        </h2>
+        <p className="text-gray-600 text-sm">
+          Upload all required documents for KYE verification
+        </p>
       </div>
 
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+      <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-semibold text-blue-900 mb-1">Required Documents</p>
-            <p className="text-blue-700">Employee Photo, Aadhar Card, and Bank Passbook are mandatory. PAN Card is optional.</p>
+            <p className="font-semibold text-blue-900 mb-1">
+              Required Documents
+            </p>
+            <p className="text-blue-700">
+              Photo, Aadhaar Card, and Resume are mandatory. All other documents
+              are strongly recommended.
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <DocumentCard
-          title="Employee Photo"
-          documentType="photo"
-          required={true}
-          accept="image/*"
-          description="Recent passport-size photo"
-          icon={<ImageIcon className="w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors" />}
-        />
-        <DocumentCard
-          title="Aadhar Card"
-          documentType="aadharCard"
-          required={true}
-          accept="image/*,application/pdf"
-          description="Front and back sides"
-          icon={<FileText className="w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors" />}
-        />
-        <DocumentCard
-          title="Bank Passbook / Cancelled Cheque"
-          documentType="bankPassbook"
-          required={true}
-          accept="image/*,application/pdf"
-          description="For account verification"
-          icon={<FileText className="w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors" />}
-        />
-        <DocumentCard
-          title="PAN Card"
-          documentType="panCard"
-          required={false}
-          accept="image/*,application/pdf"
-          description="Optional - if available"
-          icon={<FileText className="w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors" />}
-        />
+      {/* ── Identity Documents ── */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+          Identity &amp; Personal Documents
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <DocumentCard
+            title="Employee Photo"
+            documentType="photo"
+            required
+            accept="image/*"
+            description="Recent passport-size photo (45mm × 35mm)"
+            icon={<ImageIcon className={iconCls} />}
+          />
+          <DocumentCard
+            title="Aadhaar Card"
+            documentType="aadharCard"
+            required
+            description="Front and back sides"
+            icon={<FileText className={iconCls} />}
+          />
+          <DocumentCard
+            title="PAN Card"
+            documentType="panCard"
+            description="Optional — if available"
+            icon={<FileText className={iconCls} />}
+          />
+          <DocumentCard
+            title="Resume (Signed Copy)"
+            documentType="resume"
+            description="Signed copy of latest resume (optional)"
+            icon={<FileText className={iconCls} />}
+          />
+        </div>
+      </div>
+
+      {/* ── KYE Documents ── */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+          KYE Form Documents
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <DocumentCard
+            title="Medical Certificate"
+            documentType="medicalCertificate"
+            description="Latest medical fitness certificate"
+            icon={<FileText className={iconCls} />}
+          />
+          <DocumentCard
+            title="Academic Records"
+            documentType="academicRecords"
+            description="SSC, ITI, HSC, Diploma, Degree certificates"
+            icon={<FileText className={iconCls} />}
+          />
+          <DocumentCard
+            title="Bank Passbook / Cancelled Cheque"
+            documentType="bankPassbook"
+            description="For bank account verification"
+            icon={<FileText className={iconCls} />}
+          />
+          <DocumentCard
+            title="Pay Slip / Bank Statement"
+            documentType="payslip"
+            description="Last drawn salary proof"
+            icon={<FileText className={iconCls} />}
+          />
+          <DocumentCard
+            title="Other Certificates"
+            documentType="otherCertificates"
+            description="Any other relevant certificates (optional)"
+            icon={<FileText className={iconCls} />}
+          />
+        </div>
       </div>
     </div>
   );
