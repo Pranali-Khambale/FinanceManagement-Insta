@@ -170,9 +170,9 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
   );
 
   return (
-    /* ── Overlay: blur + semi-transparent, starts below header ── */
+    // ── z-[1100] beats header (1000) and sidebar (999) so everything blurs ──
     <div
-      className="fixed inset-0 z-50 backdrop-blur-sm bg-black/40 flex items-start justify-center p-4 pt-20 overflow-y-auto"
+      className="fixed inset-0 z-[1100] backdrop-blur-sm bg-black/40 flex items-start justify-center p-4 pt-20 overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col my-4">

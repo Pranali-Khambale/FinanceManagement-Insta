@@ -18,6 +18,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
   const navigate  = useNavigate();
   const location  = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
+  const [logoutHovered, setLogoutHovered] = useState(false); // ← track hover with state
 
   const user = {
     name:     localStorage.getItem("fullName") || "Admin User",

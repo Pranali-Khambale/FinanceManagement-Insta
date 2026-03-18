@@ -16,6 +16,7 @@ export const departments = [
   'Logistics',
   'Design',
   'Product Management',
+  'Telecom',           // ← Added
 ];
 
 export const employmentTypes = [
