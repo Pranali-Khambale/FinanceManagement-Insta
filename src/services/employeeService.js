@@ -39,7 +39,7 @@ async function apiFetch(endpoint, options = {}) {
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       throw new Error(
-        `Server error (${response.status}): unexpected response format`,
+        `Server error (${response.status}): unexpected response format`
       );
     }
 
@@ -47,11 +47,11 @@ async function apiFetch(endpoint, options = {}) {
 
     if (!response.ok) {
       const err = new Error(
-        data.message || `Request failed (${response.status})`,
+        data.message || `Request failed (${response.status})`
       );
-      err.status = response.status;
+      err.status  = response.status;
       err.expired = data.expired || false;
-      err.used = data.used || false;
+      err.used    = data.used    || false;
       err.response = { data };
       throw err;
     }
@@ -60,7 +60,7 @@ async function apiFetch(endpoint, options = {}) {
   } catch (err) {
     if (err.name === "TypeError" && err.message === "Failed to fetch") {
       throw new Error(
-        "Cannot connect to server. Please check your connection.",
+        "Cannot connect to server. Please check your connection."
       );
     }
     throw err;
@@ -72,36 +72,12 @@ function buildEmployeeFormData(employeeData) {
   const fd = new FormData();
 
   const scalarFields = [
-    "firstName",
-    "middleName",
-    "lastName",
-    "email",
-    "phone",
-    "altPhone",
-    "aadhar",
-    "dob",
-    "gender",
-    "address",
-    "city",
-    "state",
-    "zipCode",
-    "employeeId",
-    "joiningDate",
-    "department",
-    "designation",
-    "employmentType",
-    "circle",
-    "projectName",
-    "reportingManager",
-    "basicSalary",
-    "hra",
-    "otherAllowances",
-    "bankName",
-    "accountNumber",
-    "ifscCode",
-    "branch",
-    "totalSalary",
-    "status",
+    "firstName", "middleName", "lastName", "email", "phone", "altPhone",
+    "aadhar", "dob", "gender", "address", "city", "state", "zipCode",
+    "employeeId", "joiningDate", "department", "designation",
+    "employmentType", "circle", "projectName", "reportingManager",
+    "basicSalary", "hra", "otherAllowances",
+    "bankName", "accountNumber", "ifscCode", "branch", "totalSalary", "status",
   ];
 
   scalarFields.forEach((field) => {
@@ -110,13 +86,10 @@ function buildEmployeeFormData(employeeData) {
   });
 
   const docs = employeeData.documents || {};
-  if (docs.photo?.file) fd.append("photo", docs.photo.file, docs.photo.name);
-  if (docs.aadharCard?.file)
-    fd.append("aadharCard", docs.aadharCard.file, docs.aadharCard.name);
-  if (docs.panCard?.file)
-    fd.append("panCard", docs.panCard.file, docs.panCard.name);
-  if (docs.bankPassbook?.file)
-    fd.append("bankPassbook", docs.bankPassbook.file, docs.bankPassbook.name);
+  if (docs.photo?.file)        fd.append("photo",        docs.photo.file,        docs.photo.name);
+  if (docs.aadharCard?.file)   fd.append("aadharCard",   docs.aadharCard.file,   docs.aadharCard.name);
+  if (docs.panCard?.file)      fd.append("panCard",       docs.panCard.file,      docs.panCard.name);
+  if (docs.bankPassbook?.file) fd.append("bankPassbook",  docs.bankPassbook.file, docs.bankPassbook.name);
 
   return fd;
 }
@@ -125,6 +98,7 @@ function buildEmployeeFormData(employeeData) {
 // Employee Service
 // ============================================================
 const employeeService = {
+
   // ════════════════════════════════════════════════════════════════════════════
   // EMPLOYEES (active / inactive — NOT pending)
   // ════════════════════════════════════════════════════════════════════════════
@@ -189,26 +163,35 @@ const employeeService = {
   },
 
   // ════════════════════════════════════════════════════════════════════════════
-  // SELF-REGISTRATION (public — employee fills the form)
+  // SELF-REGISTRATION (public — employee fills the 4-step form)
+  // FIXED: uses FormData (multipart) so file uploads work correctly.
+  //        Never send JSON when there are file attachments.
   // ════════════════════════════════════════════════════════════════════════════
 
   submitRegistration: (registrationData, documents) => {
     console.log("📡 Submitting registration form...");
     const fd = new FormData();
 
+    // Append all text/scalar fields
     Object.entries(registrationData).forEach(([k, v]) => {
-      if (v !== null && v !== undefined) fd.append(k, v);
+      if (v !== null && v !== undefined) {
+        fd.append(k, String(v));
+      }
     });
 
+    // Append document files
+    // documents = { idPhoto: File|null, aadharCard: File|null, ... }
     if (documents) {
       Object.entries(documents).forEach(([k, file]) => {
-        if (file) {
-          console.log(`  📎 Attaching document: ${k}`);
+        if (file instanceof File) {
+          console.log(`  📎 Attaching: ${k} (${file.name})`);
           fd.append(k, file, file.name);
         }
       });
     }
 
+    // DO NOT set Content-Type header — browser sets it automatically
+    // with the correct multipart boundary when using FormData
     return apiFetch("/registrations", { method: "POST", body: fd });
   },
 
@@ -231,13 +214,10 @@ const employeeService = {
   approveSubmission: async (submissionId) => {
     console.log(`✅ Approving submission ${submissionId}...`);
     try {
-      const response = await apiFetch(
-        `/registrations/${submissionId}/approve`,
-        {
-          method: "POST",
-        },
-      );
-      console.log(`✅ Approved successfully: ${response.data?.employeeId}`);
+      const response = await apiFetch(`/registrations/${submissionId}/approve`, {
+        method: "POST",
+      });
+      console.log(`✅ Approved: ${response.data?.employee_id}`);
       return response;
     } catch (error) {
       console.error(`❌ Error approving submission ${submissionId}:`, error);
@@ -252,7 +232,6 @@ const employeeService = {
         method: "POST",
         body: JSON.stringify({ rejection_reason: reason }),
       });
-      console.log(`❌ Rejected successfully`);
       return response;
     } catch (error) {
       console.error(`❌ Error rejecting submission ${submissionId}:`, error);
@@ -266,8 +245,8 @@ const employeeService = {
 
   getPendingCount: async () => {
     try {
-      const response = await apiFetch("/registrations/pending");
-      return response.data?.length || 0;
+      const response = await apiFetch("/employees/pending-count");
+      return response.count || 0;
     } catch (error) {
       console.error("❌ Error fetching pending count:", error);
       return 0;
@@ -275,71 +254,50 @@ const employeeService = {
   },
 
   // ════════════════════════════════════════════════════════════════════════════
-  // EMAIL — Send registration link to employee
+  // EMAIL
   // ════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * POST /employees/send-registration-email
-   * Sends the registration link to the employee's email address.
-   */
-  sendRegistrationEmail: async ({ to, registrationUrl, expiresAt }) => {
+  sendRegistrationEmail: async ({ to, registrationUrl, expiresAt, subject }) => {
     console.log(`📧 Sending registration email to ${to}...`);
-    const response = await fetch(
-      `${BASE_URL}/employees/send-registration-email`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to,
-          registrationUrl,
-          expiresAt,
-          subject: "Your Registration Link — Insta ICT Solutions",
-          message: `
-          Dear Employee,
+    const response = await fetch(`${BASE_URL}/employees/send-registration-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to,
+        registrationUrl,
+        expiresAt,
+        subject: subject || "Your Registration Link — Insta ICT Solutions",
+        message: `
+Dear Employee,
 
-          Please use the link below to complete your registration form.
-          Once submitted, our HR team will review your information and
-          approve your profile within 1–2 business days.
+Please use the link below to complete your registration form.
+Once submitted, our HR team will review your information and
+approve your profile within 1–2 business days.
 
-          Registration Link: ${registrationUrl}
+Registration Link: ${registrationUrl}
 
-          This link expires on ${new Date(expiresAt).toLocaleString()} and can only be used once.
+This link expires on ${new Date(expiresAt).toLocaleString()} and can only be used once.
 
-          After submitting your form:
-          ✓ You will receive a confirmation that your form was successfully submitted
-          ✓ HR will review and approve your details
-          ✓ You will be notified once your Employee ID is assigned
+After submitting your form:
+✓ You will receive a confirmation email
+✓ HR will review and approve your details
+✓ You will be notified once your Employee ID is assigned
 
-          Regards,
-          HR Team — Insta ICT Solutions
-        `,
-        }),
-      },
-    );
+Regards,
+HR Team — Insta ICT Solutions
+        `.trim(),
+      }),
+    });
     return response.json();
   },
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // EMAIL — Send form submission confirmation + copy to employee
-  // ════════════════════════════════════════════════════════════════════════════
-
-  /**
-   * POST /employees/send-submission-confirmation
-   * Sends a confirmation email to the employee after they submit the form.
-   * Includes a full copy of all the submitted form details.
-   * @param {string} to         - Employee email address
-   * @param {object} formData   - All submitted form fields
-   */
   sendFormSubmissionConfirmation: async ({ to, formData }) => {
     console.log(`📧 Sending form submission confirmation to ${to}...`);
-    const response = await fetch(
-      `${BASE_URL}/employees/send-submission-confirmation`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, formData }),
-      },
-    );
+    const response = await fetch(`${BASE_URL}/employees/send-submission-confirmation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, formData }),
+    });
     return response.json();
   },
 };
