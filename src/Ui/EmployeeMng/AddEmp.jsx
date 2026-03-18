@@ -12,20 +12,73 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
+    // ── Personal ──
     firstName: "",
-    middleName: "",
     lastName: "",
-    aadhar: "",
+    fatherHusbandName: "",
     dob: "",
     gender: "",
+    maritalStatus: "",
+    educationalQualification: "",
+    bloodGroup: "",
     email: "",
     phone: "",
     altPhone: "",
+    panNumber: "",
+    nameOnPan: "",
+    aadhar: "",
+    nameOnAadhar: "",
+    // ── Family ──
+    familyMemberName: "",
+    familyContactNo: "",
+    familyWorkingStatus: "",
+    familyEmployerName: "",
+    familyEmployerContact: "",
+    // ── Emergency ──
+    emergencyContactName: "",
+    emergencyContactNo: "",
+    emergencyContactAddress: "",
+    emergencyContactRelation: "",
+    // ── Address ──
+    permanentAddress: "",
+    permanentPhone: "",
+    permanentLandmark: "",
+    permanentLatLong: "",
+    localSameAsPermanent: false,
+    localAddress: "",
+    localPhone: "",
+    localLandmark: "",
+    localLatLong: "",
+    // ── References ──
+    ref1Name: "",
+    ref1Designation: "",
+    ref1Organization: "",
+    ref1Address: "",
+    ref1CityStatePin: "",
+    ref1ContactNo: "",
+    ref1Email: "",
+    ref2Name: "",
+    ref2Designation: "",
+    ref2Organization: "",
+    ref2Address: "",
+    ref2CityStatePin: "",
+    ref2ContactNo: "",
+    ref2Email: "",
+    ref3Name: "",
+    ref3Designation: "",
+    ref3Organization: "",
+    ref3Address: "",
+    ref3CityStatePin: "",
+    ref3ContactNo: "",
+    ref3Email: "",
+    // ── Employment ──
     employeeId: generateEmployeeId(),
     joiningDate: "",
     department: "",
     designation: "",
     employmentType: "",
+    status: "Active",
+    // ── Salary & Bank ──
     basicSalary: "",
     hra: "",
     otherAllowances: "",
@@ -33,7 +86,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     accountNumber: "",
     ifscCode: "",
     branch: "",
-    status: "Active",
   });
 
   const [documents, setDocuments] = useState({
@@ -41,6 +93,11 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     aadharCard: null,
     panCard: null,
     bankPassbook: null,
+    resume: null,
+    medicalCertificate: null,
+    academicRecords: null,
+    payslip: null,
+    otherCertificates: null,
   });
 
   const steps = [
@@ -54,9 +111,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setTouched((prev) => ({ ...prev, [name]: true }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleFileUpload = (documentType, file) => {
@@ -89,9 +144,8 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         ...prev,
         [documentType]: { file, preview: reader.result, name: file.name },
       }));
-      if (errors[documentType]) {
+      if (errors[documentType])
         setErrors((prev) => ({ ...prev, [documentType]: "" }));
-      }
     };
     reader.readAsDataURL(file);
   };
@@ -104,6 +158,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     const newErrors = {};
 
     if (step === 1) {
+      // Personal Details
       if (!formData.firstName.trim())
         newErrors.firstName = "First name is required";
       else if (formData.firstName.length < 2)
@@ -118,10 +173,15 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       else if (!/^[a-zA-Z\s]+$/.test(formData.lastName))
         newErrors.lastName = "Only letters allowed";
 
-      if (!formData.aadhar.trim())
-        newErrors.aadhar = "Aadhar number is required";
-      else if (!/^\d{12}$/.test(formData.aadhar.replace(/\s/g, "")))
-        newErrors.aadhar = "Aadhar must be exactly 12 digits";
+      if (!formData.fatherHusbandName.trim())
+        newErrors.fatherHusbandName = "Father/Husband name is required";
+      if (!formData.maritalStatus)
+        newErrors.maritalStatus = "Marital status is required";
+      if (!formData.educationalQualification.trim())
+        newErrors.educationalQualification =
+          "Educational qualification is required";
+      if (!formData.bloodGroup)
+        newErrors.bloodGroup = "Blood group is required";
 
       if (!formData.dob) newErrors.dob = "Date of birth is required";
       else {
@@ -132,39 +192,71 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         else if (age > 100)
           newErrors.dob = "Please enter a valid date of birth";
       }
-
       if (!formData.gender) newErrors.gender = "Gender is required";
-
       if (!formData.email.trim()) newErrors.email = "Email is required";
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-        newErrors.email = "Please enter a valid email address";
-
+        newErrors.email = "Please enter a valid email";
       if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
       else if (!/^[6-9]\d{9}$/.test(formData.phone))
-        newErrors.phone = "Please enter a valid 10-digit Indian phone number";
+        newErrors.phone = "Enter a valid 10-digit Indian phone number";
+      if (!formData.panNumber.trim())
+        newErrors.panNumber = "PAN number is required";
+      else if (
+        !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase())
+      )
+        newErrors.panNumber = "Enter a valid PAN (e.g. ABCDE1234F)";
+      if (!formData.nameOnPan.trim())
+        newErrors.nameOnPan = "Name on PAN is required";
+      if (!formData.aadhar.trim())
+        newErrors.aadhar = "Aadhar number is required";
+      else if (!/^\d{12}$/.test(formData.aadhar.replace(/\s/g, "")))
+        newErrors.aadhar = "Aadhar must be exactly 12 digits";
+      if (!formData.nameOnAadhar.trim())
+        newErrors.nameOnAadhar = "Name on Aadhaar is required";
 
-      if (formData.altPhone && !/^[6-9]\d{9}$/.test(formData.altPhone)) {
-        newErrors.altPhone =
-          "Please enter a valid 10-digit Indian phone number";
-      }
+      // Family Details
+      if (!formData.familyMemberName.trim())
+        newErrors.familyMemberName = "Family member name is required";
+      if (!formData.familyContactNo.trim())
+        newErrors.familyContactNo = "Contact number is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.familyContactNo))
+        newErrors.familyContactNo = "Enter a valid 10-digit number";
+      if (!formData.familyWorkingStatus)
+        newErrors.familyWorkingStatus = "Working status is required";
+
+      // Emergency Contact
+      if (!formData.emergencyContactName.trim())
+        newErrors.emergencyContactName = "Contact name is required";
+      if (!formData.emergencyContactNo.trim())
+        newErrors.emergencyContactNo = "Contact number is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.emergencyContactNo))
+        newErrors.emergencyContactNo = "Enter a valid 10-digit number";
+      if (!formData.emergencyContactAddress.trim())
+        newErrors.emergencyContactAddress = "Address is required";
+      if (!formData.emergencyContactRelation)
+        newErrors.emergencyContactRelation = "Relation is required";
+
+      // Address
+      if (!formData.permanentAddress.trim())
+        newErrors.permanentAddress = "Permanent address is required";
+      if (!formData.permanentPhone.trim())
+        newErrors.permanentPhone = "Phone is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.permanentPhone))
+        newErrors.permanentPhone = "Enter a valid 10-digit number";
+      if (!formData.localAddress.trim())
+        newErrors.localAddress = "Local address is required";
+      if (!formData.localPhone.trim())
+        newErrors.localPhone = "Phone is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.localPhone))
+        newErrors.localPhone = "Enter a valid 10-digit number";
     }
 
     if (step === 2) {
       if (!formData.joiningDate)
         newErrors.joiningDate = "Joining date is required";
-      else {
-        const oneYearFromNow = new Date();
-        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-        if (new Date(formData.joiningDate) > oneYearFromNow) {
-          newErrors.joiningDate =
-            "Joining date cannot be more than 1 year in the future";
-        }
-      }
       if (!formData.department) newErrors.department = "Department is required";
       if (!formData.designation.trim())
         newErrors.designation = "Designation is required";
-      else if (formData.designation.length < 2)
-        newErrors.designation = "Must be at least 2 characters";
       if (!formData.employmentType)
         newErrors.employmentType = "Employment type is required";
     }
@@ -174,8 +266,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         newErrors.basicSalary = "Basic salary is required";
       else if (parseFloat(formData.basicSalary) <= 0)
         newErrors.basicSalary = "Salary must be greater than 0";
-      else if (parseFloat(formData.basicSalary) > 10000000)
-        newErrors.basicSalary = "Please enter a realistic salary amount";
       if (!formData.bankName.trim())
         newErrors.bankName = "Bank name is required";
       if (!formData.accountNumber.trim())
@@ -188,9 +278,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       if (!documents.photo) newErrors.photo = "Employee photo is required";
       if (!documents.aadharCard)
         newErrors.aadharCard = "Aadhar card is required";
-      if (!documents.bankPassbook)
-        newErrors.bankPassbook =
-          "Bank passbook or cancelled cheque is required";
     }
 
     setErrors(newErrors);
@@ -220,22 +307,18 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateStep(currentStep)) return;
-
     setIsSubmitting(true);
     try {
       const totalSalary =
         (parseFloat(formData.basicSalary) || 0) +
         (parseFloat(formData.hra) || 0) +
         (parseFloat(formData.otherAllowances) || 0);
-
-      const newEmployee = {
+      await onSubmit({
         ...formData,
         totalSalary,
         documents,
         createdAt: new Date().toISOString(),
-      };
-
-      await onSubmit(newEmployee);
+      });
     } catch (error) {
       console.error("Submit error:", error);
       setErrors({
@@ -249,7 +332,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
   const CurrentStepComponent = steps[currentStep - 1].component;
 
   return (
-    // ── z-[1100] beats header (1000) and sidebar (999) so everything blurs ──
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1100] p-4">
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col overflow-hidden"
@@ -351,8 +433,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                   : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 shadow-sm"
               }`}
             >
-              <ChevronLeft className="w-4 h-4" />
-              Back
+              <ChevronLeft className="w-4 h-4" /> Back
             </button>
 
             <div className="text-sm text-gray-600 font-medium">
@@ -366,8 +447,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                 disabled={isSubmitting}
                 className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all shadow-md disabled:opacity-50"
               >
-                Next
-                <ChevronRight className="w-4 h-4" />
+                Next <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
               <button
@@ -377,13 +457,12 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
               >
                 {isSubmitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />{" "}
                     Submitting...
                   </>
                 ) : (
                   <>
-                    <Check className="w-4 h-4" />
-                    Submit
+                    <Check className="w-4 h-4" /> Submit
                   </>
                 )}
               </button>
