@@ -49,9 +49,9 @@ async function apiFetch(endpoint, options = {}) {
       const err = new Error(
         data.message || `Request failed (${response.status})`
       );
-      err.status  = response.status;
-      err.expired = data.expired || false;
-      err.used    = data.used    || false;
+      err.status   = response.status;
+      err.expired  = data.expired || false;
+      err.used     = data.used    || false;
       err.response = { data };
       throw err;
     }
@@ -67,23 +67,45 @@ async function apiFetch(endpoint, options = {}) {
   }
 }
 
-// ── Build FormData for manual employee add (wizard) ─────────
+// ── Build FormData for employee add ─────────────────────────
 function buildEmployeeFormData(employeeData) {
   const fd = new FormData();
 
   const scalarFields = [
-    "firstName", "middleName", "lastName", "email", "phone", "altPhone",
-    "aadhar", "dob", "gender", "address", "city", "state", "zipCode",
-    "employeeId", "joiningDate", "department", "designation",
+    "firstName", "middleName", "lastName",
+    "fatherHusbandName", "email", "phone", "altPhone",
+    "aadhar", "nameOnAadhar", "panNumber", "nameOnPan",
+    "dob", "gender", "maritalStatus", "educationalQualification", "bloodGroup",
+    "address", "city", "state", "zipCode",
+    "familyMemberName", "familyContactNo", "familyWorkingStatus",
+    "familyEmployerName", "familyEmployerContact",
+    "emergencyContactName", "emergencyContactNo",
+    "emergencyContactAddress", "emergencyContactRelation",
+    "permanentAddress", "permanentPhone", "permanentLandmark", "permanentLatLong",
+    "localSameAsPermanent",
+    "localAddress", "localPhone", "localLandmark", "localLatLong",
+    "ref1Name", "ref1Designation", "ref1Organization", "ref1Address",
+    "ref1CityStatePin", "ref1ContactNo", "ref1Email",
+    "ref2Name", "ref2Designation", "ref2Organization", "ref2Address",
+    "ref2CityStatePin", "ref2ContactNo", "ref2Email",
+    "ref3Name", "ref3Designation", "ref3Organization", "ref3Address",
+    "ref3CityStatePin", "ref3ContactNo", "ref3Email",
+    "joiningDate", "department", "designation",
     "employmentType", "circle", "projectName", "reportingManager",
     "basicSalary", "hra", "otherAllowances",
-    "bankName", "accountNumber", "ifscCode", "branch", "totalSalary", "status",
+    "bankName", "accountNumber", "ifscCode", "bankBranch",
+    "accountHolderName", "branch", "totalSalary", "status",
   ];
 
   scalarFields.forEach((field) => {
     const value = employeeData[field];
-    if (value !== undefined && value !== null) fd.append(field, String(value));
+    if (value !== undefined && value !== null && value !== "") {
+      fd.append(field, String(value));
+    }
   });
+
+  const eid = employeeData.employeeId?.toString().trim();
+  if (eid) fd.append("employeeId", eid);
 
   const docs = employeeData.documents || {};
   if (docs.photo?.file)        fd.append("photo",        docs.photo.file,        docs.photo.name);
@@ -164,23 +186,18 @@ const employeeService = {
 
   // ════════════════════════════════════════════════════════════════════════════
   // SELF-REGISTRATION (public — employee fills the 4-step form)
-  // FIXED: uses FormData (multipart) so file uploads work correctly.
-  //        Never send JSON when there are file attachments.
   // ════════════════════════════════════════════════════════════════════════════
 
   submitRegistration: (registrationData, documents) => {
     console.log("📡 Submitting registration form...");
     const fd = new FormData();
 
-    // Append all text/scalar fields
     Object.entries(registrationData).forEach(([k, v]) => {
       if (v !== null && v !== undefined) {
         fd.append(k, String(v));
       }
     });
 
-    // Append document files
-    // documents = { idPhoto: File|null, aadharCard: File|null, ... }
     if (documents) {
       Object.entries(documents).forEach(([k, file]) => {
         if (file instanceof File) {
@@ -190,9 +207,15 @@ const employeeService = {
       });
     }
 
-    // DO NOT set Content-Type header — browser sets it automatically
-    // with the correct multipart boundary when using FormData
     return apiFetch("/registrations", { method: "POST", body: fd });
+  },
+
+  // ── NEW: Load pre-filled form data for rejected employee resubmission ───────
+  // Called when employee opens /registration/resubmit/:token
+  // Returns all previously saved form data so the form is pre-populated.
+  getPrefillData: (token) => {
+    console.log(`📡 Loading prefill data for resubmit token ${token}...`);
+    return apiFetch(`/registrations/prefill/${token}`);
   },
 
   // ════════════════════════════════════════════════════════════════════════════
