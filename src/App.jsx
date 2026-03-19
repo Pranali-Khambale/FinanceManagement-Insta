@@ -35,11 +35,6 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-/* ─────────────────────────────────────────
-   THIS WAS THE BUG:
-   Before:  flex-row → Sidebar | (Header on top of content)
-   After:   flex-col → Header on top, then Sidebar+Content row
-───────────────────────────────────────── */
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -69,18 +64,15 @@ const MainLayout = ({ children }) => {
     <div
       style={{
         display: "flex",
-        flexDirection: "column" /* ← KEY: column so header is on top */,
+        flexDirection: "column",
         height: "100vh",
         width: "100vw",
         overflow: "hidden",
       }}
     >
-      {/* ── 1. HEADER — full width, always first ── */}
       <Header user={user} onToggle={handleToggle} />
 
-      {/* ── 2. BODY ROW — sidebar + content, fills rest ── */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Desktop sidebar — NO fixed, just a flex child */}
         {!isMobile && (
           <div
             style={{
@@ -102,7 +94,6 @@ const MainLayout = ({ children }) => {
           </div>
         )}
 
-        {/* Mobile sidebar — fixed but starts BELOW header (top:64px) */}
         {isMobile && (
           <>
             {mobileOpen && (
@@ -122,10 +113,10 @@ const MainLayout = ({ children }) => {
             <div
               style={{
                 position: "fixed",
-                top: 64 /* ← starts below 64px header */,
+                top: 64,
                 left: 0,
                 width: 260,
-                height: "calc(100vh - 64px)" /* ← only fills below header */,
+                height: "calc(100vh - 64px)",
                 zIndex: 50,
                 transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
                 transition: "transform .3s",
@@ -142,7 +133,6 @@ const MainLayout = ({ children }) => {
           </>
         )}
 
-        {/* Main content */}
         <main
           style={{
             flex: 1,
@@ -163,11 +153,23 @@ function App() {
     <Router>
       <Routes>
         {/* Public routes */}
-        <Route path="/login" element={<AdminLogin />} />
-        <Route path="/register" element={<AdminRegistration />} />
-        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+        <Route path="/login"                   element={<AdminLogin />} />
+        <Route path="/register"                element={<AdminRegistration />} />
+        <Route path="/admin/forgot-password"   element={<ForgotPassword />} />
+
+        {/* Normal registration link (existing) */}
         <Route
           path="/registration/:linkId"
+          element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <RegistrationForm />
+            </Suspense>
+          }
+        />
+
+        {/* ── NEW: Resubmission link after rejection ── */}
+        <Route
+          path="/registration/resubmit/:token"
           element={
             <Suspense fallback={<LoadingSpinner />}>
               <RegistrationForm />
@@ -198,8 +200,8 @@ function App() {
         />
 
         {/* Fallback */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="/"  element={<Navigate to="/login" replace />} />
+        <Route path="*"  element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );

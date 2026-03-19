@@ -25,15 +25,13 @@ export const printKYEForm = (employee) => {
 
   const e = employee || {};
 
-  // ── IMPORTANT: use absolute URL so the popup (about:blank) can load the image ──
-  // window.location.origin = e.g. http://localhost:5173
-  const ORIGIN   = window.location.origin;
-  const LOGO_URL = `${ORIGIN}/assets/Insta-logo.png`;
+  // ── Logo: absolute URL so popup (about:blank) can load the image ──────────────
+  // Points to: /public/assets/Insta-logo.png in your Vite project
+  const LOGO_URL = `${window.location.origin}/assets/Insta-logo1.png`;
 
-  // ── Brand colors from the real logo ──────────────────────────────────────────
-  // Blue arc  → #2196d3   Yellow arc → #f5a623   Text → #1a1a1a
-  const BRAND_BLUE   = '#2196d3';
-  const BRAND_YELLOW = '#f5a623';
+  // ── Brand colors ──────────────────────────────────────────────────────────────
+  const BRAND_BLUE   = '#2b9cd8';
+  const BRAND_YELLOW = '#f5b800';
   const BRAND_DARK   = '#1a1a1a';
 
   // ── API base for employee photo ───────────────────────────────────────────────
@@ -55,7 +53,7 @@ export const printKYEForm = (employee) => {
     ? photoRawPath.startsWith('http') ? photoRawPath : `${BASE_URL}${photoRawPath}`
     : null;
 
-  // ── Photo box HTML ─────────────────────────────────────────────────────────
+  // ── Photo box HTML ─────────────────────────────────────────────────────────────
   const photoBoxContent = photoUrl
     ? `<img src="${photoUrl}" alt="Employee Photo"
            style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"
@@ -70,7 +68,7 @@ export const printKYEForm = (employee) => {
          <span style="font-size:7pt;color:#888;">Employee Passport Size<br>Photograph<br>(45mm × 35mm)</span>
        </div>`;
 
-  // ── Row helper ─────────────────────────────────────────────────────────────
+  // ── Row helper ─────────────────────────────────────────────────────────────────
   const row = (label, value) => `
     <tr>
       <td class="label">${label}</td>
@@ -79,9 +77,7 @@ export const printKYEForm = (employee) => {
       <td class="check"></td>
     </tr>`;
 
-  // ── Reusable page header ───────────────────────────────────────────────────
-  // Logo uses absolute URL — works in popup window (about:blank)
-  // Falls back to styled text if image fails
+  // ── Page header — /assets/Insta-logo.png loaded via absolute URL ──────────────
   const pageHeader = `
     <div class="page-header">
       <span class="revision-label">KYE Form Revision - 1</span>
@@ -90,80 +86,21 @@ export const printKYEForm = (employee) => {
           src="${LOGO_URL}"
           alt="Insta ICT Solutions"
           class="logo-img"
-          onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
         />
-        <!-- Fallback logo when image cannot load -->
-        <div style="display:none; flex-direction:column; align-items:flex-end; gap:2px;">
-          <div style="display:flex; align-items:center; gap:6px;">
-            <!-- Mini SVG matching blue/yellow arc brand -->
-            <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              <path d="M50 5 A45 45 0 0 1 95 50 L78 50 A28 28 0 0 0 50 22 Z" fill="${BRAND_BLUE}"/>
-              <path d="M55 15 A35 35 0 0 1 88 48 L72 46 A20 20 0 0 0 56 28 Z" fill="white" opacity="0.6"/>
-              <path d="M50 95 A45 45 0 0 1 5 50 L22 50 A28 28 0 0 0 50 78 Z" fill="${BRAND_YELLOW}"/>
-              <path d="M45 85 A35 35 0 0 1 12 52 L28 54 A20 20 0 0 0 44 72 Z" fill="white" opacity="0.6"/>
-            </svg>
-            <span style="font-size:13pt;font-weight:800;color:${BRAND_DARK};letter-spacing:-0.5px;">Insta ICT Solutions</span>
-          </div>
-        </div>
       </div>
     </div>`;
 
-  // ── Watermark — real logo image, falls back to full SVG brand logo ───────────
-  // SVG fallback replicates the actual Insta ICT logo:
-  //   • Blue arc (top-right)  → #2196d3
-  //   • Yellow arc (bottom-right) → #f5a623
-  //   • Bold "Insta ICT Solutions" text → #1a1a1a
-  const watermarkFallbackSVG = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320" width="420" height="320">
-      <!-- Blue arc — top right, two segments with gap -->
-      <path d="M260,20 A120,120 0 0,1 370,160 L340,160 A90,90 0 0,0 260,50 Z"
-            fill="#2196d3"/>
-      <path d="M263,58 A86,86 0 0,1 336,158 L310,156 A60,60 0 0,0 261,82 Z"
-            fill="white" opacity="0.55"/>
-      <!-- gap stripe in blue arc -->
-      <path d="M258,20 L270,20 L268,52 L256,50 Z" fill="white"/>
-
-      <!-- Yellow arc — bottom right, two segments with gap -->
-      <path d="M310,180 A110,110 0 0,1 370,280 L340,278 A80,80 0 0,0 308,208 Z"
-            fill="#f5a623"/>
-      <path d="M312,215 A60,60 0 0,1 336,274 L310,272 A34,34 0 0,0 286,218 Z"
-            fill="white" opacity="0.55"/>
-      <!-- gap stripe in yellow arc -->
-      <path d="M308,180 L320,182 L316,210 L304,208 Z" fill="white"/>
-
-      <!-- Company name text -->
-      <text x="18" y="230"
-            font-family="Arial,sans-serif"
-            font-weight="800"
-            font-size="52"
-            fill="#1a1a1a"
-            letter-spacing="-1">Insta ICT</text>
-      <text x="18" y="290"
-            font-family="Arial,sans-serif"
-            font-weight="800"
-            font-size="52"
-            fill="#1a1a1a"
-            letter-spacing="-1">Solutions</text>
-    </svg>`;
-
+  // ── Watermark — same /assets/Insta-logo.png, grayscale + very low opacity ─────
   const watermark = `
     <div class="watermark" aria-hidden="true">
       <img
         src="${LOGO_URL}"
         alt=""
         style="width:100%;height:auto;filter:grayscale(100%);"
-        onerror="
-          this.style.display='none';
-          this.nextElementSibling.style.display='block';
-        "
       />
-      <!-- SVG fallback — full brand logo, shown only if image fails -->
-      <div style="display:none; width:100%; opacity:0.85;">
-        ${watermarkFallbackSVG}
-      </div>
     </div>`;
 
-  // ── Reference rows ─────────────────────────────────────────────────────────
+  // ── Reference rows ─────────────────────────────────────────────────────────────
   const refRows = `
     <tr><td class="ref-label">Name</td>
       <td class="ref-val">${val(e.ref1_name)}</td>
@@ -236,7 +173,7 @@ export const printKYEForm = (employee) => {
       pointer-events: none;
       z-index: 0;
       opacity: 0.07;
-      width: 150mm;
+      width: 160mm;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -259,11 +196,9 @@ export const printKYEForm = (employee) => {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 0;
     }
-    /* Real logo image — tall enough to be clear */
     .logo-img {
-      height: 48px;
+      height: 52px;
       width: auto;
       object-fit: contain;
       display: block;
@@ -496,7 +431,7 @@ export const printKYEForm = (employee) => {
     ${row('Father/Spouse / Mother Employer contact number', val(e.family_employer_contact))}
   </table>
 
-  <div class="page-footer">Page 1 of 4</div>
+ 
 </div>
 
 <!-- ══════════════════════════════════════════════════════
@@ -561,7 +496,7 @@ export const printKYEForm = (employee) => {
     ${row('Local Address Lat-long', e.local_same_as_permanent ? val(e.permanent_lat_long) : val(e.local_lat_long))}
   </table>
 
-  <div class="page-footer">Page 2 of 4</div>
+ 
 </div>
 
 <!-- ══════════════════════════════════════════════════════
@@ -621,7 +556,7 @@ export const printKYEForm = (employee) => {
     by the respective employee.
   </div>
 
-  <div class="page-footer">Page 3 of 4</div>
+ 
 </div>
 
 <!-- ══════════════════════════════════════════════════════
@@ -673,8 +608,6 @@ export const printKYEForm = (employee) => {
     <tr><td class="num">4</td><td class="lbl">Member ID</td><td></td></tr>
     <tr><td class="num">5</td><td class="lbl">Remarks</td><td style="height:20px;"></td></tr>
   </table>
-
-  <div class="page-footer">Page 4 of 4</div>
 </div>
 
 <script>
