@@ -72,7 +72,7 @@ function buildEmployeeFormData(employeeData) {
   const fd = new FormData();
 
   const scalarFields = [
-    "firstName", "middleName", "lastName",
+    "firstName", "lastName",                    // middleName removed
     "fatherHusbandName", "email", "phone", "altPhone",
     "aadhar", "nameOnAadhar", "panNumber", "nameOnPan",
     "dob", "gender", "maritalStatus", "educationalQualification", "bloodGroup",
@@ -210,9 +210,6 @@ const employeeService = {
     return apiFetch("/registrations", { method: "POST", body: fd });
   },
 
-  // ── NEW: Load pre-filled form data for rejected employee resubmission ───────
-  // Called when employee opens /registration/resubmit/:token
-  // Returns all previously saved form data so the form is pre-populated.
   getPrefillData: (token) => {
     console.log(`📡 Loading prefill data for resubmit token ${token}...`);
     return apiFetch(`/registrations/prefill/${token}`);
