@@ -24,27 +24,28 @@ const SECTIONS = [
   { label: "Salary & Bank",        color: "#047857" },
 ];
 
+// Middle Name removed → all column indices after it shift by -1
 const SECTION_DEFS = [
   ["Basic",                 0,  1,  "374151"],
-  ["Personal Information",  2,  19, "1D4ED8"],
-  ["Family Details",        20, 24, "7C3AED"],
-  ["Emergency Contact",     25, 28, "DC2626"],
-  ["Permanent Address",     29, 32, "059669"],
-  ["Local Address",         33, 37, "0891B2"],
-  ["Reference 1",           38, 44, "D97706"],
-  ["Reference 2",           45, 51, "D97706"],
-  ["Reference 3",           52, 58, "D97706"],
-  ["Employment",            59, 66, "7C3AED"],
-  ["Salary & Bank",         67, 75, "047857"],
+  ["Personal Information",  2,  18, "1D4ED8"],  // was 19, -1 for removed Middle Name
+  ["Family Details",        19, 23, "7C3AED"],  // was 20-24
+  ["Emergency Contact",     24, 27, "DC2626"],  // was 25-28
+  ["Permanent Address",     28, 31, "059669"],  // was 29-32
+  ["Local Address",         32, 36, "0891B2"],  // was 33-37
+  ["Reference 1",           37, 43, "D97706"],  // was 38-44
+  ["Reference 2",           44, 50, "D97706"],  // was 45-51
+  ["Reference 3",           51, 57, "D97706"],  // was 52-58
+  ["Employment",            58, 65, "7C3AED"],  // was 59-66
+  ["Salary & Bank",         66, 74, "047857"],  // was 67-75
 ];
 
 const FIELD_HEADERS = [
   "Employee ID", "Status",
-  "First Name", "Father/Husband Name", "Middle Name", "Last Name",
+  "First Name", "Father/Husband Name", "Last Name",             // Middle Name removed
   "Email", "Phone", "Alternate Phone", "Date of Birth", "Gender",
   "Marital Status", "Educational Qualification", "Blood Group",
   "PAN Number", "Name on PAN", "Aadhaar Number", "Name on Aadhaar",
-  "Address (Legacy)", "City (Legacy)",
+  "Address", "City",                                             // (Legacy) removed
   "Family Member Name", "Family Contact No", "Family Working Status",
   "Family Employer Name", "Family Employer Contact",
   "Emergency Contact Name", "Emergency Contact No", "Emergency Address", "Emergency Relation",
@@ -64,10 +65,11 @@ const FIELD_HEADERS = [
 
 const SAMPLE_DATA = [
   "", "Active",
-  "Rahul", "Suresh", "", "Sharma", "rahul.sharma@example.com", "9876543210",
+  "Rahul", "Suresh", "Sharma",                                  // Middle Name removed
+  "rahul.sharma@example.com", "9876543210",
   "", "1995-06-15", "Male", "Unmarried",
   "B.Tech", "O+", "ABCDE1234F", "Rahul Suresh Sharma",
-  "123456789012", "Rahul Suresh Sharma", "45 MG Road", "Pune",
+  "123456789012", "Rahul Suresh Sharma", "45 MG Road", "Pune",  // no (Legacy)
   "", "", "", "", "",
   "", "", "", "",
   "45 MG Road, Pune", "9876543210", "", "",
@@ -82,7 +84,8 @@ const SAMPLE_DATA = [
 ];
 
 const COL_WIDTHS = [
-  12, 10, 16, 20, 16, 14, 28, 14, 16, 13, 10, 14, 24, 12, 14, 20, 16, 20, 14, 14,
+  12, 10, 16, 20, 14,                                            // removed Middle Name width (16)
+  28, 14, 16, 13, 10, 14, 24, 12, 14, 20, 16, 20, 14, 14,
   20, 16, 18, 20, 14, 22, 18, 24, 18, 28, 16, 20, 14, 16, 28, 16, 20, 16, 18,
   18, 20, 22, 20, 16, 24, 20, 18, 20, 22, 20, 16, 24, 20, 18, 20, 22, 20, 16, 24,
   18, 20, 14, 16, 14, 20, 14, 14, 12, 18, 14, 22, 18, 16, 14, 22, 10,
@@ -134,8 +137,6 @@ const parseFile = (arrayBuffer) => {
 };
 
 // ── Map row → API body ──────────────────────────────────────────────────────
-// employeeId is ALWAYS "" so the server auto-generates a new EMP### value.
-// This is the root fix for "Employee with this employee ID already exists".
 const mapToBody = (row) => {
   const g = (...keys) => {
     for (const k of keys) {
@@ -146,11 +147,11 @@ const mapToBody = (row) => {
   };
 
   return {
-    employeeId:               "",   // ← always blank → server auto-generates
+    employeeId:               "",
     status:                   "Active",
     firstName:                g("First Name",                "First Name *"),
     fatherHusbandName:        g("Father/Husband Name"),
-    middleName:               g("Middle Name"),
+    // middleName removed
     lastName:                 g("Last Name",                 "Last Name *"),
     email:                    g("Email",                     "Email *").toLowerCase(),
     phone:                    g("Phone",                     "Phone *").replace(/\D/g, "").slice(-10),
@@ -164,8 +165,8 @@ const mapToBody = (row) => {
     nameOnPan:                g("Name on PAN"),
     aadhar:                   g("Aadhaar Number", "Aadhar Number", "Aadhar Number *").replace(/\s/g, ""),
     nameOnAadhar:             g("Name on Aadhaar"),
-    address:                  g("Address (Legacy)", "Address"),
-    city:                     g("City (Legacy)",    "City"),
+    address:                  g("Address", "Address (Legacy)"),  // supports old exports too
+    city:                     g("City",    "City (Legacy)"),
     state:                    g("State"),
     zipCode:                  g("Zip Code"),
     familyMemberName:         g("Family Member Name"),
@@ -332,7 +333,7 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
         for (let i = 0; i < mapped.length; i++) {
           if (!mapped[i].accountHolderName)
             mapped[i].accountHolderName = `${mapped[i].firstName} ${mapped[i].lastName}`.trim();
-          mapped[i].employeeId = ""; // ensure always blank before each POST
+          mapped[i].employeeId = "";
 
           try {
             await employeeService.addEmployee(mapped[i]);
