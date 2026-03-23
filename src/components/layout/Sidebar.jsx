@@ -18,7 +18,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
   const navigate  = useNavigate();
   const location  = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
-  const [logoutHovered, setLogoutHovered] = useState(false); // ← track hover with state
 
   const user = {
     name:     localStorage.getItem("fullName") || "Admin User",
@@ -39,12 +38,12 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
   }, [location.pathname]);
 
   const menu = [
-    { id: "dashboard", label: "Dashboard",          Icon: LayoutDashboard, path: "/employee/dashboard"  },
-    { id: "employees", label: "Employee Management", Icon: Users,           path: "/employee/management" },
-    { id: "pending",   label: "Pending Approvals",   Icon: ClipboardList,   path: "/employee/pending",   badge: pendingCount },
-    { id: "payments",  label: "Advanced Payments",   Icon: CreditCard,      path: "/employee/payments"   },
-    { id: "payroll",   label: "Payroll",             Icon: Wallet,          path: "/employee/payroll"    },
-    { id: "reports",   label: "Reports",             Icon: FileText,        path: "/employee/reports"    },
+    { id: "dashboard", label: "Dashboard",           Icon: LayoutDashboard, path: "/employee/dashboard"  },
+    { id: "employees", label: "Employee Management",  Icon: Users,           path: "/employee/management" },
+    { id: "pending",   label: "Pending Approvals",    Icon: ClipboardList,   path: "/employee/pending",   badge: pendingCount },
+    { id: "payments",  label: "Advanced Payments",    Icon: CreditCard,      path: "/employee/payments"   },
+    { id: "payroll",   label: "Payroll",              Icon: Wallet,          path: "/employee/payroll"    },
+    { id: "reports",   label: "Reports",              Icon: FileText,        path: "/employee/reports"    },
   ];
 
   const isActive     = (p) => location.pathname === p || location.pathname.startsWith(p);
@@ -57,19 +56,17 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        /* ─── Root ─── */
         .sb {
           width: 100%;
           height: 100%;
           display: flex;
           flex-direction: column;
           background: linear-gradient(175deg, #1d4ed8 0%, #1e3a8a 60%, #172554 100%);
-          overflow: hidden;
+          overflow: hidden;          /* ← key: clip everything inside */
           font-family: 'Inter', sans-serif;
           position: relative;
         }
 
-        /* top-left soft glow */
         .sb::before {
           content: '';
           position: absolute;
@@ -80,7 +77,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           pointer-events: none;
         }
 
-        /* ─── Header ─── */
         .sb-head {
           position: relative;
           z-index: 1;
@@ -91,13 +87,10 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           flex-direction: column;
           align-items: center;
           gap: 8px;
+          overflow: hidden;        /* ← prevent head content overflow */
         }
-        .sb-head.col {
-          padding: 18px 0 14px;
-          gap: 0;
-        }
+        .sb-head.col { padding: 18px 0 14px; gap: 0; }
 
-        /* collapse / close toggle */
         .sb-toggle {
           position: absolute;
           top: 10px; right: 10px;
@@ -109,6 +102,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: background .18s, border-color .18s;
+          flex-shrink: 0;
         }
         .sb-toggle:hover {
           background: rgba(255,255,255,0.18);
@@ -116,7 +110,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           color: #fff;
         }
 
-        /* avatar */
         .sb-avatar {
           width: 52px; height: 52px;
           border-radius: 14px;
@@ -131,12 +124,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           transition: all .3s;
           position: relative;
         }
-        .sb-avatar.col {
-          width: 38px; height: 38px;
-          border-radius: 10px;
-          font-size: 15px;
-        }
-        /* green pulse dot */
+        .sb-avatar.col { width: 38px; height: 38px; border-radius: 10px; font-size: 15px; }
         .sb-avatar::after {
           content: '';
           position: absolute;
@@ -146,10 +134,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           background: #4ade80;
           border: 2px solid #1e3a8a;
         }
-        .sb-avatar.col::after {
-          width: 9px; height: 9px;
-          bottom: -2px; right: -2px;
-        }
+        .sb-avatar.col::after { width: 9px; height: 9px; bottom: -2px; right: -2px; }
 
         .sb-name {
           color: #fff;
@@ -161,6 +146,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
+          max-width: 100%;         /* ← prevent bleed */
           letter-spacing: 0.01em;
         }
         .sb-email {
@@ -172,13 +158,14 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
+          max-width: 100%;         /* ← prevent bleed */
         }
 
-        /* ─── Nav ─── */
         .sb-nav {
           flex: 1;
-          padding: 10px 10px;
+          padding: 10px;
           overflow-y: auto;
+          overflow-x: hidden;      /* ← stop nav from scrolling horizontally */
           display: flex;
           flex-direction: column;
           gap: 2px;
@@ -187,7 +174,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
         }
         .sb-nav::-webkit-scrollbar { width: 0; }
 
-        /* nav item */
         .sb-item {
           width: 100%;
           display: flex;
@@ -206,11 +192,11 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           text-align: left;
           position: relative;
           white-space: nowrap;
+          overflow: hidden;        /* ← clip label overflow */
+          box-sizing: border-box;  /* ← include padding in width */
+          max-width: 100%;         /* ← never wider than parent */
         }
-        .sb-item.col {
-          justify-content: center;
-          padding: 9px 0;
-        }
+        .sb-item.col { justify-content: center; padding: 9px 0; }
         .sb-item:hover:not(.active) {
           background: rgba(255,255,255,0.09);
           color: #fff;
@@ -224,7 +210,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           border-color: transparent;
         }
 
-        /* icon wrapper */
         .sb-icon {
           width: 28px; height: 28px;
           border-radius: 7px;
@@ -233,13 +218,12 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           transition: background .16s;
           position: relative;
         }
-        .sb-item.active   .sb-icon { background: rgba(29,78,216,0.09); }
+        .sb-item.active .sb-icon { background: rgba(29,78,216,0.09); }
         .sb-item:hover:not(.active) .sb-icon { background: rgba(255,255,255,0.09); }
         .sb-item.col .sb-icon { width: 34px; height: 34px; border-radius: 9px; }
 
-        .sb-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+        .sb-label { flex: 1; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
-        /* badge pill */
         .sb-badge {
           padding: 1px 7px;
           border-radius: 999px;
@@ -251,7 +235,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           flex-shrink: 0;
           box-shadow: 0 1px 5px rgba(239,68,68,0.4);
         }
-        /* dot badge (collapsed) */
         .sb-badge-dot {
           position: absolute;
           top: -3px; right: -3px;
@@ -266,7 +249,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           padding: 0 3px;
         }
 
-        /* ─── Divider ─── */
         .sb-divider {
           height: 1px;
           background: rgba(255,255,255,0.1);
@@ -275,11 +257,11 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           position: relative; z-index: 1;
         }
 
-        /* ─── Footer ─── */
         .sb-foot {
           padding: 8px 10px 14px;
           flex-shrink: 0;
           position: relative; z-index: 1;
+          overflow: hidden;        /* ← clip footer overflow */
         }
         .sb-logout {
           width: 100%;
@@ -297,6 +279,8 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           font-family: 'Inter', sans-serif;
           cursor: pointer;
           transition: all .16s ease;
+          box-sizing: border-box;
+          max-width: 100%;
         }
         .sb-logout.col { justify-content: center; padding: 9px 0; }
         .sb-logout:hover {
@@ -314,17 +298,18 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
         .sb-logout:hover .sb-logout-icon { background: rgba(239,68,68,0.15); }
         .sb-logout.col .sb-logout-icon { width: 34px; height: 34px; border-radius: 9px; }
 
-        /* ─── Tooltip (collapsed) ─── */
+        /* ─── Tooltip — uses fixed positioning so it NEVER affects layout ─── */
         .sb-tw { position: relative; }
         .sb-tw:hover .sb-tip {
           opacity: 1;
-          transform: translateX(0) translateY(-50%);
+          transform: translateY(-50%);
           pointer-events: auto;
         }
         .sb-tip {
-          position: absolute;
-          left: calc(100% + 10px); top: 50%;
-          transform: translateX(-6px) translateY(-50%);
+          position: fixed;         /* ← fixed instead of absolute — zero layout impact */
+          left: auto;
+          margin-left: 4px;
+          transform: translateY(-50%);
           background: #1e3a8a;
           border: 1px solid rgba(255,255,255,0.15);
           color: #fff;
@@ -338,7 +323,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           opacity: 0;
           transition: opacity .16s, transform .16s;
           box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-          z-index: 200;
+          z-index: 9999;           /* ← above everything */
         }
         .sb-tip::before {
           content: '';
@@ -354,7 +339,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
 
       <div className="sb">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className={`sb-head${col ? " col" : ""}`}>
           <button
             className="sb-toggle"
@@ -373,7 +358,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           )}
         </div>
 
-        {/* ── Nav ── */}
+        {/* Nav */}
         <nav className="sb-nav">
           {menu.map(({ id, label, Icon, path, badge }) => {
             const on = isActive(path);
@@ -406,7 +391,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
 
         <div className="sb-divider" />
 
-        {/* ── Logout ── */}
+        {/* Logout */}
         <div className="sb-foot">
           <div className={col ? "sb-tw" : ""}>
             <button className={`sb-logout${col ? " col" : ""}`} onClick={handleLogout}>
