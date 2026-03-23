@@ -239,7 +239,7 @@ const BulkLinkModal = ({ onClose, showToast = () => {} }) => {
   const hasRows = rows.length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1200] p-4">
+   <div className="fixed inset-0 bg-white/10 backdrop-blur-[3px] flex items-center justify-center z-[1200] p-4">
       <div className="bg-white rounded-2xl shadow-2xl flex flex-col w-full" style={{ maxWidth: 680, maxHeight: "92vh" }}>
 
         {/* Header */}

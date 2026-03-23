@@ -67,12 +67,13 @@ const MainLayout = ({ children }) => {
         flexDirection: "column",
         height: "100vh",
         width: "100vw",
+        maxWidth: "100vw",
         overflow: "hidden",
       }}
     >
       <Header user={user} onToggle={handleToggle} />
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", minWidth: 0 }}>
         {!isMobile && (
           <div
             style={{
@@ -136,7 +137,9 @@ const MainLayout = ({ children }) => {
         <main
           style={{
             flex: 1,
+            minWidth: 0,
             overflowY: "auto",
+            overflowX: "hidden",
             background: "#f1f5f9",
             padding: "32px",
           }}
@@ -153,11 +156,11 @@ function App() {
     <Router>
       <Routes>
         {/* Public routes */}
-        <Route path="/login"                   element={<AdminLogin />} />
-        <Route path="/register"                element={<AdminRegistration />} />
-        <Route path="/admin/forgot-password"   element={<ForgotPassword />} />
+        <Route path="/login"                 element={<AdminLogin />} />
+        <Route path="/register"              element={<AdminRegistration />} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
-        {/* Normal registration link (existing) */}
+        {/* Normal registration link */}
         <Route
           path="/registration/:linkId"
           element={
@@ -167,7 +170,7 @@ function App() {
           }
         />
 
-        {/* ── NEW: Resubmission link after rejection ── */}
+        {/* Resubmission link after rejection */}
         <Route
           path="/registration/resubmit/:token"
           element={
