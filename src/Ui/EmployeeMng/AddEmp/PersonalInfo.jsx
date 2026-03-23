@@ -529,7 +529,7 @@ const PersonalInformation = ({
               className={selectCls(errors.emergencyContactRelation)}
             >
               <option value="">Select Relation</option>
-              {["Father", "Mother", "Spouse", "Sibling", "Friend", "Other"].map(
+              {["Father", "Mother", "Spouse", "Sibling", "Friend", "Brother","Sister","Other"].map(
                 (r) => (
                   <option key={r} value={r}>
                     {r}

@@ -24,10 +24,116 @@ const g = (obj, snake, camel, fallback = "") =>
 
 const sliceDate = (v) => (v ? String(v).slice(0, 10) : "");
 
+/* ─────────────────────────────────────────────────────────────
+   Sub-components OUTSIDE EditEmployee so React never remounts
+   them on re-render (fixes cursor-jump / focus-loss bug)
+───────────────────────────────────────────────────────────── */
+
+const iCls = (errors, name) =>
+  `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition-all ${
+    errors[name]
+      ? "border-red-400 bg-red-50"
+      : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+  }`;
+
+const Label = ({ text, name, required, errors }) => (
+  <label className="block text-xs font-medium text-gray-600 mb-1">
+    {text} {required && <span className="text-red-500">*</span>}
+    {errors[name] && (
+      <span className="text-red-500 ml-2 font-normal">{errors[name]}</span>
+    )}
+  </label>
+);
+
+const Input = ({ label, name, type = "text", required, colSpan = "", form, errors, onChange }) => (
+  <div className={colSpan}>
+    <Label text={label} name={name} required={required} errors={errors} />
+    <input
+      type={type}
+      name={name}
+      value={form[name] ?? ""}
+      onChange={onChange}
+      className={iCls(errors, name)}
+    />
+  </div>
+);
+
+const Select = ({ label, name, options, required, colSpan = "", form, errors, onChange }) => (
+  <div className={colSpan}>
+    <Label text={label} name={name} required={required} errors={errors} />
+    <select
+      name={name}
+      value={form[name] ?? ""}
+      onChange={onChange}
+      className={`${iCls(errors, name)} appearance-none bg-white cursor-pointer`}
+    >
+      <option value="">Select…</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+const Textarea = ({ label, name, required, rows = 2, disabled = false, colSpan = "", form, errors, onChange }) => (
+  <div className={colSpan}>
+    <Label text={label} name={name} required={required} errors={errors} />
+    <textarea
+      name={name}
+      value={form[name] ?? ""}
+      onChange={onChange}
+      rows={rows}
+      disabled={disabled}
+      className={`${iCls(errors, name)} resize-none ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+    />
+  </div>
+);
+
+const PhoneInput = ({ label, name, required, disabled = false, colSpan = "", form, errors, onPhoneChange }) => (
+  <div className={colSpan}>
+    <Label text={label} name={name} required={required} errors={errors} />
+    <div className="relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">
+        +91
+      </span>
+      <input
+        type="tel"
+        name={name}
+        value={form[name] ?? ""}
+        onChange={(ev) => onPhoneChange(ev, name)}
+        disabled={disabled}
+        placeholder="9876543210"
+        className={`w-full pl-10 pr-3 py-2.5 rounded-lg border text-sm outline-none font-mono transition-all ${
+          errors[name]
+            ? "border-red-400 bg-red-50"
+            : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      />
+    </div>
+  </div>
+);
+
+const SecHead = ({ icon: Icon, color = "blue", text }) => (
+  <div
+    className={`col-span-2 mt-5 mb-1 pb-1.5 border-b-2 border-${color}-100 flex items-center gap-2`}
+  >
+    {Icon && <Icon className={`w-4 h-4 text-${color}-500`} />}
+    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+      {text}
+    </h3>
+  </div>
+);
+
+/* ─────────────────────────────────────────────────────────────
+   Main component
+───────────────────────────────────────────────────────────── */
+
 const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
   if (!employee) return null;
 
-  const e = employee; // shorthand
+  const e = employee;
 
   const [form, setForm] = useState({
     /* ── 1. Personal ── */
@@ -37,11 +143,7 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
     dob: sliceDate(e.date_of_birth || e.dob),
     gender: g(e, "gender", "gender"),
     maritalStatus: g(e, "marital_status", "maritalStatus"),
-    educationalQualification: g(
-      e,
-      "educational_qualification",
-      "educationalQualification",
-    ),
+    educationalQualification: g(e, "educational_qualification", "educationalQualification"),
     bloodGroup: g(e, "blood_group", "bloodGroup"),
     email: g(e, "email", "email"),
     phone: g(e, "phone", "phone"),
@@ -56,29 +158,13 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
     familyContactNo: g(e, "family_contact_no", "familyContactNo"),
     familyWorkingStatus: g(e, "family_working_status", "familyWorkingStatus"),
     familyEmployerName: g(e, "family_employer_name", "familyEmployerName"),
-    familyEmployerContact: g(
-      e,
-      "family_employer_contact",
-      "familyEmployerContact",
-    ),
+    familyEmployerContact: g(e, "family_employer_contact", "familyEmployerContact"),
 
     /* ── 3. Emergency ── */
-    emergencyContactName: g(
-      e,
-      "emergency_contact_name",
-      "emergencyContactName",
-    ),
+    emergencyContactName: g(e, "emergency_contact_name", "emergencyContactName"),
     emergencyContactNo: g(e, "emergency_contact_no", "emergencyContactNo"),
-    emergencyContactAddress: g(
-      e,
-      "emergency_contact_address",
-      "emergencyContactAddress",
-    ),
-    emergencyContactRelation: g(
-      e,
-      "emergency_contact_relation",
-      "emergencyContactRelation",
-    ),
+    emergencyContactAddress: g(e, "emergency_contact_address", "emergencyContactAddress"),
+    emergencyContactRelation: g(e, "emergency_contact_relation", "emergencyContactRelation"),
 
     /* ── 4. Address ── */
     permanentAddress: g(e, "permanent_address", "permanentAddress"),
@@ -120,8 +206,7 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
     employeeId: g(e, "employee_id", "employeeId"),
     joiningDate: sliceDate(e.joining_date || e.joiningDate),
     department: g(e, "department", "department"),
-    designation:
-      g(e, "designation", "designation") || g(e, "position", "position"),
+    designation: g(e, "designation", "designation") || g(e, "position", "position"),
     employmentType: g(e, "employment_type", "employmentType"),
     circle: g(e, "circle", "circle"),
     projectName: g(e, "project_name", "projectName"),
@@ -215,117 +300,8 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
     }
   };
 
-  /* ── shared style helpers ── */
-  const iCls = (name) =>
-    `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition-all ${
-      errors[name]
-        ? "border-red-400 bg-red-50"
-        : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-    }`;
-
-  /* ── reusable atoms ── */
-  const Label = ({ text, name, required }) => (
-    <label className="block text-xs font-medium text-gray-600 mb-1">
-      {text} {required && <span className="text-red-500">*</span>}
-      {errors[name] && (
-        <span className="text-red-500 ml-2 font-normal">{errors[name]}</span>
-      )}
-    </label>
-  );
-
-  const Input = ({ label, name, type = "text", required, colSpan = "" }) => (
-    <div className={colSpan}>
-      <Label text={label} name={name} required={required} />
-      <input
-        type={type}
-        name={name}
-        value={form[name] ?? ""}
-        onChange={handleChange}
-        className={iCls(name)}
-      />
-    </div>
-  );
-
-  const Select = ({ label, name, options, required, colSpan = "" }) => (
-    <div className={colSpan}>
-      <Label text={label} name={name} required={required} />
-      <select
-        name={name}
-        value={form[name] ?? ""}
-        onChange={handleChange}
-        className={`${iCls(name)} appearance-none bg-white cursor-pointer`}
-      >
-        <option value="">Select…</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const Textarea = ({
-    label,
-    name,
-    required,
-    rows = 2,
-    disabled = false,
-    colSpan = "",
-  }) => (
-    <div className={colSpan}>
-      <Label text={label} name={name} required={required} />
-      <textarea
-        name={name}
-        value={form[name] ?? ""}
-        onChange={handleChange}
-        rows={rows}
-        disabled={disabled}
-        className={`${iCls(name)} resize-none ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-      />
-    </div>
-  );
-
-  const PhoneInput = ({
-    label,
-    name,
-    required,
-    disabled = false,
-    colSpan = "",
-  }) => (
-    <div className={colSpan}>
-      <Label text={label} name={name} required={required} />
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">
-          +91
-        </span>
-        <input
-          type="tel"
-          name={name}
-          value={form[name] ?? ""}
-          onChange={(ev) => handlePhone(ev, name)}
-          disabled={disabled}
-          placeholder="9876543210"
-          className={`w-full pl-10 pr-3 py-2.5 rounded-lg border text-sm outline-none font-mono transition-all ${
-            errors[name]
-              ? "border-red-400 bg-red-50"
-              : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        />
-      </div>
-    </div>
-  );
-
-  const SecHead = ({ icon: Icon, color = "blue", text }) => (
-    <div
-      className={`col-span-2 mt-5 mb-1 pb-1.5 border-b-2 border-${color}-100 flex items-center gap-2`}
-    >
-      {Icon && <Icon className={`w-4 h-4 text-${color}-500`} />}
-      <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
-        {text}
-      </h3>
-    </div>
-  );
+  /* shared props passed down to every field */
+  const fp = { form, errors, onChange: handleChange, onPhoneChange: handlePhone };
 
   const refs = [
     { key: "ref1", label: "Reference 1", sub: "Relevant Industry" },
@@ -365,110 +341,38 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
             {/* ════════ 1. Personal Details ════════ */}
             <SecHead icon={User} color="blue" text="1. Personal Details" />
 
-            <Input label="First Name" name="firstName" required />
-            <Input label="Last Name" name="lastName" required />
-            <Input
-              label="Father / Husband Name"
-              name="fatherHusbandName"
-              required
-            />
-            <Input label="Date of Birth" name="dob" type="date" />
-            <Select
-              label="Gender"
-              name="gender"
-              options={["Male", "Female", "Other"]}
-            />
-            <Select
-              label="Marital Status"
-              name="maritalStatus"
-              options={maritalStatuses}
-            />
-            <Input
-              label="Educational Qualification"
-              name="educationalQualification"
-              colSpan="col-span-2"
-            />
-            <Select
-              label="Blood Group"
-              name="bloodGroup"
-              options={bloodGroups}
-            />
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              required
-              colSpan="col-span-2"
-            />
-            <PhoneInput label="Phone" name="phone" required />
-            <PhoneInput label="Alternate Phone" name="altPhone" />
-            <Input label="PAN Number" name="panNumber" />
-            <Input label="Name on PAN" name="nameOnPan" />
-            <Input label="Aadhaar Number" name="aadhar" />
-            <Input label="Name on Aadhaar Card" name="nameOnAadhar" />
+            <Input label="First Name" name="firstName" required {...fp} />
+            <Input label="Last Name" name="lastName" required {...fp} />
+            <Input label="Father / Husband Name" name="fatherHusbandName" required {...fp} />
+            <Input label="Date of Birth" name="dob" type="date" {...fp} />
+            <Select label="Gender" name="gender" options={["Male", "Female", "Other"]} {...fp} />
+            <Select label="Marital Status" name="maritalStatus" options={maritalStatuses} {...fp} />
+            <Input label="Educational Qualification" name="educationalQualification" colSpan="col-span-2" {...fp} />
+            <Select label="Blood Group" name="bloodGroup" options={bloodGroups} {...fp} />
+            <Input label="Email" name="email" type="email" required colSpan="col-span-2" {...fp} />
+            <PhoneInput label="Phone" name="phone" required {...fp} />
+            <PhoneInput label="Alternate Phone" name="altPhone" {...fp} />
+            <Input label="PAN Number" name="panNumber" {...fp} />
+            <Input label="Name on PAN" name="nameOnPan" {...fp} />
+            <Input label="Aadhaar Number" name="aadhar" {...fp} />
+            <Input label="Name on Aadhaar Card" name="nameOnAadhar" {...fp} />
 
             {/* ════════ 2. Family Details ════════ */}
             <SecHead icon={Users} color="purple" text="2. Family Details" />
 
-            <Input
-              label="Father / Mother / Spouse Name"
-              name="familyMemberName"
-              required
-              colSpan="col-span-2"
-            />
-            <PhoneInput label="Contact No." name="familyContactNo" required />
-            <Select
-              label="Working Status"
-              name="familyWorkingStatus"
-              options={["Working", "Not Working", "Retired", "Self Employed"]}
-            />
-            <Input
-              label="Employer Name"
-              name="familyEmployerName"
-              colSpan="col-span-2"
-            />
-            <PhoneInput
-              label="Employer Contact No."
-              name="familyEmployerContact"
-            />
+            <Input label="Father / Mother / Spouse Name" name="familyMemberName" required colSpan="col-span-2" {...fp} />
+            <PhoneInput label="Contact No." name="familyContactNo" required {...fp} />
+            <Select label="Working Status" name="familyWorkingStatus" options={["Working", "Not Working", "Retired", "Self Employed"]} {...fp} />
+            <Input label="Employer Name" name="familyEmployerName" colSpan="col-span-2" {...fp} />
+            <PhoneInput label="Employer Contact No." name="familyEmployerContact" {...fp} />
 
             {/* ════════ 3. Emergency Contact ════════ */}
-            <SecHead
-              icon={Phone}
-              color="red"
-              text="3. Emergency Contact Details"
-            />
+            <SecHead icon={Phone} color="red" text="3. Emergency Contact Details" />
 
-            <Input
-              label="Contact Person Name"
-              name="emergencyContactName"
-              required
-              colSpan="col-span-2"
-            />
-            <PhoneInput
-              label="Contact No."
-              name="emergencyContactNo"
-              required
-            />
-            <Select
-              label="Relation with Employee"
-              name="emergencyContactRelation"
-              options={[
-                "Father",
-                "Mother",
-                "Spouse",
-                "Sibling",
-                "Friend",
-                "Other",
-              ]}
-            />
-            <Textarea
-              label="Contact Person Address"
-              name="emergencyContactAddress"
-              required
-              colSpan="col-span-2"
-              rows={2}
-            />
+            <Input label="Contact Person Name" name="emergencyContactName" required colSpan="col-span-2" {...fp} />
+            <PhoneInput label="Contact No." name="emergencyContactNo" required {...fp} />
+            <Select label="Relation with Employee" name="emergencyContactRelation" options={["Father", "Mother", "Spouse", "Sibling", "Friend", "Other"]} {...fp} />
+            <Textarea label="Contact Person Address" name="emergencyContactAddress" required colSpan="col-span-2" rows={2} {...fp} />
 
             {/* ════════ 4. Address Details ════════ */}
             <SecHead icon={Home} color="green" text="4. Address Details" />
@@ -476,24 +380,13 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
             {/* Permanent Address */}
             <div className="col-span-2 p-4 rounded-xl border-2 border-gray-200 bg-gray-50 space-y-3">
               <h5 className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
-                <Home className="w-3.5 h-3.5 text-green-500" /> A) Permanent
-                Address
+                <Home className="w-3.5 h-3.5 text-green-500" /> A) Permanent Address
               </h5>
               <div className="grid grid-cols-2 gap-4">
-                <Textarea
-                  label="Address"
-                  name="permanentAddress"
-                  required
-                  colSpan="col-span-2"
-                  rows={2}
-                />
-                <PhoneInput label="Phone" name="permanentPhone" required />
-                <Input label="Landmark" name="permanentLandmark" />
-                <Input
-                  label="Lat-Long"
-                  name="permanentLatLong"
-                  colSpan="col-span-2"
-                />
+                <Textarea label="Address" name="permanentAddress" required colSpan="col-span-2" rows={2} {...fp} />
+                <PhoneInput label="Phone" name="permanentPhone" required {...fp} />
+                <Input label="Landmark" name="permanentLandmark" {...fp} />
+                <Input label="Lat-Long" name="permanentLatLong" colSpan="col-span-2" {...fp} />
               </div>
             </div>
 
@@ -501,10 +394,8 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
             <div className="col-span-2 p-4 rounded-xl border-2 border-gray-200 bg-gray-50 space-y-3">
               <div className="flex items-center justify-between">
                 <h5 className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
-                  <Home className="w-3.5 h-3.5 text-green-500" /> B) Local
-                  Address
+                  <Home className="w-3.5 h-3.5 text-green-500" /> B) Local Address
                 </h5>
-                {/* Same as Permanent checkbox */}
                 <label className="flex items-center gap-2 cursor-pointer select-none group">
                   <div className="relative">
                     <input
@@ -521,155 +412,75 @@ const EditEmployee = ({ employee, onClose, onSave, showToast }) => {
                       }`}
                     >
                       {sameAddr && (
-                        <svg
-                          className="w-3 h-3 text-white"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={3}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                     </div>
                   </div>
                   <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                    <Copy className="w-3 h-3 text-blue-500" /> Same as Permanent
-                    Address
+                    <Copy className="w-3 h-3 text-blue-500" /> Same as Permanent Address
                   </span>
                 </label>
               </div>
-              <div
-                className={`grid grid-cols-2 gap-4 transition-opacity duration-200 ${sameAddr ? "opacity-50 pointer-events-none" : ""}`}
-              >
-                <Textarea
-                  label="Address"
-                  name="localAddress"
-                  required
-                  colSpan="col-span-2"
-                  rows={2}
-                  disabled={sameAddr}
-                />
-                <PhoneInput
-                  label="Phone"
-                  name="localPhone"
-                  required
-                  disabled={sameAddr}
-                />
-                <Input label="Landmark" name="localLandmark" />
-                <Input
-                  label="Lat-Long"
-                  name="localLatLong"
-                  colSpan="col-span-2"
-                />
+              <div className={`grid grid-cols-2 gap-4 transition-opacity duration-200 ${sameAddr ? "opacity-50 pointer-events-none" : ""}`}>
+                <Textarea label="Address" name="localAddress" required colSpan="col-span-2" rows={2} disabled={sameAddr} {...fp} />
+                <PhoneInput label="Phone" name="localPhone" required disabled={sameAddr} {...fp} />
+                <Input label="Landmark" name="localLandmark" {...fp} />
+                <Input label="Lat-Long" name="localLatLong" colSpan="col-span-2" {...fp} />
               </div>
             </div>
 
             {/* ════════ 5. Reference Details ════════ */}
-            <SecHead
-              icon={FileText}
-              color="orange"
-              text="5. Reference Details"
-            />
+            <SecHead icon={FileText} color="orange" text="5. Reference Details" />
 
             {refs.map(({ key, label, sub }) => (
-              <div
-                key={key}
-                className="col-span-2 p-4 rounded-xl border-2 border-gray-200 bg-gray-50 space-y-3"
-              >
+              <div key={key} className="col-span-2 p-4 rounded-xl border-2 border-gray-200 bg-gray-50 space-y-3">
                 <div className="pb-1.5 border-b border-gray-200">
                   <p className="text-xs font-bold text-blue-700">
-                    {label}{" "}
-                    <span className="text-gray-400 font-normal">({sub})</span>
+                    {label} <span className="text-gray-400 font-normal">({sub})</span>
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Name" name={`${key}Name`} />
-                  <Input label="Designation" name={`${key}Designation`} />
-                  <Input
-                    label="Name of Organization"
-                    name={`${key}Organization`}
-                    colSpan="col-span-2"
-                  />
-                  <Textarea
-                    label="Address"
-                    name={`${key}Address`}
-                    colSpan="col-span-2"
-                    rows={2}
-                  />
-                  <Input
-                    label="City, State, Pin Code"
-                    name={`${key}CityStatePin`}
-                  />
-                  <PhoneInput label="Contact No." name={`${key}ContactNo`} />
-                  <Input
-                    label="Email ID"
-                    name={`${key}Email`}
-                    type="email"
-                    colSpan="col-span-2"
-                  />
+                  <Input label="Name" name={`${key}Name`} {...fp} />
+                  <Input label="Designation" name={`${key}Designation`} {...fp} />
+                  <Input label="Name of Organization" name={`${key}Organization`} colSpan="col-span-2" {...fp} />
+                  <Textarea label="Address" name={`${key}Address`} colSpan="col-span-2" rows={2} {...fp} />
+                  <Input label="City, State, Pin Code" name={`${key}CityStatePin`} {...fp} />
+                  <PhoneInput label="Contact No." name={`${key}ContactNo`} {...fp} />
+                  <Input label="Email ID" name={`${key}Email`} type="email" colSpan="col-span-2" {...fp} />
                 </div>
               </div>
             ))}
 
             {/* ════════ 6. Employment Details ════════ */}
-            <SecHead
-              icon={Building2}
-              color="blue"
-              text="6. Employment Details"
-            />
+            <SecHead icon={Building2} color="blue" text="6. Employment Details" />
 
-            <Input label="Employee ID" name="employeeId" />
-            <Input
-              label="Joining Date"
-              name="joiningDate"
-              type="date"
-              required
-            />
-            <Input label="Department" name="department" required />
-            <Input label="Designation" name="designation" required />
-            <Select
-              label="Employment Type"
-              name="employmentType"
-              options={["Full-time", "Part-time", "Contract", "Intern"]}
-            />
-            <Select
-              label="Status"
-              name="status"
-              options={["Active", "Inactive", "Pending"]}
-            />
-            <Input label="Circle" name="circle" />
-            <Input label="Project Name" name="projectName" />
-            <Input
-              label="Reporting Manager"
-              name="reportingManager"
-              colSpan="col-span-2"
-            />
+            <Input label="Employee ID" name="employeeId" {...fp} />
+            <Input label="Joining Date" name="joiningDate" type="date" required {...fp} />
+            <Input label="Department" name="department" required {...fp} />
+            <Input label="Designation" name="designation" required {...fp} />
+            <Select label="Employment Type" name="employmentType" options={["Full-time", "Part-time", "Contract", "Intern"]} {...fp} />
+            <Select label="Status" name="status" options={["Active", "Inactive", "Pending"]} {...fp} />
+            <Input label="Circle" name="circle" {...fp} />
+            <Input label="Project Name" name="projectName" {...fp} />
+            <Input label="Reporting Manager" name="reportingManager" colSpan="col-span-2" {...fp} />
 
             {/* ════════ 7. Salary Details ════════ */}
             <SecHead color="yellow" text="7. Salary Details" />
 
-            <Input label="Basic Salary" name="basicSalary" type="number" />
-            <Input label="HRA" name="hra" type="number" />
-            <Input
-              label="Other Allowances"
-              name="otherAllowances"
-              type="number"
-              colSpan="col-span-2"
-            />
+            <Input label="Basic Salary" name="basicSalary" type="number" {...fp} />
+            <Input label="HRA" name="hra" type="number" {...fp} />
+            <Input label="Other Allowances" name="otherAllowances" type="number" colSpan="col-span-2" {...fp} />
 
             {/* ════════ 8. Bank Details ════════ */}
             <SecHead color="green" text="8. Bank Details" />
 
-            <Input label="Bank Name" name="bankName" />
-            <Input label="Account Number" name="accountNumber" />
-            <Input label="IFSC Code" name="ifscCode" />
-            <Input label="Account Holder Name" name="accountHolderName" />
-            <Input label="Bank Branch" name="bankBranch" colSpan="col-span-2" />
+            <Input label="Bank Name" name="bankName" {...fp} />
+            <Input label="Account Number" name="accountNumber" {...fp} />
+            <Input label="IFSC Code" name="ifscCode" {...fp} />
+            <Input label="Account Holder Name" name="accountHolderName" {...fp} />
+            <Input label="Bank Branch" name="bankBranch" colSpan="col-span-2" {...fp} />
           </div>
         </div>
 
