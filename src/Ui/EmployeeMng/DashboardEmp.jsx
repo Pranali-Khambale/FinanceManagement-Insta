@@ -11,12 +11,12 @@ import {
   Trash2,
   Loader,
   AlertCircle,
-  RefreshCw,
   Users,
   CheckCircle,
   XCircle,
   Info,
   AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 import AddEmployeeWizard from "./AddEmp";
 import PublicLinkModal from "./GenerateLink";
@@ -24,6 +24,7 @@ import ImportExcelModal from "./EmployeeExcel";
 import ViewEmployee from "./ViewEmployee";
 import EditEmployee from "./EditEmployee";
 import employeeService from "../../services/employeeService";
+import { useNavigate } from "react-router-dom";
 
 const BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
@@ -102,6 +103,7 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
 
 // ── Main Component ─────────────────────────────────────────────────────────
 const EmployeeManagement = ({ showToast: parentShowToast }) => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -115,6 +117,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
   const [editEmployee, setEditEmployee] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [confirm, setConfirm] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const toast = useCallback(
     (message, type = "info") => {
@@ -132,14 +135,8 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
     new Promise((resolve) => {
       setConfirm({
         message,
-        onConfirm: () => {
-          setConfirm(null);
-          resolve(true);
-        },
-        onCancel: () => {
-          setConfirm(null);
-          resolve(false);
-        },
+        onConfirm: () => { setConfirm(null); resolve(true); },
+        onCancel:  () => { setConfirm(null); resolve(false); },
       });
     });
 
@@ -160,16 +157,25 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
     }
   }, []);
 
+  // Fetch pending count
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const r = await employeeService.getPendingSubmissions();
+      if (r.success) setPendingCount(r.data?.length || 0);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchEmployees();
-  }, [fetchEmployees]);
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchEmployees, fetchPendingCount]);
 
   const generateEmployeeId = () => {
     if (employees.length === 0) return "EMP001";
     const ids = employees.map((emp) => {
-      const raw = (emp.employee_id || emp.id || "")
-        .toString()
-        .replace(/\D/g, "");
+      const raw = (emp.employee_id || emp.id || "").toString().replace(/\D/g, "");
       return parseInt(raw) || 0;
     });
     const maxId = Math.max(...ids, 0);
@@ -190,8 +196,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
   const handleEditSave = (updatedEmployee) => {
     setEmployees((prev) =>
       prev.map((e) =>
-        e.id === updatedEmployee.id ||
-        e.employee_id === updatedEmployee.employee_id
+        e.id === updatedEmployee.id || e.employee_id === updatedEmployee.employee_id
           ? { ...e, ...updatedEmployee }
           : e,
       ),
@@ -199,18 +204,14 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
   };
 
   const handleDelete = async (id) => {
-    const confirmed = await confirmAction(
-      "Are you sure you want to deactivate this employee?",
-    );
+    const confirmed = await confirmAction("Are you sure you want to deactivate this employee?");
     if (!confirmed) return;
     try {
       const response = await employeeService.deleteEmployee(id);
       if (response.success) {
         setEmployees((prev) =>
           prev.map((e) =>
-            e.id === id || e.employee_id === id
-              ? { ...e, status: "Inactive" }
-              : e,
+            e.id === id || e.employee_id === id ? { ...e, status: "Inactive" } : e,
           ),
         );
         toast("Employee deactivated successfully", "success");
@@ -257,10 +258,10 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
   const filteredEmployees = employees.filter((emp) => {
     const q = searchTerm.toLowerCase();
     const firstName = emp.first_name || emp.firstName || "";
-    const lastName = emp.last_name || emp.lastName || "";
+    const lastName  = emp.last_name  || emp.lastName  || "";
     const matchSearch =
       firstName.toLowerCase().includes(q) ||
-      lastName.toLowerCase().includes(q) ||
+      lastName.toLowerCase().includes(q)  ||
       (emp.employee_id || "").toLowerCase().includes(q) ||
       (emp.email || "").toLowerCase().includes(q);
     const matchFilter =
@@ -293,19 +294,39 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       {/* ── Header ── */}
       <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Employee Management
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">Employee Management</h1>
           <p className="text-gray-500 mt-1 text-sm">
             Manage your workforce — add, search, and maintain employee records
           </p>
         </div>
-        <button
-          onClick={fetchEmployees}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-all"
-        >
-          <RefreshCw className="w-4 h-4" /> Refresh
-        </button>
+
+        {/* ── Pending Approvals Button ── */}
+       <button
+  onClick={() => navigate("/employee/pending")}
+  className="relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.97]"
+  style={{
+    background: pendingCount > 0
+      ? "linear-gradient(135deg, #f59e0b, #d97706)"   /* amber when pending */
+      : "linear-gradient(135deg, #3b82f6, #1d4ed8)",  /* blue when none */
+    color: "#fff",
+    border: "none",
+  }}
+>
+  <span className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
+    <ClipboardList className="w-4 h-4" />
+  </span>
+
+  <span className="relative">Pending Approvals</span>
+
+  {pendingCount > 0 && (
+    <span
+      className="relative flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold leading-none"
+      style={{ background: "#fff", color: "#d97706" }}
+    >
+      {pendingCount > 99 ? "99+" : pendingCount}
+    </span>
+  )}
+</button>
       </div>
 
       {/* ── Error Banner ── */}
@@ -313,10 +334,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-800">{error}</p>
-          <button
-            onClick={fetchEmployees}
-            className="ml-auto text-xs text-red-600 underline"
-          >
+          <button onClick={fetchEmployees} className="ml-auto text-xs text-red-600 underline">
             Retry
           </button>
         </div>
@@ -325,19 +343,13 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       {/* ── Action Buttons ── */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
-          onClick={() => {
-            setModalType("add");
-            setShowModal(true);
-          }}
+          onClick={() => { setModalType("add"); setShowModal(true); }}
           className="px-6 py-4 bg-blue-600 text-white border-2 border-blue-600 rounded-lg font-medium flex items-center justify-center gap-2 shadow-sm hover:bg-blue-700 transition"
         >
           <Plus className="w-5 h-5" /> Add Employee Manually
         </button>
         <button
-          onClick={() => {
-            setModalType("link");
-            setShowModal(true);
-          }}
+          onClick={() => { setModalType("link"); setShowModal(true); }}
           className="px-6 py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-50 transition-all shadow-sm"
         >
           <Link2 className="w-5 h-5" /> Generate Public Link
@@ -357,9 +369,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
               : "bg-white text-purple-600 hover:bg-purple-50"
           }`}
         >
-          <Download
-            className={`w-5 h-5 ${exportLoading ? "animate-bounce" : ""}`}
-          />
+          <Download className={`w-5 h-5 ${exportLoading ? "animate-bounce" : ""}`} />
           {exportLoading ? "Exporting…" : "Export Excel"}
         </button>
       </div>
@@ -399,9 +409,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
             <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="w-10 h-10 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Employees Found
-            </h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Employees Found</h3>
             <p className="text-gray-500 mb-5 text-sm">
               {employees.length === 0
                 ? "Get started by adding your first employee"
@@ -409,10 +417,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
             </p>
             {employees.length === 0 && (
               <button
-                onClick={() => {
-                  setModalType("add");
-                  setShowModal(true);
-                }}
+                onClick={() => { setModalType("add"); setShowModal(true); }}
                 className="bg-blue-600 px-6 py-3 text-white rounded-lg font-medium inline-flex items-center gap-2 hover:bg-blue-700 transition-all"
               >
                 <Plus className="w-5 h-5" /> Add First Employee
@@ -425,19 +430,8 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {[
-                      "Employee",
-                      "ID",
-                      "Department",
-                      "Designation",
-                      "Joining Date",
-                      "Status",
-                      "Actions",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
-                      >
+                    {["Employee", "ID", "Department", "Designation", "Joining Date", "Status", "Actions"].map((h) => (
+                      <th key={h} className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         {h}
                       </th>
                     ))}
@@ -446,102 +440,61 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                 <tbody className="divide-y divide-gray-100">
                   {filteredEmployees.map((emp) => {
                     const normalizedStatus = normalizeStatus(emp.status);
-                    const firstName = emp.first_name || emp.firstName || "";
-                    const lastName = emp.last_name || emp.lastName || "";
-                    const empId = emp.employee_id || emp.id || "";
-                    const department = emp.department || "";
-                    const designation = emp.designation || emp.position || "";
-                    const joiningDate =
-                      emp.joining_date || emp.joiningDate || "";
+                    const firstName   = emp.first_name   || emp.firstName   || "";
+                    const lastName    = emp.last_name    || emp.lastName    || "";
+                    const empId       = emp.employee_id  || emp.id          || "";
+                    const department  = emp.department   || "";
+                    const designation = emp.designation  || emp.position    || "";
+                    const joiningDate = emp.joining_date || emp.joiningDate || "";
 
                     return (
-                      <tr
-                        key={emp.id || emp.employee_id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
+                      <tr key={emp.id || emp.employee_id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">
-                              {firstName[0] || "N"}
-                              {lastName[0] || "A"}
+                              {firstName[0] || "N"}{lastName[0] || "A"}
                             </div>
                             <div>
-                              <p className="font-semibold text-gray-900 text-sm">
-                                {firstName} {lastName}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {emp.email}
-                              </p>
+                              <p className="font-semibold text-gray-900 text-sm">{firstName} {lastName}</p>
+                              <p className="text-xs text-gray-500">{emp.email}</p>
                             </div>
                           </div>
                         </td>
-
                         <td className="px-6 py-4">
-                          <span className="font-mono text-sm font-medium text-gray-700">
-                            {empId}
-                          </span>
+                          <span className="font-mono text-sm font-medium text-gray-700">{empId}</span>
                         </td>
-
                         <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">
-                            {department || "—"}
-                          </span>
+                          <span className="text-sm text-gray-700">{department || "—"}</span>
                         </td>
-
                         <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">
-                            {designation || "—"}
-                          </span>
+                          <span className="text-sm text-gray-700">{designation || "—"}</span>
                         </td>
-
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-500">
-                            {joiningDate
-                              ? new Date(joiningDate).toLocaleDateString(
-                                  "en-IN",
-                                )
-                              : "—"}
+                            {joiningDate ? new Date(joiningDate).toLocaleDateString("en-IN") : "—"}
                           </span>
                         </td>
-
                         <td className="px-6 py-4">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              normalizedStatus === "Active"
-                                ? "bg-green-100 text-green-700"
-                                : normalizedStatus === "Inactive"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            normalizedStatus === "Active"
+                              ? "bg-green-100 text-green-700"
+                              : normalizedStatus === "Inactive"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-gray-100 text-gray-600"
+                          }`}>
                             {normalizedStatus}
                           </span>
                         </td>
-
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1">
-                            <button
-                              className="p-2 hover:bg-blue-50 rounded-lg transition-all"
-                              title="View"
-                              onClick={() => setViewEmployee(emp)}
-                            >
+                            <button className="p-2 hover:bg-blue-50 rounded-lg transition-all" title="View" onClick={() => setViewEmployee(emp)}>
                               <Eye className="w-4 h-4 text-blue-600" />
                             </button>
-                            <button
-                              className="p-2 hover:bg-green-50 rounded-lg transition-all"
-                              title="Edit"
-                              onClick={() => setEditEmployee(emp)}
-                            >
+                            <button className="p-2 hover:bg-green-50 rounded-lg transition-all" title="Edit" onClick={() => setEditEmployee(emp)}>
                               <Edit2 className="w-4 h-4 text-green-600" />
                             </button>
                             {normalizedStatus !== "Inactive" && (
-                              <button
-                                className="p-2 hover:bg-red-50 rounded-lg transition-all"
-                                title="Deactivate"
-                                onClick={() =>
-                                  handleDelete(emp.id || emp.employee_id)
-                                }
-                              >
+                              <button className="p-2 hover:bg-red-50 rounded-lg transition-all" title="Deactivate" onClick={() => handleDelete(emp.id || emp.employee_id)}>
                                 <Trash2 className="w-4 h-4 text-red-500" />
                               </button>
                             )}
@@ -553,7 +506,6 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                 </tbody>
               </table>
             </div>
-
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500">
               Showing {filteredEmployees.length} of {employees.length} employees
             </div>
@@ -563,41 +515,19 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
 
       {/* ── Modals ── */}
       {showModal && modalType === "add" && (
-        <AddEmployeeWizard
-          onClose={() => setShowModal(false)}
-          onSubmit={handleAddEmployee}
-          generateEmployeeId={generateEmployeeId}
-        />
+        <AddEmployeeWizard onClose={() => setShowModal(false)} onSubmit={handleAddEmployee} generateEmployeeId={generateEmployeeId} />
       )}
       {showModal && modalType === "link" && (
-        <PublicLinkModal
-          onClose={() => setShowModal(false)}
-          showToast={toast}
-        />
+        <PublicLinkModal onClose={() => setShowModal(false)} showToast={toast} />
       )}
       {showImportModal && (
-        <ImportExcelModal
-          onClose={() => setShowImportModal(false)}
-          showToast={toast}
-          onImportComplete={() => {
-            fetchEmployees();
-            setShowImportModal(false);
-          }}
-        />
+        <ImportExcelModal onClose={() => setShowImportModal(false)} showToast={toast} onImportComplete={() => { fetchEmployees(); setShowImportModal(false); }} />
       )}
       {viewEmployee && (
-        <ViewEmployee
-          employee={viewEmployee}
-          onClose={() => setViewEmployee(null)}
-        />
+        <ViewEmployee employee={viewEmployee} onClose={() => setViewEmployee(null)} />
       )}
       {editEmployee && (
-        <EditEmployee
-          employee={editEmployee}
-          onClose={() => setEditEmployee(null)}
-          onSave={handleEditSave}
-          showToast={toast}
-        />
+        <EditEmployee employee={editEmployee} onClose={() => setEditEmployee(null)} onSave={handleEditSave} showToast={toast} />
       )}
     </div>
   );

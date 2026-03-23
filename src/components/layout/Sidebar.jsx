@@ -10,14 +10,11 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  ClipboardList,
 } from "lucide-react";
-import employeeService from "../../services/employeeService";
 
 const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen }) => {
   const navigate  = useNavigate();
   const location  = useLocation();
-  const [pendingCount, setPendingCount] = useState(0);
 
   const user = {
     name:     localStorage.getItem("fullName") || "Admin User",
@@ -25,22 +22,9 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
     initials: (localStorage.getItem("fullName") || "A").charAt(0).toUpperCase(),
   };
 
-  useEffect(() => {
-    const go = async () => {
-      try {
-        const r = await employeeService.getPendingSubmissions();
-        if (r.success) setPendingCount(r.data?.length || 0);
-      } catch {}
-    };
-    go();
-    const t = setInterval(go, 30000);
-    return () => clearInterval(t);
-  }, [location.pathname]);
-
   const menu = [
     { id: "dashboard", label: "Dashboard",           Icon: LayoutDashboard, path: "/employee/dashboard"  },
     { id: "employees", label: "Employee Management",  Icon: Users,           path: "/employee/management" },
-    { id: "pending",   label: "Pending Approvals",    Icon: ClipboardList,   path: "/employee/pending",   badge: pendingCount },
     { id: "payments",  label: "Advanced Payments",    Icon: CreditCard,      path: "/employee/payments"   },
     { id: "payroll",   label: "Payroll",              Icon: Wallet,          path: "/employee/payroll"    },
     { id: "reports",   label: "Reports",              Icon: FileText,        path: "/employee/reports"    },
@@ -62,7 +46,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           display: flex;
           flex-direction: column;
           background: linear-gradient(175deg, #1d4ed8 0%, #1e3a8a 60%, #172554 100%);
-          overflow: hidden;          /* ← key: clip everything inside */
+          overflow: hidden;
           font-family: 'Inter', sans-serif;
           position: relative;
         }
@@ -87,7 +71,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           flex-direction: column;
           align-items: center;
           gap: 8px;
-          overflow: hidden;        /* ← prevent head content overflow */
+          overflow: hidden;
         }
         .sb-head.col { padding: 18px 0 14px; gap: 0; }
 
@@ -146,7 +130,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
-          max-width: 100%;         /* ← prevent bleed */
+          max-width: 100%;
           letter-spacing: 0.01em;
         }
         .sb-email {
@@ -158,14 +142,14 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
-          max-width: 100%;         /* ← prevent bleed */
+          max-width: 100%;
         }
 
         .sb-nav {
           flex: 1;
           padding: 10px;
           overflow-y: auto;
-          overflow-x: hidden;      /* ← stop nav from scrolling horizontally */
+          overflow-x: hidden;
           display: flex;
           flex-direction: column;
           gap: 2px;
@@ -192,9 +176,9 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           text-align: left;
           position: relative;
           white-space: nowrap;
-          overflow: hidden;        /* ← clip label overflow */
-          box-sizing: border-box;  /* ← include padding in width */
-          max-width: 100%;         /* ← never wider than parent */
+          overflow: hidden;
+          box-sizing: border-box;
+          max-width: 100%;
         }
         .sb-item.col { justify-content: center; padding: 9px 0; }
         .sb-item:hover:not(.active) {
@@ -224,31 +208,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
 
         .sb-label { flex: 1; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
-        .sb-badge {
-          padding: 1px 7px;
-          border-radius: 999px;
-          background: #ef4444;
-          color: #fff;
-          font-size: 10px;
-          font-weight: 700;
-          line-height: 1.6;
-          flex-shrink: 0;
-          box-shadow: 0 1px 5px rgba(239,68,68,0.4);
-        }
-        .sb-badge-dot {
-          position: absolute;
-          top: -3px; right: -3px;
-          min-width: 15px; height: 15px;
-          border-radius: 999px;
-          background: #ef4444;
-          color: #fff;
-          font-size: 8px;
-          font-weight: 700;
-          display: flex; align-items: center; justify-content: center;
-          border: 1.5px solid #1e3a8a;
-          padding: 0 3px;
-        }
-
         .sb-divider {
           height: 1px;
           background: rgba(255,255,255,0.1);
@@ -261,7 +220,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           padding: 8px 10px 14px;
           flex-shrink: 0;
           position: relative; z-index: 1;
-          overflow: hidden;        /* ← clip footer overflow */
+          overflow: hidden;
         }
         .sb-logout {
           width: 100%;
@@ -298,7 +257,6 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
         .sb-logout:hover .sb-logout-icon { background: rgba(239,68,68,0.15); }
         .sb-logout.col .sb-logout-icon { width: 34px; height: 34px; border-radius: 9px; }
 
-        /* ─── Tooltip — uses fixed positioning so it NEVER affects layout ─── */
         .sb-tw { position: relative; }
         .sb-tw:hover .sb-tip {
           opacity: 1;
@@ -306,7 +264,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           pointer-events: auto;
         }
         .sb-tip {
-          position: fixed;         /* ← fixed instead of absolute — zero layout impact */
+          position: fixed;
           left: auto;
           margin-left: 4px;
           transform: translateY(-50%);
@@ -323,7 +281,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
           opacity: 0;
           transition: opacity .16s, transform .16s;
           box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-          z-index: 9999;           /* ← above everything */
+          z-index: 9999;
         }
         .sb-tip::before {
           content: '';
@@ -360,7 +318,7 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
 
         {/* Nav */}
         <nav className="sb-nav">
-          {menu.map(({ id, label, Icon, path, badge }) => {
+          {menu.map(({ id, label, Icon, path }) => {
             const on = isActive(path);
             return (
               <div key={id} className={col ? "sb-tw" : ""}>
@@ -370,20 +328,10 @@ const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen 
                 >
                   <div className="sb-icon">
                     <Icon size={16} strokeWidth={on ? 2.3 : 1.9} />
-                    {col && badge > 0 && (
-                      <div className="sb-badge-dot">{badge > 9 ? "9+" : badge}</div>
-                    )}
                   </div>
-                  {!col && (
-                    <>
-                      <span className="sb-label">{label}</span>
-                      {badge > 0 && (
-                        <span className="sb-badge">{badge > 99 ? "99+" : badge}</span>
-                      )}
-                    </>
-                  )}
+                  {!col && <span className="sb-label">{label}</span>}
                 </button>
-                {col && <div className="sb-tip">{label}{badge > 0 ? ` · ${badge}` : ""}</div>}
+                {col && <div className="sb-tip">{label}</div>}
               </div>
             );
           })}
