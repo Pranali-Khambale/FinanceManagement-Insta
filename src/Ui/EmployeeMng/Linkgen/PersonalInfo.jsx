@@ -508,7 +508,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
               className={selectCls(errors.emergencyContactRelation)}
             >
               <option value="">Select Relation</option>
-              {['Father', 'Mother', 'Spouse', 'Sibling', 'Friend', 'Other'].map((r) => (
+              {['Father', 'Mother', 'Spouse', 'Sibling', 'Friend', 'Sister','Brother','Other'].map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
