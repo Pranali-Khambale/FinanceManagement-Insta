@@ -8,18 +8,44 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fmt = (d) => {
-  if (!d) return '';
+  if (!d) return "";
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return d;
-  return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return dt.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
-const val = (v) => v || '';
+const val = (v) => v || "";
+
+// ── Document type → human-readable label map ─────────────────────────────────
+const DOC_LABELS = {
+  resume: "Resume – Signed Copy",
+  idPhoto: "Passport Size Photograph",
+  photo: "Passport Size Photograph",
+  medicalCertificate: "Medical Certificate",
+  aadharCard: "Aadhaar Card",
+  panCard: "PAN Card",
+  academicRecords: "Academic Records",
+  bankPassbook: "Bank Details / Passbook",
+  payslip: "Pay Slip / Bank Statement",
+  otherCertificates: "Other Certificates",
+};
+
+const getDocLabel = (doc) =>
+  DOC_LABELS[doc.type || doc.document_type] ||
+  doc.name ||
+  doc.file_name ||
+  doc.type ||
+  doc.document_type ||
+  "Document";
 
 export const printKYEForm = (employee) => {
-  const win = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes');
+  const win = window.open("", "_blank", "width=1000,height=900,scrollbars=yes");
   if (!win) {
-    alert('Pop-ups are blocked. Please allow pop-ups and try again.');
+    alert("Pop-ups are blocked. Please allow pop-ups and try again.");
     return;
   }
 
@@ -28,24 +54,31 @@ export const printKYEForm = (employee) => {
   const LOGO_URL = `${window.location.origin}/assets/Insta-logo1.png`;
 
   const BASE_URL =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL?.replace('/api', '')) ||
-    'http://localhost:5000';
+    (typeof import.meta !== "undefined" &&
+      import.meta.env?.VITE_API_URL?.replace("/api", "")) ||
+    "http://localhost:5000";
 
-  // ── Resolve employee photo ────────────────────────────────────────────────────
+  // ── Helper: resolve full URL for any document path ────────────────────────
+  const resolveUrl = (rawPath) => {
+    if (!rawPath) return null;
+    return rawPath.startsWith("http") ? rawPath : `${BASE_URL}${rawPath}`;
+  };
+
+  // ── Resolve employee photo ────────────────────────────────────────────────
   const photoDoc = Array.isArray(e.documents)
     ? e.documents.find(
         (d) =>
-          d.type === 'idPhoto'  || d.document_type === 'idPhoto' ||
-          d.type === 'photo'    || d.document_type === 'photo'
+          d.type === "idPhoto" ||
+          d.document_type === "idPhoto" ||
+          d.type === "photo" ||
+          d.document_type === "photo",
       )
     : null;
 
   const photoRawPath = photoDoc?.path || photoDoc?.file_path || null;
-  const photoUrl = photoRawPath
-    ? photoRawPath.startsWith('http') ? photoRawPath : `${BASE_URL}${photoRawPath}`
-    : null;
+  const photoUrl = resolveUrl(photoRawPath);
 
-  // ── Photo box HTML ─────────────────────────────────────────────────────────────
+  // ── Photo box HTML ────────────────────────────────────────────────────────
   const photoBoxContent = photoUrl
     ? `<img src="${photoUrl}" alt="Employee Photo"
            style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"
@@ -60,7 +93,7 @@ export const printKYEForm = (employee) => {
          <span style="font-size:7pt;color:#999;">Employee Passport Size<br>Photograph<br>(45cm X 35cm)</span>
        </div>`;
 
-  // ── Row helper — label col | value col | verified | referred docs ─────────────
+  // ── Row helper — label col | value col | verified | referred docs ─────────
   const row = (label, value) => `
     <tr>
       <td class="label">${label}</td>
@@ -69,7 +102,7 @@ export const printKYEForm = (employee) => {
       <td class="check"></td>
     </tr>`;
 
-  // ── Verification status header block (reusable) ───────────────────────────────
+  // ── Verification status header block (reusable) ───────────────────────────
   const verHeader = `
     <table class="ver-header" style="margin-bottom:0;">
       <tr>
@@ -83,7 +116,7 @@ export const printKYEForm = (employee) => {
       </tr>
     </table>`;
 
-  // ── Page header ───────────────────────────────────────────────────────────────
+  // ── Page header ───────────────────────────────────────────────────────────
   const pageHeader = `
     <div class="page-header">
       <span class="revision-label">KYE Form Revision - 1</span>
@@ -93,7 +126,7 @@ export const printKYEForm = (employee) => {
       </div>
     </div>`;
 
-  // ── Reference rows ─────────────────────────────────────────────────────────────
+  // ── Reference rows ────────────────────────────────────────────────────────
   const refRows = `
     <tr>
       <td class="ref-label">Name</td>
@@ -147,6 +180,100 @@ export const printKYEForm = (employee) => {
       <td class="ref-val"></td>
     </tr>`;
 
+  // ── Build uploaded documents HTML ─────────────────────────────────────────
+  const allDocs = Array.isArray(e.documents) ? e.documents : [];
+  const seenPaths = new Set();
+  const renderableDocs = allDocs.filter((doc) => {
+    const rawPath = doc.path || doc.file_path || null;
+    if (!rawPath) return false;
+    if (seenPaths.has(rawPath)) return false;
+    seenPaths.add(rawPath);
+    return true;
+  });
+
+  const isPdf = (rawPath) => rawPath?.toLowerCase().endsWith(".pdf");
+
+  const uploadedDocsHtml = (() => {
+    if (!renderableDocs.length) return "";
+
+    const cards = renderableDocs
+      .map((doc, idx) => {
+        const rawPath = doc.path || doc.file_path;
+        const url = resolveUrl(rawPath);
+        const label = getDocLabel(doc);
+        const num = idx + 1;
+        const pdf = isPdf(rawPath);
+        const fileName = rawPath.split("/").pop();
+
+        const mediaHtml = pdf
+          ? `<embed
+             src="${url}"
+             type="application/pdf"
+             style="width:100%;height:200mm;border:none;display:block;"
+             onerror="this.style.display='none';document.getElementById('pdf-err-${num}').style.display='flex';"
+           />
+           <div id="pdf-err-${num}"
+                style="display:none;flex-direction:column;align-items:center;justify-content:center;
+                       gap:8px;padding:20px;text-align:center;min-height:60mm;background:#f5f5f5;">
+             <span style="font-size:22pt;">📄</span>
+             <span style="font-size:9pt;color:#555;">PDF — open in browser to view inline</span>
+             <a href="${url}" target="_blank"
+                style="font-size:9pt;color:#1a73e8;text-decoration:underline;">${fileName}</a>
+           </div>`
+          : `<img
+             src="${url}"
+             alt="${label}"
+             style="display:block;max-width:100%;max-height:220mm;width:auto;height:auto;
+                    margin:0 auto;object-fit:contain;"
+             onerror="this.style.display='none';document.getElementById('img-err-${num}').style.display='flex';"
+           />
+           <div id="img-err-${num}"
+                style="display:none;flex-direction:column;align-items:center;justify-content:center;
+                       gap:8px;padding:20px;text-align:center;min-height:60mm;background:#f5f5f5;">
+             <span style="font-size:22pt;">🖼️</span>
+             <span style="font-size:9pt;color:#888;">Image could not be loaded</span>
+             <a href="${url}" target="_blank"
+                style="font-size:9pt;color:#1a73e8;text-decoration:underline;">${fileName}</a>
+           </div>`;
+
+        return `
+        <div style="margin-bottom:8mm;page-break-inside:avoid;break-inside:avoid;">
+          <div style="display:flex;align-items:center;gap:8px;
+                      background:#4472c4;color:#fff;
+                      padding:6px 12px;font-size:10pt;font-weight:700;
+                      margin-bottom:2mm;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;
+                         width:22px;height:22px;border-radius:4px;
+                         background:rgba(255,255,255,0.18);font-size:9pt;flex-shrink:0;">
+              ${pdf ? "📄" : "🖼️"}
+            </span>
+            <span>${num}. ${label}</span>
+            <span style="margin-left:auto;font-size:8pt;opacity:0.7;font-weight:400;">
+              ${pdf ? "PDF" : "Image"}
+            </span>
+          </div>
+          <div style="border:1px solid #ccc;background:#fafafa;
+                      min-height:40mm;display:flex;flex-direction:column;
+                      align-items:stretch;justify-content:flex-start;">
+            ${mediaHtml}
+          </div>
+          <div style="text-align:right;margin-top:3px;">
+            <a href="${url}" target="_blank"
+               style="font-size:8pt;color:#1a73e8;text-decoration:none;">
+              ↗ Open in new tab
+            </a>
+          </div>
+        </div>`;
+      })
+      .join("");
+
+    return `
+      <div style="margin-top:8mm;padding-top:6mm;border-top:1.5px solid #000;">
+        <div class="sec-heading">10. Uploaded Documents (${renderableDocs.length}) –</div>
+        ${cards}
+      </div>`;
+  })();
+
   win.document.write(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -178,23 +305,9 @@ export const printKYEForm = (employee) => {
       align-items: flex-start;
       margin-bottom: 3mm;
     }
-    .revision-label {
-      font-size: 8pt;
-      color: #666;
-      margin-top: 2px;
-    }
-    .page-num {
-      font-size: 8pt;
-      color: #666;
-      text-align: right;
-      margin-top: 2px;
-    }
-    .logo-img {
-      height: 48px;
-      width: auto;
-      object-fit: contain;
-      display: block;
-    }
+    .revision-label { font-size: 8pt; color: #666; margin-top: 2px; }
+    .page-num       { font-size: 8pt; color: #666; text-align: right; margin-top: 2px; }
+    .logo-img       { height: 48px; width: auto; object-fit: contain; display: block; }
 
     /* ─── Form title ─── */
     .form-title-box {
@@ -203,19 +316,10 @@ export const printKYEForm = (employee) => {
       padding: 8px 0;
       margin-bottom: 6mm;
     }
-    .form-title-box h1 {
-      font-size: 14pt;
-      font-weight: 700;
-      color: #000;
-    }
+    .form-title-box h1 { font-size: 14pt; font-weight: 700; color: #000; }
 
     /* ─── Photo box ─── */
-    .photo-box {
-      border: 1px solid #999;
-      background: #fff;
-      position: relative;
-      overflow: hidden;
-    }
+    .photo-box { border: 1px solid #999; background: #fff; position: relative; overflow: hidden; }
 
     /* ─── Section heading ─── */
     .sec-heading {
@@ -227,189 +331,59 @@ export const printKYEForm = (employee) => {
     }
 
     /* ─── Verification header ─── */
-    .ver-header {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 0;
-    }
-    .ver-header td {
-      font-size: 8.5pt;
-      font-weight: 700;
-      text-align: center;
-      color: #000;
-      padding: 3px 4px;
-    }
-    .ver-header .spacer { border: none; background: none; }
-    .ver-header .ver-group {
-      border: 1px solid #000;
-    }
-    .ver-header .ver-sub {
-      border: 1px solid #000;
-      font-size: 8pt;
-    }
+    .ver-header { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    .ver-header td { font-size: 8.5pt; font-weight: 700; text-align: center; color: #000; padding: 3px 4px; }
+    .ver-header .spacer    { border: none; background: none; }
+    .ver-header .ver-group { border: 1px solid #000; }
+    .ver-header .ver-sub   { border: 1px solid #000; font-size: 8pt; }
 
     /* ─── Main data table ─── */
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 9.5pt;
-      margin-bottom: 4mm;
-      margin-top: 0;
-    }
-    .data-table td {
-      border: 1px solid #000;
-      padding: 3px 6px;
-      vertical-align: top;
-    }
-    .data-table .label {
-      width: 62mm;
-      font-weight: 400;
-      color: #000;
-      background: #fff;
-    }
-    .data-table .value  { min-width: 70mm; }
-    .data-table .check  { width: 22mm; text-align: center; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 4mm; margin-top: 0; }
+    .data-table td     { border: 1px solid #000; padding: 3px 6px; vertical-align: top; }
+    .data-table .label { width: 62mm; font-weight: 400; color: #000; background: #fff; }
+    .data-table .value { min-width: 70mm; }
+    .data-table .check { width: 22mm; text-align: center; }
 
     /* ─── Address sub-heading ─── */
-    .addr-sub {
-      font-weight: 700;
-      font-size: 10pt;
-      margin: 2mm 0 1mm 0;
-      color: #000;
-    }
+    .addr-sub { font-weight: 700; font-size: 10pt; margin: 2mm 0 1mm 0; color: #000; }
 
     /* ─── Reference table ─── */
-    .ref-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 9.5pt;
-      margin-bottom: 4mm;
-    }
-    .ref-table td, .ref-table th {
-      border: 1px solid #000;
-      padding: 3px 6px;
-      vertical-align: top;
-    }
+    .ref-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 4mm; }
+    .ref-table td, .ref-table th { border: 1px solid #000; padding: 3px 6px; vertical-align: top; }
     .ref-table thead th {
-      background: #4472c4;
-      color: #fff;
-      font-size: 9pt;
-      font-weight: 700;
-      text-align: center;
-      padding: 5px 6px;
+      background: #4472c4; color: #fff; font-size: 9pt;
+      font-weight: 700; text-align: center; padding: 5px 6px;
     }
-    .ref-table thead .ref-lbl-hdr {
-      background: #dae3f3;
-      color: #000;
-      text-align: left;
-      font-weight: 700;
-    }
-    .ref-label {
-      width: 58mm;
-      font-weight: 400;
-      background: #fff;
-    }
+    .ref-table thead .ref-lbl-hdr { background: #dae3f3; color: #000; text-align: left; font-weight: 700; }
+    .ref-label { width: 58mm; font-weight: 400; background: #fff; }
     .ref-val   { min-width: 30mm; }
 
     /* ─── Declaration ─── */
-    .declaration {
-      font-size: 9.5pt;
-      line-height: 1.7;
-      margin-bottom: 5mm;
-      text-align: justify;
-    }
-    .declaration-hindi {
-      font-size: 9pt;
-      color: #000;
-      margin-top: 6px;
-      line-height: 1.8;
-      text-align: justify;
-    }
-    .sig-area {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-top: 10mm;
-      font-size: 10pt;
-      font-weight: 700;
-    }
-    .sig-date-place div {
-      margin-bottom: 8mm;
-    }
-    .sig-underline {
-      display: inline-block;
-      min-width: 55mm;
-      border-bottom: 1px solid #000;
-    }
-    .sig-right {
-      text-align: center;
-    }
-    .sig-line-box {
-      border-top: 1px solid #000;
-      width: 65mm;
-      text-align: center;
-      padding-top: 2px;
-      font-size: 9.5pt;
-      margin-top: 14mm;
-    }
-    .note-box {
-      font-size: 9.5pt;
-      font-weight: 700;
-      color: #000;
-      margin-top: 8mm;
-    }
+    .declaration { font-size: 9.5pt; line-height: 1.7; margin-bottom: 5mm; text-align: justify; }
+    .declaration-hindi { font-size: 9pt; color: #000; margin-top: 6px; line-height: 1.8; text-align: justify; }
+    .sig-area { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 10mm; font-size: 10pt; font-weight: 700; }
+    .sig-date-place div { margin-bottom: 8mm; }
+    .sig-underline { display: inline-block; min-width: 55mm; border-bottom: 1px solid #000; }
+    .sig-right { text-align: center; }
+    .sig-line-box { border-top: 1px solid #000; width: 65mm; text-align: center; padding-top: 2px; font-size: 9.5pt; margin-top: 14mm; }
+    .note-box { font-size: 9.5pt; font-weight: 700; color: #000; margin-top: 8mm; }
 
     /* ─── Documents checklist ─── */
-    .doc-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 9.5pt;
-      margin-bottom: 4mm;
-    }
-    .doc-table th {
-      background: #4472c4;
-      color: #fff;
-      text-align: center;
-      padding: 5px 8px;
-      font-weight: 700;
-      border: 1px solid #000;
-    }
-    .doc-table td {
-      border: 1px solid #000;
-      padding: 5px 8px;
-      vertical-align: middle;
-    }
+    .doc-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 4mm; }
+    .doc-table th { background: #4472c4; color: #fff; text-align: center; padding: 5px 8px; font-weight: 700; border: 1px solid #000; }
+    .doc-table td { border: 1px solid #000; padding: 5px 8px; vertical-align: middle; }
     .doc-table td.sr  { text-align: center; width: 12mm; }
     .doc-table td.att { text-align: center; width: 32mm; }
 
     /* ─── Office use ─── */
-    .office-table {
-      width: 80mm;
-      border-collapse: collapse;
-      font-size: 9.5pt;
-    }
-    .office-table td {
-      border: 1px solid #000;
-      padding: 4px 8px;
-    }
-    .office-table .num {
-      width: 8mm;
-      text-align: center;
-      font-weight: 700;
-    }
-    .office-table .lbl {
-      width: 40mm;
-      font-weight: 400;
-    }
+    .office-table { width: 80mm; border-collapse: collapse; font-size: 9.5pt; }
+    .office-table td { border: 1px solid #000; padding: 4px 8px; }
+    .office-table .num { width: 8mm; text-align: center; font-weight: 700; }
+    .office-table .lbl { width: 40mm; font-weight: 400; }
     .office-table .val { min-width: 30mm; height: 20px; }
 
     /* ─── Page footer ─── */
-    .page-footer {
-      text-align: right;
-      font-size: 8pt;
-      color: #666;
-      margin-top: 6mm;
-    }
+    .page-footer { text-align: right; font-size: 8pt; color: #666; margin-top: 6mm; }
 
     /* ─── Page break ─── */
     .page-break { page-break-before: always; break-before: page; }
@@ -442,34 +416,29 @@ export const printKYEForm = (employee) => {
   </div>
 
   <div class="sec-heading">1. Employee Personal Details -</div>
-
-  <!-- Verification status header aligned to right columns -->
   ${verHeader}
-
   <table class="data-table" style="margin-top:0;">
-    ${row('Employee Name:', val(e.first_name) + (e.last_name ? ' ' + e.last_name : ''))}
+    ${row("Employee Name:", val(e.first_name) + (e.last_name ? " " + e.last_name : ""))}
     ${row('Date of birth<br><span style="font-size:8pt;font-weight:400;">(DD-MMM-YYYY)</span>', fmt(e.date_of_birth))}
-    ${row('Educational qualification', val(e.educational_qualification))}
-    ${row('Name of Father/Husband', val(e.father_husband_name))}
+    ${row("Educational qualification", val(e.educational_qualification))}
+    ${row("Name of Father/Husband", val(e.father_husband_name))}
     ${row('Marital Status<br><span style="font-size:8pt;font-weight:400;">(Married/Unmarried)</span>', val(e.marital_status))}
-    ${row('Employee Blood Group', val(e.blood_group))}
-    ${row('Email ID', val(e.email))}
-    ${row('PAN Number', val(e.pan_number))}
-    ${row('Name on PAN', val(e.name_on_pan))}
-    ${row('Aadhaar No', val(e.aadhar_number))}
-    ${row('Name on Aadhaar Card', val(e.name_on_aadhar))}
+    ${row("Employee Blood Group", val(e.blood_group))}
+    ${row("Email ID", val(e.email))}
+    ${row("PAN Number", val(e.pan_number))}
+    ${row("Name on PAN", val(e.name_on_pan))}
+    ${row("Aadhaar No", val(e.aadhar_number))}
+    ${row("Name on Aadhaar Card", val(e.name_on_aadhar))}
   </table>
 
   <div class="sec-heading">2. Employee Family Details -</div>
-
   ${verHeader}
-
   <table class="data-table" style="margin-top:0;">
-    ${row('Father/Mother /Spouse Name', val(e.family_member_name))}
-    ${row('Father/Mother / Spouse contact number', val(e.family_contact_no))}
-    ${row('Father/Mother / Spouse working status', val(e.family_working_status))}
-    ${row('Father/Mother / Spouse Employer name', val(e.family_employer_name))}
-    ${row('Father/Spouse / Mother Employer contact number', val(e.family_employer_contact))}
+    ${row("Father/Mother /Spouse Name", val(e.family_member_name))}
+    ${row("Father/Mother / Spouse contact number", val(e.family_contact_no))}
+    ${row("Father/Mother / Spouse working status", val(e.family_working_status))}
+    ${row("Father/Mother / Spouse Employer name", val(e.family_employer_name))}
+    ${row("Father/Spouse / Mother Employer contact number", val(e.family_employer_contact))}
   </table>
 
   <div class="page-footer">Page 1 of 4</div>
@@ -482,31 +451,25 @@ export const printKYEForm = (employee) => {
   ${pageHeader}
 
   <div class="sec-heading">3. Employee Emergency Contact Details –</div>
-
   ${verHeader}
-
   <table class="data-table" style="margin-top:0;">
-    ${row('Emergency Contact Person Name', val(e.emergency_contact_name))}
-    ${row('Emergency Contact Person No', val(e.emergency_contact_no))}
-    ${row('Emergency Contact Person Address', val(e.emergency_contact_address))}
-    ${row('Emergency Contact Person Relation with Employee', val(e.emergency_contact_relation))}
+    ${row("Emergency Contact Person Name", val(e.emergency_contact_name))}
+    ${row("Emergency Contact Person No", val(e.emergency_contact_no))}
+    ${row("Emergency Contact Person Address", val(e.emergency_contact_address))}
+    ${row("Emergency Contact Person Relation with Employee", val(e.emergency_contact_relation))}
   </table>
 
   <div class="sec-heading">4. Employee Bank account Details –</div>
-
   ${verHeader}
-
   <table class="data-table" style="margin-top:0;">
-    ${row('Name of Bank', val(e.bank_name))}
-    ${row('Bank A/c No', val(e.account_number))}
-    ${row('IFSC Code', val(e.ifsc_code))}
-    ${row('Name on bank passbook', val(e.account_holder_name))}
-    ${row('Address of the Bank', val(e.bank_branch))}
+    ${row("Name of Bank", val(e.bank_name))}
+    ${row("Bank A/c No", val(e.account_number))}
+    ${row("IFSC Code", val(e.ifsc_code))}
+    ${row("Name on bank passbook", val(e.account_holder_name))}
+    ${row("Address of the Bank", val(e.bank_branch))}
   </table>
 
   <div class="sec-heading">5. Employee Address Details -</div>
-
-  <!-- Verification status header -->
   ${verHeader}
 
   <div class="addr-sub">A) Permanent Address</div>
@@ -517,22 +480,22 @@ export const printKYEForm = (employee) => {
       <td class="check"></td>
       <td class="check"></td>
     </tr>
-    ${row('Phone/Mobile No', val(e.permanent_phone))}
-    ${row('Permanent Address Land mark', val(e.permanent_landmark))}
-    ${row('Permanent Address Lat-long', val(e.permanent_lat_long))}
+    ${row("Phone/Mobile No", val(e.permanent_phone))}
+    ${row("Permanent Address Land mark", val(e.permanent_landmark))}
+    ${row("Permanent Address Lat-long", val(e.permanent_lat_long))}
   </table>
 
   <div class="addr-sub">B) Local Address</div>
   <table class="data-table">
     <tr>
       <td class="label" style="height:24mm;vertical-align:top;">Local Address</td>
-      <td class="value" style="vertical-align:top;">${e.local_same_as_permanent ? 'Same as Permanent Address' : val(e.local_address)}</td>
+      <td class="value" style="vertical-align:top;">${e.local_same_as_permanent ? "Same as Permanent Address" : val(e.local_address)}</td>
       <td class="check"></td>
       <td class="check"></td>
     </tr>
-    ${row('Phone/Mobile No', e.local_same_as_permanent ? val(e.permanent_phone) : val(e.local_phone))}
-    ${row('Local Address Landmark', e.local_same_as_permanent ? val(e.permanent_landmark) : val(e.local_landmark))}
-    ${row('Local Address Lat-long', e.local_same_as_permanent ? val(e.permanent_lat_long) : val(e.local_lat_long))}
+    ${row("Phone/Mobile No", e.local_same_as_permanent ? val(e.permanent_phone) : val(e.local_phone))}
+    ${row("Local Address Landmark", e.local_same_as_permanent ? val(e.permanent_landmark) : val(e.local_landmark))}
+    ${row("Local Address Lat-long", e.local_same_as_permanent ? val(e.permanent_lat_long) : val(e.local_lat_long))}
   </table>
 
   <div class="page-footer">Page 2 of 4</div>
@@ -597,7 +560,7 @@ export const printKYEForm = (employee) => {
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     PAGE 4 — Documents Checklist + Office Use
+     PAGE 4 — Documents Checklist + Office Use + Uploaded Docs
 ══════════════════════════════════════════════════ -->
 <div class="page page-break">
   ${pageHeader}
@@ -618,47 +581,47 @@ export const printKYEForm = (employee) => {
       <tr>
         <td class="sr">1</td>
         <td>Resume - Signed copy</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='resume'||d.document_type==='resume') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "resume" || d.document_type === "resume") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">2</td>
         <td>2 passport size photographs - Name should be written on backside</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='idPhoto'||d.document_type==='idPhoto'||d.type==='photo'||d.document_type==='photo') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "idPhoto" || d.document_type === "idPhoto" || d.type === "photo" || d.document_type === "photo") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">3</td>
         <td>Medical Certificate - Latest</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='medicalCertificate'||d.document_type==='medicalCertificate') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "medicalCertificate" || d.document_type === "medicalCertificate") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">4</td>
         <td>Aadhaar Card</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='aadharCard'||d.document_type==='aadharCard') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "aadharCard" || d.document_type === "aadharCard") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">5</td>
         <td>Pan Card</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='panCard'||d.document_type==='panCard') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "panCard" || d.document_type === "panCard") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">6</td>
         <td>Academic records (SSC, ITI, HSC, Diploma, Degree Certificates Copy)</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='academicRecords'||d.document_type==='academicRecords') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "academicRecords" || d.document_type === "academicRecords") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">7</td>
         <td>Bank Details</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='bankPassbook'||d.document_type==='bankPassbook') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "bankPassbook" || d.document_type === "bankPassbook") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">8</td>
         <td>Pay slip or bank statement reflecting last drawn salary</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='payslip'||d.document_type==='payslip') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "payslip" || d.document_type === "payslip") ? "Yes ✓" : ""}</td>
       </tr>
       <tr>
         <td class="sr">9</td>
         <td>Other certificates, if any</td>
-        <td class="att">${e.documents?.find?.(d => d.type==='otherCertificates'||d.document_type==='otherCertificates') ? 'Yes ✓' : ''}</td>
+        <td class="att">${e.documents?.find?.((d) => d.type === "otherCertificates" || d.document_type === "otherCertificates") ? "Yes ✓" : ""}</td>
       </tr>
     </tbody>
   </table>
@@ -671,6 +634,8 @@ export const printKYEForm = (employee) => {
     <tr><td class="num">4</td><td class="lbl">Member ID</td><td class="val"></td></tr>
     <tr><td class="num">5</td><td class="lbl">Remarks</td><td class="val" style="height:24px;"></td></tr>
   </table>
+
+  ${uploadedDocsHtml}
 
   <div class="page-footer">Page 4 of 4</div>
 </div>
