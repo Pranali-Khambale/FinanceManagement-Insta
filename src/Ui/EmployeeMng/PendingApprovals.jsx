@@ -1,11 +1,17 @@
 // src/Ui/EmployeeMng/PendingApprovals.jsx
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGES vs previous version:
+//   ✅ Shows BOTH status === 'pending' AND status === 'pending_rejoin' entries
+//   ✅ Rejoin entries show a purple "Rejoin" badge next to the employee name
+//   ✅ Stats panel breaks out New vs Rejoin counts separately
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle, XCircle, Eye, Loader, AlertCircle, RefreshCw,
   User, Mail, Phone, Building2, Calendar, FileText, Clock, Users,
   Briefcase, MapPin, CreditCard, Shield, UserCircle, Building, FileCheck,
   Award, ZoomIn, ExternalLink, Printer, Download, ChevronLeft, ChevronRight,
-  X as XIcon
+  X as XIcon, History,
 } from 'lucide-react';
 import employeeService from '../../services/employeeService';
 import { printKYEForm } from './KYEPrintForm';
@@ -35,14 +41,19 @@ const Avatar = ({ firstName, lastName, size = 'md' }) => {
   const initials = `${(firstName?.[0] || 'N').toUpperCase()}${(lastName?.[0] || 'A').toUpperCase()}`;
   const sizes = { sm: 'w-9 h-9 text-sm', md: 'w-12 h-12 text-base', lg: 'w-16 h-16 text-xl' };
   return (
-    <div className={`${sizes[size]} rounded-xl flex items-center justify-center font-bold text-white flex-shrink-0`}
-      style={{ background: 'linear-gradient(135deg,#1d4ed8 0%,#3b82f6 60%,#60a5fa 100%)', boxShadow: '0 4px 14px rgba(59,130,246,0.4)' }}>
+    <div
+      className={`${sizes[size]} rounded-xl flex items-center justify-center font-bold text-white flex-shrink-0`}
+      style={{
+        background: 'linear-gradient(135deg,#1d4ed8 0%,#3b82f6 60%,#60a5fa 100%)',
+        boxShadow: '0 4px 14px rgba(59,130,246,0.4)',
+      }}
+    >
       {initials}
     </div>
   );
 };
 
-// ─── Detect file type from path or mime ──────────────────────────────────────
+// ─── Detect file type ─────────────────────────────────────────────────────────
 const getFileType = (path, mime) => {
   const p = (path || '').toLowerCase();
   const m = (mime || '').toLowerCase();
@@ -51,19 +62,16 @@ const getFileType = (path, mime) => {
   return 'other';
 };
 
-// ─── Lightbox — full-screen document viewer ───────────────────────────────────
+// ─── Lightbox ─────────────────────────────────────────────────────────────────
 const Lightbox = ({ docs, startIndex = 0, onClose }) => {
-  const [idx, setIdx]         = useState(startIndex);
+  const [idx, setIdx]           = useState(startIndex);
   const [imgError, setImgError] = useState(false);
 
   const doc      = docs[idx];
   const url      = fullUrl(doc?.path);
   const fileType = getFileType(doc?.path, doc?.mime_type);
 
-  // Reset image error when doc changes
   useEffect(() => { setImgError(false); }, [idx]);
-
-  // Keyboard navigation
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'Escape')     onClose();
@@ -78,18 +86,13 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[300] flex flex-col" style={{ background: 'rgba(0,0,0,0.92)' }}>
-
-      {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-6 py-3 flex-shrink-0"
         style={{ background: 'linear-gradient(90deg,#1e3a5f,#1d4ed8)' }}>
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-white/80" />
           <div>
             <p className="text-white font-semibold text-sm">{doc?.label}</p>
-            <p className="text-blue-200 text-xs">
-              {idx + 1} of {docs.length} documents
-              <span className="ml-2 opacity-60 font-mono text-[10px]">{url}</span>
-            </p>
+            <p className="text-blue-200 text-xs">{idx + 1} of {docs.length} documents</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -108,9 +111,7 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
         </div>
       </div>
 
-      {/* ── Viewer area ── */}
       <div className="flex-1 flex items-center justify-center relative overflow-hidden p-6">
-        {/* Prev arrow */}
         {idx > 0 && (
           <button onClick={() => setIdx(i => i - 1)}
             className="absolute left-4 z-10 w-11 h-11 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white transition-all shadow-lg">
@@ -118,56 +119,21 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
           </button>
         )}
 
-        {/* ── PDF ── */}
         {fileType === 'pdf' && (
-          <iframe
-            src={url}
-            title={doc?.label}
-            className="w-full rounded-xl shadow-2xl bg-white"
-            style={{ height: 'calc(100vh - 140px)', maxWidth: '960px' }}
-          />
+          <iframe src={url} title={doc?.label} className="w-full rounded-xl shadow-2xl bg-white"
+            style={{ height: 'calc(100vh - 140px)', maxWidth: '960px' }} />
         )}
-
-        {/* ── Image ── */}
         {fileType === 'image' && !imgError && (
-          <img
-            src={url}
-            alt={doc?.label}
-            className="rounded-xl shadow-2xl object-contain border border-white/10"
+          <img src={url} alt={doc?.label} className="rounded-xl shadow-2xl object-contain border border-white/10"
             style={{ maxHeight: 'calc(100vh - 140px)', maxWidth: '100%' }}
-            onError={() => setImgError(true)}
-          />
+            onError={() => setImgError(true)} />
         )}
-
-        {/* ── Image failed to load ── */}
-        {fileType === 'image' && imgError && (
-          <div className="text-center text-white space-y-4">
-            <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mx-auto">
-              <FileText className="w-10 h-10 opacity-60" />
-            </div>
-            <p className="text-lg font-semibold opacity-80">Image could not be loaded</p>
-            <p className="text-sm opacity-50 font-mono break-all max-w-lg">{url}</p>
-            <div className="flex items-center justify-center gap-3 mt-2">
-              <a href={url} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold transition-all">
-                <ExternalLink className="w-4 h-4" /> Open in New Tab
-              </a>
-              <a href={url} download
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold transition-all">
-                <Download className="w-4 h-4" /> Download
-              </a>
-            </div>
-          </div>
-        )}
-
-        {/* ── Unknown type ── */}
-        {fileType === 'other' && (
+        {(fileType === 'other' || (fileType === 'image' && imgError)) && (
           <div className="text-center text-white space-y-4">
             <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mx-auto">
               <FileText className="w-10 h-10 opacity-60" />
             </div>
             <p className="text-lg font-semibold opacity-80">Preview not available</p>
-            <p className="text-sm opacity-50 font-mono break-all max-w-lg">{url}</p>
             <div className="flex items-center justify-center gap-3 mt-2">
               <a href={url} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold transition-all">
@@ -181,7 +147,6 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
           </div>
         )}
 
-        {/* Next arrow */}
         {idx < docs.length - 1 && (
           <button onClick={() => setIdx(i => i + 1)}
             className="absolute right-4 z-10 w-11 h-11 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white transition-all shadow-lg">
@@ -190,7 +155,6 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
         )}
       </div>
 
-      {/* ── Thumbnail strip ── */}
       {docs.length > 1 && (
         <div className="flex-shrink-0 flex items-center gap-2 px-6 py-3 overflow-x-auto"
           style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)' }}>
@@ -198,12 +162,9 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
             const u  = fullUrl(d.path);
             const ft = getFileType(d.path, d.mime_type);
             return (
-              <button key={i} onClick={() => setIdx(i)}
-                title={d.label}
+              <button key={i} onClick={() => setIdx(i)} title={d.label}
                 className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                  i === idx
-                    ? 'border-blue-400 shadow-lg scale-110'
-                    : 'border-white/20 opacity-55 hover:opacity-90 hover:scale-105'
+                  i === idx ? 'border-blue-400 shadow-lg scale-110' : 'border-white/20 opacity-55 hover:opacity-90 hover:scale-105'
                 }`}>
                 {ft === 'pdf' ? (
                   <div className="w-full h-full bg-red-950/80 flex flex-col items-center justify-center gap-0.5">
@@ -212,10 +173,7 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
                   </div>
                 ) : ft === 'image' && u ? (
                   <img src={u} alt={d.label} className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<div style="width:100%;height:100%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">IMG</div>';
-                    }} />
+                    onError={(e) => { e.target.style.display = 'none'; }} />
                 ) : (
                   <div className="w-full h-full bg-slate-800 flex items-center justify-center">
                     <FileText className="w-5 h-5 text-slate-400" />
@@ -232,9 +190,8 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
 
 // ─── Full Form Viewer Modal ───────────────────────────────────────────────────
 const FullFormViewer = ({ employee, onClose }) => {
-  const [lightbox, setLightbox] = useState(null); // { docs, startIndex }
+  const [lightbox, setLightbox] = useState(null);
 
-  // Build uploaded docs list from backend array
   const DOC_DEFS = [
     { type: 'idPhoto',            label: 'Employee Photo',      icon: <UserCircle className="w-4 h-4" /> },
     { type: 'aadharCard',         label: 'Aadhaar Card',        icon: <CreditCard className="w-4 h-4" /> },
@@ -247,25 +204,18 @@ const FullFormViewer = ({ employee, onClose }) => {
     { type: 'otherCertificates',  label: 'Other Certificates',  icon: <FileText className="w-4 h-4" /> },
   ];
 
-  // Map backend documents array to { type, label, path, icon }
-  const uploadedDocs = DOC_DEFS.map(def => {
+  const uploadedDocs  = DOC_DEFS.map(def => {
     const found = Array.isArray(employee.documents)
       ? employee.documents.find(d => d.type === def.type || d.document_type === def.type)
       : null;
     return { ...def, path: found?.path || found?.file_path || null };
   });
-
-  // Only docs that actually have a file
   const availableDocs = uploadedDocs.filter(d => d.path);
-
-  const openLightbox = (type) => {
+  const openLightbox  = (type) => {
     const idx = availableDocs.findIndex(d => d.type === type);
     if (idx >= 0) setLightbox({ docs: availableDocs, startIndex: idx });
   };
-
-  // ── Print — delegates to EmployeePrintView.jsx ──────────────────────────────
   const handlePrint = () => printKYEForm(employee);
-
 
   const SectionTitle = ({ num, title, icon }) => (
     <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
@@ -289,53 +239,76 @@ const FullFormViewer = ({ employee, onClose }) => {
 
   return (
     <>
-      {/* Lightbox sits above this modal */}
       {lightbox && (
-        <Lightbox
-          docs={lightbox.docs}
-          startIndex={lightbox.startIndex}
-          onClose={() => setLightbox(null)}
-        />
+        <Lightbox docs={lightbox.docs} startIndex={lightbox.startIndex} onClose={() => setLightbox(null)} />
       )}
-
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl my-4 flex flex-col" style={{ maxHeight: '95vh' }}>
 
-          {/* ── Header ── */}
+          {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0"
             style={{ background: 'linear-gradient(90deg,#1e3a5f 0%,#1d4ed8 100%)', borderRadius: '16px 16px 0 0' }}>
             <div className="flex items-center gap-4">
-              <Avatar firstName={employee.first_name} lastName={employee.last_name} size="lg" />
+              <div className="relative">
+                <Avatar firstName={employee.first_name} lastName={employee.last_name} size="lg" />
+                {/* ✅ Rejoin indicator on avatar */}
+                {employee.status === 'pending_rejoin' && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center border-2 border-white">
+                    <History className="w-2.5 h-2.5 text-white" style={{ strokeWidth: 3 }} />
+                  </div>
+                )}
+              </div>
               <div>
-                <h2 className="text-xl font-bold text-white">{employee.first_name} {employee.last_name}</h2>
-                <p className="text-blue-200 text-sm mt-0.5">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h2 className="text-xl font-bold text-white">{employee.first_name} {employee.last_name}</h2>
+                  {/* ✅ Rejoin badge in modal header */}
+                  {employee.status === 'pending_rejoin' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ background: 'rgba(251,191,36,0.25)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.4)' }}>
+                      RETURNING EMPLOYEE
+                    </span>
+                  )}
+                </div>
+                <p className="text-blue-200 text-sm">
                   {employee.position || 'Position not specified'} &bull; {employee.department || 'Department not specified'}
                 </p>
-                <p className="text-blue-300 text-xs mt-1.5">Applied: {formatDateTime(employee.created_at)}</p>
+                <p className="text-blue-300 text-xs mt-1">Applied: {formatDateTime(employee.created_at)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* Print button */}
               <button onClick={handlePrint}
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-semibold transition-all border border-white/20">
                 <Printer className="w-3.5 h-3.5" /> Print
               </button>
               <button onClick={onClose}
-                className="px-4 py-2 bg-white text-blue-900 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-all">
+                className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-blue-900 hover:bg-blue-50 transition-all">
                 Close
               </button>
             </div>
           </div>
 
-          {/* ── Body ── */}
+          {/* ✅ Rejoin notice bar inside the full form viewer */}
+          {employee.status === 'pending_rejoin' && (
+            <div className="px-6 py-3 flex items-center gap-3 border-b border-indigo-100"
+              style={{ background: 'linear-gradient(90deg,#ede9fe,#e0e7ff)' }}>
+              <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <History className="w-4 h-4 text-indigo-600" />
+              </div>
+              <p className="text-xs text-indigo-700">
+                <span className="font-bold">Rejoin Request</span> — This employee was previously inactive
+                {employee.employee_id && ` (previous ID: ${employee.employee_id})`} and has submitted updated information.
+                Approving will assign a <strong>new Employee ID</strong>.
+              </p>
+            </div>
+          )}
+
+          {/* Body */}
           <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
               {/* LEFT COLUMN */}
               <div className="space-y-5">
-
-                {/* 1. Personal */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="1" title="Personal Information" icon={<User className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -354,7 +327,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                   </div>
                 </div>
 
-                {/* 2. Contact */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="2" title="Contact Information" icon={<Mail className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -364,30 +336,27 @@ const FullFormViewer = ({ employee, onClose }) => {
                   </div>
                 </div>
 
-                {/* 3. Family */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="3" title="Family Details" icon={<Users className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Family Member Name"     value={employee.family_member_name}     span={2} />
-                    <Field label="Contact No"             value={employee.family_contact_no} />
-                    <Field label="Working Status"         value={employee.family_working_status} />
-                    <Field label="Employer Name"          value={employee.family_employer_name}   span={2} />
-                    <Field label="Employer Contact"       value={employee.family_employer_contact} />
+                    <Field label="Family Member Name"  value={employee.family_member_name}      span={2} />
+                    <Field label="Contact No"          value={employee.family_contact_no} />
+                    <Field label="Working Status"      value={employee.family_working_status} />
+                    <Field label="Employer Name"       value={employee.family_employer_name}    span={2} />
+                    <Field label="Employer Contact"    value={employee.family_employer_contact} />
                   </div>
                 </div>
 
-                {/* 4. Emergency */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="4" title="Emergency Contact" icon={<Phone className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Contact Name" value={employee.emergency_contact_name}     span={2} />
+                    <Field label="Contact Name" value={employee.emergency_contact_name}      span={2} />
                     <Field label="Contact No"   value={employee.emergency_contact_no} />
                     <Field label="Relation"     value={employee.emergency_contact_relation} />
-                    <Field label="Address"      value={employee.emergency_contact_address}  span={2} />
+                    <Field label="Address"      value={employee.emergency_contact_address}   span={2} />
                   </div>
                 </div>
 
-                {/* 5. Address */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="5" title="Address Details" icon={<MapPin className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -395,7 +364,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Address"  value={employee.permanent_address}  span={2} />
                     <Field label="Phone"    value={employee.permanent_phone} />
                     <Field label="Landmark" value={employee.permanent_landmark} />
-                    <Field label="Lat-Long" value={employee.permanent_lat_long} span={2} />
                     <p className="col-span-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mt-1">Local Address</p>
                     {employee.local_same_as_permanent ? (
                       <p className="col-span-2 text-sm text-blue-600 italic">Same as permanent address</p>
@@ -412,20 +380,18 @@ const FullFormViewer = ({ employee, onClose }) => {
 
               {/* RIGHT COLUMN */}
               <div className="space-y-5">
-
-                {/* 6-8. References */}
                 {[
                   { num: '6', label: 'Reference 1 (Relevant Industry)', prefix: 'ref1' },
-                  { num: '7', label: 'Reference 2 (Local Area)',         prefix: 'ref2' },
-                  { num: '8', label: 'Reference 3 (Other than Relative)',prefix: 'ref3' },
+                  { num: '7', label: 'Reference 2 (Local Area)',          prefix: 'ref2' },
+                  { num: '8', label: 'Reference 3 (Other than Relative)', prefix: 'ref3' },
                 ].map(({ num, label, prefix }) => (
                   <div key={prefix} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                     <SectionTitle num={num} title={label} icon={<UserCircle className="w-4 h-4" />} />
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Name"           value={employee[`${prefix}_name`]}         span={2} />
+                      <Field label="Name"           value={employee[`${prefix}_name`]}          span={2} />
                       <Field label="Designation"    value={employee[`${prefix}_designation`]} />
                       <Field label="Organization"   value={employee[`${prefix}_organization`]} />
-                      <Field label="Address"        value={employee[`${prefix}_address`]}       span={2} />
+                      <Field label="Address"        value={employee[`${prefix}_address`]}        span={2} />
                       <Field label="City/State/Pin" value={employee[`${prefix}_city_state_pin`]} />
                       <Field label="Contact No"     value={employee[`${prefix}_contact_no`]} />
                       <Field label="Email"          value={employee[`${prefix}_email`]} />
@@ -433,7 +399,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                   </div>
                 ))}
 
-                {/* 9. Employment */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="9" title="Employment Details" icon={<Briefcase className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -447,7 +412,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                   </div>
                 </div>
 
-                {/* 10. Bank */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="10" title="Bank Account Details" icon={<CreditCard className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
@@ -459,10 +423,8 @@ const FullFormViewer = ({ employee, onClose }) => {
                   </div>
                 </div>
 
-                {/* 11. Documents — with thumbnail previews */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="11" title="Uploaded Documents" icon={<Shield className="w-4 h-4" />} />
-
                   {availableDocs.length === 0 ? (
                     <p className="text-sm text-gray-400 italic text-center py-4">No documents uploaded</p>
                   ) : (
@@ -473,21 +435,13 @@ const FullFormViewer = ({ employee, onClose }) => {
                         return (
                           <div key={doc.type}
                             className={`rounded-xl border overflow-hidden transition-all ${
-                              url
-                                ? 'border-blue-200 bg-white hover:border-blue-400 hover:shadow-md cursor-pointer'
-                                : 'border-gray-200 bg-gray-50'
+                              url ? 'border-blue-200 bg-white hover:border-blue-400 hover:shadow-md cursor-pointer' : 'border-gray-200 bg-gray-50'
                             }`}
                             onClick={() => url && openLightbox(doc.type)}>
-
-                            {/* Thumbnail area */}
                             <div className="relative h-28 bg-gray-100 flex items-center justify-center overflow-hidden">
                               {ft === 'image' && url ? (
-                                <img src={url} alt={doc.label}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.parentElement.querySelector('.fallback')?.style.setProperty('display','flex');
-                                  }} />
+                                <img src={url} alt={doc.label} className="w-full h-full object-cover"
+                                  onError={(e) => { e.target.style.display = 'none'; }} />
                               ) : ft === 'pdf' ? (
                                 <div className="flex flex-col items-center justify-center gap-1 h-full w-full bg-red-50">
                                   <FileText className="w-8 h-8 text-red-400" />
@@ -505,8 +459,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                                   </div>
                                 </div>
                               )}
-
-                              {/* Hover overlay */}
                               {url && (
                                 <div className="absolute inset-0 bg-blue-900/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                                   <div className="flex items-center gap-1.5 text-white text-xs font-semibold">
@@ -514,16 +466,12 @@ const FullFormViewer = ({ employee, onClose }) => {
                                   </div>
                                 </div>
                               )}
-
-                              {/* Status badge */}
                               <div className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                                 url ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
                               }`}>
                                 {url ? '✓' : '—'}
                               </div>
                             </div>
-
-                            {/* Label */}
                             <div className="px-3 py-2 border-t border-gray-100">
                               <p className="text-xs font-semibold text-gray-800 truncate">{doc.label}</p>
                               <p className={`text-[10px] mt-0.5 ${url ? 'text-green-600' : 'text-gray-400'}`}>
@@ -535,8 +483,6 @@ const FullFormViewer = ({ employee, onClose }) => {
                       })}
                     </div>
                   )}
-
-                  {/* View all button */}
                   {availableDocs.length > 0 && (
                     <button onClick={() => setLightbox({ docs: availableDocs, startIndex: 0 })}
                       className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all">
@@ -553,7 +499,6 @@ const FullFormViewer = ({ employee, onClose }) => {
               <h4 className="text-sm font-semibold text-blue-900 mb-2">Declaration</h4>
               <p className="text-xs text-gray-600 leading-relaxed mb-4">
                 I hereby declare that all the information provided above is true and correct to the best of my knowledge.
-                I understand that any false information may result in the rejection of my application or termination of employment.
               </p>
               <div className="flex items-end justify-between border-t border-blue-200 pt-3">
                 <div>
@@ -586,11 +531,16 @@ const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
             style={{ background: 'linear-gradient(135deg,#fee2e2,#fecaca)' }}>
             <XCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 text-center mb-1">Reject Registration</h3>
+          <h3 className="text-xl font-bold text-gray-900 text-center mb-1">
+            {employee.status === 'pending_rejoin' ? 'Decline Rejoin Request' : 'Reject Registration'}
+          </h3>
           <p className="text-gray-500 text-sm text-center mb-6">
-            Rejecting <strong className="text-gray-900">{employee.first_name} {employee.last_name}</strong>'s registration
+            {employee.status === 'pending_rejoin' ? 'Declining' : 'Rejecting'}{' '}
+            <strong className="text-gray-900">{employee.first_name} {employee.last_name}</strong>
           </p>
-          <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Reason for Rejection</label>
+          <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+            Reason for {employee.status === 'pending_rejoin' ? 'Declining' : 'Rejection'}
+          </label>
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
             placeholder="Provide a reason (optional but recommended)..."
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-red-400 outline-none text-sm mb-5 resize-none" />
@@ -602,7 +552,7 @@ const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
             <button onClick={() => onConfirm(reason)} disabled={loading}
               className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
               {loading ? <Loader className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-              {loading ? 'Rejecting...' : 'Confirm Reject'}
+              {loading ? 'Processing...' : employee.status === 'pending_rejoin' ? 'Confirm Decline' : 'Confirm Reject'}
             </button>
           </div>
         </div>
@@ -614,20 +564,51 @@ const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
 // ─── Employee Card ────────────────────────────────────────────────────────────
 const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting }) => {
   const [showFullForm, setShowFullForm] = useState(false);
+  const isRejoin = employee.status === 'pending_rejoin';
+
   return (
     <>
       {showFullForm && <FullFormViewer employee={employee} onClose={() => setShowFullForm(false)} />}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
-        <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)' }} />
+      <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden ${
+        isRejoin ? 'border-indigo-200' : 'border-gray-200'
+      }`}>
+        {/* ✅ Top accent bar — indigo for rejoin, blue for new */}
+        <div className="h-0.5 w-full" style={{
+          background: isRejoin
+            ? 'linear-gradient(90deg,#4f46e5,#7c3aed,#a78bfa)'
+            : 'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)',
+        }} />
+
         <div className="px-5 pt-4 pb-3.5 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3.5">
-              <Avatar firstName={employee.first_name} lastName={employee.last_name} size="md" />
+              {/* Avatar with history icon overlay for rejoin */}
+              <div className="relative">
+                <Avatar firstName={employee.first_name} lastName={employee.last_name} size="md" />
+                {isRejoin && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center border-2 border-white">
+                    <History className="w-2 h-2 text-white" style={{ strokeWidth: 3 }} />
+                  </div>
+                )}
+              </div>
+
               <div>
-                <h3 className="text-sm font-bold text-gray-900 leading-tight">
-                  {employee.first_name} {employee.last_name}
-                </h3>
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                {/* ✅ Name + Rejoin badge inline */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-bold text-gray-900 leading-tight">
+                    {employee.first_name} {employee.last_name}
+                  </h3>
+                  {isRejoin && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                      style={{ background: '#ede9fe', color: '#6d28d9', borderColor: '#c4b5fd' }}
+                    >
+                      <History className="w-2.5 h-2.5" />
+                      Rejoin
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5 flex-wrap">
                   <Briefcase className="w-3 h-3" />
                   <span>{employee.position || 'Not specified'}</span>
                   <span className="text-gray-300">•</span>
@@ -636,6 +617,7 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting }) =
                 </div>
               </div>
             </div>
+
             <div className="flex items-center gap-1.5">
               <button onClick={() => setShowFullForm(true)}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 transition-all text-xs font-medium">
@@ -643,18 +625,30 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting }) =
               </button>
               <button onClick={onApprove} disabled={approving || rejecting}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                style={{ background: approving ? '#15803d' : 'linear-gradient(135deg,#16a34a,#22c55e)', boxShadow: '0 1px 6px rgba(34,197,94,0.35)' }}>
+                style={{
+                  background: approving
+                    ? (isRejoin ? '#5b21b6' : '#15803d')
+                    : isRejoin
+                    ? 'linear-gradient(135deg,#4f46e5,#7c3aed)'
+                    : 'linear-gradient(135deg,#16a34a,#22c55e)',
+                  boxShadow: isRejoin
+                    ? '0 1px 6px rgba(124,58,237,0.35)'
+                    : '0 1px 6px rgba(34,197,94,0.35)',
+                }}>
                 {approving
                   ? <><Loader className="w-3.5 h-3.5 animate-spin" /><span>Approving…</span></>
+                  : isRejoin
+                  ? <><CheckCircle className="w-3.5 h-3.5" /><span>Approve Rejoin</span></>
                   : <><CheckCircle className="w-3.5 h-3.5" /><span>Approve</span></>}
               </button>
               <button onClick={onReject} disabled={approving || rejecting}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 bg-white text-red-500 hover:bg-red-50 hover:border-red-400 text-xs font-medium disabled:opacity-50">
-                <XCircle className="w-3.5 h-3.5" /> Reject
+                <XCircle className="w-3.5 h-3.5" /> {isRejoin ? 'Decline' : 'Reject'}
               </button>
             </div>
           </div>
         </div>
+
         <div className="px-5 py-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             {[
@@ -671,14 +665,15 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting }) =
               </div>
             ))}
           </div>
+
           <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-gray-100 bg-gray-50">
             <div className="flex items-center gap-1.5 text-xs text-gray-500">
               <Clock className="w-3.5 h-3.5 text-gray-400" />
-              <span>Applied:</span>
+              <span>{isRejoin ? 'Requested:' : 'Applied:'}</span>
               <span className="font-semibold text-gray-700">{formatDateTime(employee.created_at)}</span>
             </div>
             {employee.employment_type && (
-              <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full" style={{ background: '#dbeafe', color: '#1d4ed8' }}>
+              <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-blue-100 text-blue-800">
                 {employee.employment_type}
               </span>
             )}
@@ -702,7 +697,11 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
       setLoading(true);
       setError('');
       const res = await employeeService.getPendingSubmissions();
-      setPendingList(res.data || []);
+      // ✅ KEY FIX: show BOTH 'pending' (new) AND 'pending_rejoin' (returning)
+      const list = (res.data || []).filter(
+        e => e.status === 'pending' || e.status === 'pending_rejoin'
+      );
+      setPendingList(list);
     } catch (err) {
       if (err.message?.includes('Cannot connect') || err.message?.includes('Failed to fetch')) {
         setError('Cannot connect to server. Please ensure the backend is running on port 5000.');
@@ -722,12 +721,12 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
       const res = await employeeService.approveSubmission(employee.id);
       if (res.success) {
         const empId = res.data?.employee_id || res.data?.employeeId || '';
-        showToast?.(`✅ ${employee.first_name} ${employee.last_name} approved! ID: ${empId}`, 'success');
+        showToast?.(`✅ Approved: ${employee.first_name} ${employee.last_name} — ID: ${empId}`, 'success');
         setPendingList(prev => prev.filter(e => e.id !== employee.id));
         onEmployeeApproved?.();
       }
     } catch (err) {
-      showToast?.(err.message || 'Failed to approve employee', 'error');
+      showToast?.(err.message || 'Failed to approve', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [`approve_${employee.id}`]: false }));
     }
@@ -735,15 +734,34 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
 
   const handleRejectConfirm = async (reason) => {
     if (!rejectTarget) return;
-    const id = rejectTarget.id;
+    const id        = rejectTarget.id;
+    const isRejoin  = rejectTarget.status === 'pending_rejoin';
     setActionLoading(prev => ({ ...prev, [`reject_${id}`]: true }));
     try {
-      await employeeService.rejectSubmission(id, reason);
-      showToast?.(`❌ ${rejectTarget.first_name} ${rejectTarget.last_name} rejected.`, 'success');
+      if (isRejoin) {
+        // ✅ Use the dedicated reject-rejoin endpoint for pending_rejoin entries
+        //    so status goes back to 'inactive' (not 'rejected' + resubmit token)
+        const BASE_API = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:5000/api';
+        const res  = await fetch(`${BASE_API}/registrations/${id}/reject-rejoin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rejection_reason: reason }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Failed to decline');
+      } else {
+        await employeeService.rejectSubmission(id, reason);
+      }
+      showToast?.(
+        isRejoin
+          ? `↩️ Rejoin declined: ${rejectTarget.first_name} ${rejectTarget.last_name}`
+          : `❌ Rejected: ${rejectTarget.first_name} ${rejectTarget.last_name}`,
+        'success'
+      );
       setPendingList(prev => prev.filter(e => e.id !== id));
       setRejectTarget(null);
     } catch (err) {
-      showToast?.(err.message || 'Failed to reject submission', 'error');
+      showToast?.(err.message || 'Failed to process', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [`reject_${id}`]: false }));
     }
@@ -760,6 +778,10 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
       </div>
     );
   }
+
+  // ── Derived counts for stats panel ────────────────────────────────────────
+  const newCount    = pendingList.filter(e => e.status === 'pending').length;
+  const rejoinCount = pendingList.filter(e => e.status === 'pending_rejoin').length;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
@@ -785,8 +807,17 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
             </div>
             <p className="text-gray-500 text-sm ml-13">
               {pendingList.length > 0
-                ? <span><strong className="text-blue-700">{pendingList.length}</strong> {pendingList.length === 1 ? 'request' : 'requests'} awaiting review</span>
-                : 'No pending requests at the moment'}
+                ? <>
+                    <strong className="text-blue-700">{pendingList.length}</strong>{' '}
+                    {pendingList.length === 1 ? 'request' : 'requests'} awaiting review
+                    {rejoinCount > 0 && (
+                      <span className="ml-2 text-indigo-600 font-medium">
+                        ({rejoinCount} rejoin{rejoinCount > 1 ? 's' : ''})
+                      </span>
+                    )}
+                  </>
+                : 'No pending requests at the moment'
+              }
             </p>
           </div>
           <button onClick={fetchPending}
@@ -795,12 +826,14 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
           </button>
         </div>
 
+        {/* ✅ Stats panel — 4 stats including separate New / Rejoin counts */}
         {pendingList.length > 0 && (
-          <div className="mt-5 grid grid-cols-3 gap-4">
+          <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Total Pending',  value: pendingList.length,                                                color: '#1d4ed8' },
-              { label: 'Oldest Request', value: formatDateShort(pendingList[pendingList.length - 1]?.created_at), color: '#d97706' },
-              { label: 'Latest Request', value: formatDateShort(pendingList[0]?.created_at),                      color: '#059669' },
+              { label: 'Total Pending',    value: pendingList.length,                          color: '#1d4ed8' },
+              { label: 'New Applications', value: newCount,                                    color: '#059669' },
+              { label: 'Rejoin Requests',  value: rejoinCount,                                 color: '#7c3aed' },
+              { label: 'Latest Request',   value: formatDateShort(pendingList[0]?.created_at), color: '#d97706' },
             ].map((stat, i) => (
               <div key={i} className="bg-white rounded-xl border border-gray-200 px-5 py-4 shadow-sm">
                 <p className="text-xs font-medium text-gray-500 mb-1">{stat.label}</p>
@@ -831,7 +864,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
             <CheckCircle className="w-10 h-10 text-blue-600" />
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">All Caught Up!</h3>
-          <p className="text-gray-500 text-sm max-w-xs mx-auto">No pending approval requests at the moment.</p>
+          <p className="text-gray-500 text-sm max-w-xs mx-auto">No pending registration or rejoin requests at the moment.</p>
         </div>
       )}
 

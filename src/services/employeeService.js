@@ -72,7 +72,7 @@ function buildEmployeeFormData(employeeData) {
   const fd = new FormData();
 
   const scalarFields = [
-    "firstName", "lastName",                    // middleName removed
+    "firstName", "lastName",
     "fatherHusbandName", "email", "phone", "altPhone",
     "aadhar", "nameOnAadhar", "panNumber", "nameOnPan",
     "dob", "gender", "maritalStatus", "educationalQualification", "bloodGroup",
@@ -311,15 +311,57 @@ HR Team — Insta ICT Solutions
     return response.json();
   },
 
-  sendFormSubmissionConfirmation: async ({ to, formData }) => {
+  sendFormSubmissionConfirmation: async ({ to, formData, isRejoin = false }) => {
     console.log(`📧 Sending form submission confirmation to ${to}...`);
     const response = await fetch(`${BASE_URL}/employees/send-submission-confirmation`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, formData }),
+      body: JSON.stringify({ to, formData, isRejoin }),
     });
     return response.json();
   },
+
+  sendHRSubmissionNotification: async ({ formData, isRejoin = false }) => {
+    console.log(`📧 Sending HR submission notification for ${formData.firstName} ${formData.lastName}...`);
+    const response = await fetch(`${BASE_URL}/employees/send-hr-notification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ formData, isRejoin }),
+    });
+    return response.json();
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // REJOIN INVITE
+  // HR sends a fresh pre-filled registration link to an inactive employee.
+  // Backend: POST /api/employees/:id/send-rejoin-invite
+  // ════════════════════════════════════════════════════════════════════════════
+
+  sendRejoinInvite: async (employeeId) => {
+    console.log(`📧 Sending rejoin invite to employee ${employeeId}...`);
+    return apiFetch(`/employees/${employeeId}/send-rejoin-invite`, {
+      method: "POST",
+    });
+  },
+
+  // Validates a rejoin invite link and returns prefill data
+checkRejoinLink: (linkId) => {
+  console.log(`📡 Validating rejoin link ${linkId}...`);
+  return apiFetch(`/registration-links/rejoin/${linkId}`);
+},
+  // ════════════════════════════════════════════════════════════════════════════
+  // AADHAAR CHECK
+  // Called live (debounced) while the employee types their Aadhaar number in
+  // the public registration form. Returns exists / status / canRejoin / data.
+  // Backend: GET /api/registrations/check-aadhar/:aadhar
+  // ════════════════════════════════════════════════════════════════════════════
+
+  checkAadhar: (aadhar) => {
+    console.log(`📡 Checking Aadhaar ${aadhar}...`);
+    return apiFetch(`/registrations/check-aadhar/${aadhar}`);
+  },
+
 };
+
 
 export default employeeService;
