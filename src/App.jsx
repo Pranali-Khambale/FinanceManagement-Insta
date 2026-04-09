@@ -15,6 +15,7 @@ import AdminRegistration from "./pages/AdminRegistration";
 import ForgotPassword from "./pages/forgotpass";
 import EmployeeRoutes from "./pages/EmployeeMngement";
 import useAutoLogout from "./Authontication/logauth";
+import AdvancePayment from "./pages/AdvancePayment";
 
 const RegistrationForm = lazy(
   () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
@@ -191,6 +192,20 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ✅ Advance Payments — must be BEFORE /employee/* wildcard */}
+        <Route
+          path="/employee/payments"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <AdvancePayment />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Employee wildcard — catches all other /employee/... routes */}
         <Route
           path="/employee/*"
           element={

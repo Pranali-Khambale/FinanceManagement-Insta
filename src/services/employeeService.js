@@ -207,6 +207,7 @@ const employeeService = {
       });
     }
 
+    
     return apiFetch("/registrations", { method: "POST", body: fd });
   },
 
@@ -258,6 +259,10 @@ const employeeService = {
       throw error;
     }
   },
+  getNextEmployeeId: async () => {
+  const res = await api.get('/employees/next-id');
+  return res.data.nextId;
+},
 
   // ════════════════════════════════════════════════════════════════════════════
   // UTILITY / STATS
@@ -343,6 +348,7 @@ HR Team — Insta ICT Solutions
       method: "POST",
     });
   },
+  
 
   // Validates a rejoin invite link and returns prefill data
 checkRejoinLink: (linkId) => {

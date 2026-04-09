@@ -20,6 +20,13 @@ const fmt = (d) => {
 
 const val = (v) => v || "";
 
+// ── Full name helper: First + Father/Husband + Last ───────────────────────────
+const buildFullName = (e) =>
+  [val(e.first_name), val(e.father_husband_name), val(e.last_name)]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(" ");
+
 // ── Document type → human-readable label map ─────────────────────────────────
 const DOC_LABELS = {
   resume: "Resume – Signed Copy",
@@ -51,6 +58,9 @@ export const printKYEForm = (employee) => {
 
   const e = employee || {};
 
+  // ✅ Full name: First + Father/Husband + Last
+  const employeeFullName = buildFullName(e);
+
   const LOGO_URL = `${window.location.origin}/assets/Insta-logo1.png`;
 
   const BASE_URL =
@@ -81,17 +91,17 @@ export const printKYEForm = (employee) => {
   // ── Photo box HTML ────────────────────────────────────────────────────────
   const photoBoxContent = photoUrl
     ? `<img src="${photoUrl}" alt="Employee Photo"
-           style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-       <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;
-                   flex-direction:column;gap:4px;padding:6px;text-align:center;
-                   position:absolute;top:0;left:0;">
-         <span style="font-size:7pt;color:#999;">Employee Passport Size<br>Photograph<br>(45cm X 35cm)</span>
-       </div>`
+          style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+      <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;
+                  flex-direction:column;gap:4px;padding:6px;text-align:center;
+                  position:absolute;top:0;left:0;">
+        <span style="font-size:7pt;color:#999;">Employee Passport Size<br>Photograph<br>(45cm X 35cm)</span>
+      </div>`
     : `<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;
-                   flex-direction:column;gap:4px;padding:6px;text-align:center;">
-         <span style="font-size:7pt;color:#999;">Employee Passport Size<br>Photograph<br>(45cm X 35cm)</span>
-       </div>`;
+                  flex-direction:column;gap:4px;padding:6px;text-align:center;">
+        <span style="font-size:7pt;color:#999;">Employee Passport Size<br>Photograph<br>(45cm X 35cm)</span>
+      </div>`;
 
   // ── Row helper — label col | value col | verified | referred docs ─────────
   const row = (label, value) => `
@@ -122,7 +132,7 @@ export const printKYEForm = (employee) => {
       <span class="revision-label">KYE Form Revision - 1</span>
       <div class="logo-block">
         <img src="${LOGO_URL}" alt="Insta ICT Solutions" class="logo-img"
-             onerror="this.style.display='none'" />
+            onerror="this.style.display='none'" />
       </div>
     </div>`;
 
@@ -207,34 +217,34 @@ export const printKYEForm = (employee) => {
 
         const mediaHtml = pdf
           ? `<embed
-             src="${url}"
-             type="application/pdf"
-             style="width:100%;height:200mm;border:none;display:block;"
-             onerror="this.style.display='none';document.getElementById('pdf-err-${num}').style.display='flex';"
-           />
-           <div id="pdf-err-${num}"
+            src="${url}"
+            type="application/pdf"
+            style="width:100%;height:200mm;border:none;display:block;"
+            onerror="this.style.display='none';document.getElementById('pdf-err-${num}').style.display='flex';"
+          />
+          <div id="pdf-err-${num}"
                 style="display:none;flex-direction:column;align-items:center;justify-content:center;
-                       gap:8px;padding:20px;text-align:center;min-height:60mm;background:#f5f5f5;">
-             <span style="font-size:22pt;">📄</span>
-             <span style="font-size:9pt;color:#555;">PDF — open in browser to view inline</span>
-             <a href="${url}" target="_blank"
+                      gap:8px;padding:20px;text-align:center;min-height:60mm;background:#f5f5f5;">
+            <span style="font-size:22pt;">📄</span>
+            <span style="font-size:9pt;color:#555;">PDF — open in browser to view inline</span>
+            <a href="${url}" target="_blank"
                 style="font-size:9pt;color:#1a73e8;text-decoration:underline;">${fileName}</a>
-           </div>`
+          </div>`
           : `<img
-             src="${url}"
-             alt="${label}"
-             style="display:block;max-width:100%;max-height:220mm;width:auto;height:auto;
+            src="${url}"
+            alt="${label}"
+            style="display:block;max-width:100%;max-height:220mm;width:auto;height:auto;
                     margin:0 auto;object-fit:contain;"
-             onerror="this.style.display='none';document.getElementById('img-err-${num}').style.display='flex';"
-           />
-           <div id="img-err-${num}"
+            onerror="this.style.display='none';document.getElementById('img-err-${num}').style.display='flex';"
+          />
+          <div id="img-err-${num}"
                 style="display:none;flex-direction:column;align-items:center;justify-content:center;
-                       gap:8px;padding:20px;text-align:center;min-height:60mm;background:#f5f5f5;">
-             <span style="font-size:22pt;">🖼️</span>
-             <span style="font-size:9pt;color:#888;">Image could not be loaded</span>
-             <a href="${url}" target="_blank"
+                      gap:8px;padding:20px;text-align:center;min-height:60mm;background:#f5f5f5;">
+            <span style="font-size:22pt;">🖼️</span>
+            <span style="font-size:9pt;color:#888;">Image could not be loaded</span>
+            <a href="${url}" target="_blank"
                 style="font-size:9pt;color:#1a73e8;text-decoration:underline;">${fileName}</a>
-           </div>`;
+          </div>`;
 
         return `
         <div style="margin-bottom:8mm;page-break-inside:avoid;break-inside:avoid;">
@@ -243,8 +253,8 @@ export const printKYEForm = (employee) => {
                       padding:6px 12px;font-size:10pt;font-weight:700;
                       margin-bottom:2mm;">
             <span style="display:inline-flex;align-items:center;justify-content:center;
-                         width:22px;height:22px;border-radius:4px;
-                         background:rgba(255,255,255,0.18);font-size:9pt;flex-shrink:0;">
+                        width:22px;height:22px;border-radius:4px;
+                        background:rgba(255,255,255,0.18);font-size:9pt;flex-shrink:0;">
               ${pdf ? "📄" : "🖼️"}
             </span>
             <span>${num}. ${label}</span>
@@ -259,7 +269,7 @@ export const printKYEForm = (employee) => {
           </div>
           <div style="text-align:right;margin-top:3px;">
             <a href="${url}" target="_blank"
-               style="font-size:8pt;color:#1a73e8;text-decoration:none;">
+              style="font-size:8pt;color:#1a73e8;text-decoration:none;">
               ↗ Open in new tab
             </a>
           </div>
@@ -278,7 +288,8 @@ export const printKYEForm = (employee) => {
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>KYE Form – ${val(e.first_name)} ${val(e.last_name)}</title>
+  <!-- ✅ FIX: Title uses First + Father/Husband + Last -->
+  <title>KYE Form – ${employeeFullName}</title>
   <style>
     /* ─── Reset ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -399,7 +410,7 @@ export const printKYEForm = (employee) => {
 <body>
 
 <!-- ══════════════════════════════════════════════════
-     PAGE 1 — Personal Details + Family Details
+    PAGE 1 — Personal Details + Family Details
 ══════════════════════════════════════════════════ -->
 <div class="page">
   ${pageHeader}
@@ -418,7 +429,8 @@ export const printKYEForm = (employee) => {
   <div class="sec-heading">1. Employee Personal Details -</div>
   ${verHeader}
   <table class="data-table" style="margin-top:0;">
-    ${row("Employee Name:", val(e.first_name) + (e.last_name ? " " + e.last_name : ""))}
+    <!-- ✅ FIX: Employee Name = First + Father/Husband + Last -->
+    ${row("Employee Name:", employeeFullName)}
     ${row('Date of birth<br><span style="font-size:8pt;font-weight:400;">(DD-MMM-YYYY)</span>', fmt(e.date_of_birth))}
     ${row("Educational qualification", val(e.educational_qualification))}
     ${row("Name of Father/Husband", val(e.father_husband_name))}
@@ -445,7 +457,7 @@ export const printKYEForm = (employee) => {
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     PAGE 2 — Emergency + Bank + Address
+    PAGE 2 — Emergency + Bank + Address
 ══════════════════════════════════════════════════ -->
 <div class="page page-break">
   ${pageHeader}
@@ -502,7 +514,7 @@ export const printKYEForm = (employee) => {
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     PAGE 3 — References + Declaration
+    PAGE 3 — References + Declaration
 ══════════════════════════════════════════════════ -->
 <div class="page page-break">
   ${pageHeader}
@@ -523,7 +535,10 @@ export const printKYEForm = (employee) => {
   <div class="sec-heading">7. DECLARATION –</div>
   <div class="declaration">
     <p>
-      I<span style="display:inline-block;min-width:115mm;border-bottom:1px solid #000;">&nbsp;${val(e.first_name)} ${val(e.last_name)}&nbsp;</span>,
+      I<span style="display:inline-block;min-width:115mm;border-bottom:1px solid #000;">
+        <!-- ✅ FIX: Declaration uses First + Father/Husband + Last -->
+        &nbsp;${employeeFullName}&nbsp;
+      </span>,
       Hereby declare that the information furnished above is true, complete and correct to the best of my knowledge and belief.
       I understand that in the event of my information being found false or incorrect at any stage, my candidature / appointment
       shall be liable to cancellation / termination without notice or any compensation in lieu thereof. Information taken is purely
@@ -560,7 +575,7 @@ export const printKYEForm = (employee) => {
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     PAGE 4 — Documents Checklist + Office Use + Uploaded Docs
+    PAGE 4 — Documents Checklist + Office Use + Uploaded Docs
 ══════════════════════════════════════════════════ -->
 <div class="page page-break">
   ${pageHeader}

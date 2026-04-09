@@ -38,14 +38,24 @@ const getDocLabel = (doc) =>
 
 const isPdf = (rawPath) => rawPath?.toLowerCase().endsWith(".pdf");
 
+// ── Full name helper: First + Father/Husband + Last ───────────────────────────
+const buildFullName = (firstName = "", fatherHusbandName = "", lastName = "") =>
+  [firstName, fatherHusbandName, lastName]
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .join(" ");
+
 const ViewEmployee = ({ employee, onClose }) => {
   if (!employee) return null;
 
   const e = employee;
 
-  const firstName = e.first_name || e.firstName || "";
-  const lastName = e.last_name || e.lastName || "";
-  const middleName = e.middle_name || e.middleName || "";
+  const firstName        = e.first_name        || e.firstName        || "";
+  const lastName         = e.last_name         || e.lastName         || "";
+  const fatherHusbandName = e.father_husband_name || e.fatherHusbandName || "";
+
+  // Full name: First + Father/Husband + Last
+  const fullName = buildFullName(firstName, fatherHusbandName, lastName);
 
   const fmtDate = (v) => {
     if (!v) return "—";
@@ -953,8 +963,9 @@ const ViewEmployee = ({ employee, onClose }) => {
               )}
             </div>
             <div>
+              {/* ✅ FIX: Full name = First + Father/Husband + Last */}
               <span style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 14 }}>
-                {firstName} {middleName} {lastName}
+                {fullName}
               </span>
               <span
                 style={{
@@ -1073,9 +1084,10 @@ const ViewEmployee = ({ employee, onClose }) => {
             <Sec text="1. Employee Personal Details -" />
             <VerHeader />
             <DataTable>
+              {/* ✅ FIX: Employee Name = First + Father/Husband + Last */}
               <Row
                 label="Employee Name:"
-                value={val(`${firstName} ${lastName}`.trim())}
+                value={val(fullName)}
               />
               <Row
                 label="Date of birth (DD-MMM-YYYY)"
@@ -1393,7 +1405,8 @@ const ViewEmployee = ({ employee, onClose }) => {
                     borderBottom: "1px solid #000",
                   }}
                 >
-                  &nbsp;{firstName} {lastName}&nbsp;
+                  {/* ✅ FIX: Declaration uses First + Father/Husband + Last */}
+                  &nbsp;{fullName}&nbsp;
                 </span>
                 , Hereby declare that the information furnished above is true,
                 complete and correct to the best of my knowledge and belief. I

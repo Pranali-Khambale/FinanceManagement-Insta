@@ -28,7 +28,6 @@ const RegistrationForm = () => {
   const [aadharCheck,    setAadharCheck]    = useState(null);
   const [isRejoin,       setIsRejoin]       = useState(false);
   const [aadharChecking, setAadharChecking] = useState(false);
-  // ✅ NEW: true when the link itself is a rejoin invite (HR-sent link)
   const [isRejoinLink,   setIsRejoinLink]   = useState(false);
   const [oldEmployeeId,  setOldEmployeeId]  = useState(null);
   const aadharDebounceRef = useRef(null);
@@ -63,10 +62,13 @@ const RegistrationForm = () => {
   };
 
   const [formData,  setFormData]  = useState(emptyForm);
+
+  // ✅ farmToCli included in documents state
   const [documents, setDocuments] = useState({
     idPhoto: null, aadharCard: null, panCard: null, resume: null,
     medicalCertificate: null, academicRecords: null,
     bankPassbook: null, payslip: null, otherCertificates: null,
+    farmToCli: null,
   });
 
   // ── Map API data → form fields ───────────────────────────────────────────
@@ -125,7 +127,7 @@ const RegistrationForm = () => {
     circle:            d.circle            || "",
     bankName:          d.bankName          || "",
     accountNumber:     d.accountNumber     || "",
-    confirmAccountNumber: d.accountNumber  || "",   // pre-fill both account fields
+    confirmAccountNumber: d.accountNumber  || "",
     ifscCode:          d.ifscCode          || "",
     accountHolderName: d.accountHolderName || "",
     bankBranch:        d.bankBranch        || "",
@@ -134,7 +136,6 @@ const RegistrationForm = () => {
   // ── On mount: validate link OR load resubmit prefill ────────────────────
   useEffect(() => {
     if (isResubmit) {
-      // ── Resubmit flow (rejected employee with token) ──────────────────────
       (async () => {
         try {
           const res = await employeeService.getPrefillData(token);
@@ -150,33 +151,22 @@ const RegistrationForm = () => {
         }
       })();
     } else {
-      // ── Normal link validation ─────────────────────────────────────────────
       (async () => {
         try {
           const res = await employeeService.validateLink(linkId);
-
           if (!res.success || !res.valid) {
-            if (res.used)    setLinkStatus("used");
+            if (res.used)         setLinkStatus("used");
             else if (res.expired) setLinkStatus("expired");
-            else             setLinkStatus("invalid");
+            else                  setLinkStatus("invalid");
             return;
           }
-
-          // ✅ KEY FIX: detect rejoin links and pre-fill the form
           if (res.isRejoin && res.prefillData) {
             const p = res.prefillData;
-
-            setIsRejoinLink(true);   // this link was an HR rejoin invite
-            setIsRejoin(true);       // activate rejoin mode throughout the form
+            setIsRejoinLink(true);
+            setIsRejoin(true);
             setOldEmployeeId(p.oldEmployeeId || null);
-
-            // Pre-fill every form field with the employee's previous data
-            setFormData(prev => ({
-              ...prev,
-              ...mapPrefillToForm(p),
-            }));
+            setFormData(prev => ({ ...prev, ...mapPrefillToForm(p) }));
           }
-
           setLinkStatus("valid");
         } catch (err) {
           if (err.expired)   setLinkStatus("expired");
@@ -185,16 +175,12 @@ const RegistrationForm = () => {
         }
       })();
     }
-  }, [linkId, token, isResubmit]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [linkId, token, isResubmit]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Aadhaar live-check (debounced 700ms, only on normal new registration) ─
+  // ── Aadhaar live-check ────────────────────────────────────────────────────
   const checkAadhar = useCallback(async (aadharVal) => {
     const clean = aadharVal.replace(/\s/g, '');
-    if (clean.length !== 12) {
-      setAadharCheck(null);
-      setIsRejoin(false);
-      return;
-    }
+    if (clean.length !== 12) { setAadharCheck(null); setIsRejoin(false); return; }
     setAadharChecking(true);
     try {
       const res = await employeeService.checkAadhar(clean);
@@ -212,8 +198,6 @@ const RegistrationForm = () => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
-
-    // Only run Aadhaar check on fresh registrations (not rejoin links, not resubmits)
     if (name === 'aadhar' && !isResubmit && !isRejoinLink) {
       setAadharCheck(null);
       setIsRejoin(false);
@@ -222,14 +206,11 @@ const RegistrationForm = () => {
     }
   };
 
-  // ── Rejoin checkbox toggle (manual, via Aadhaar check — not rejoin links) ─
+  // ── Rejoin toggle ─────────────────────────────────────────────────────────
   const handleRejoinToggle = (checked) => {
     setIsRejoin(checked);
     if (checked && aadharCheck?.exists && aadharCheck?.data) {
-      setFormData(prev => ({
-        ...mapPrefillToForm(aadharCheck.data),
-        aadhar: prev.aadhar,   // always preserve what was typed
-      }));
+      setFormData(prev => ({ ...mapPrefillToForm(aadharCheck.data), aadhar: prev.aadhar }));
     } else if (!checked) {
       const currentAadhar = formData.aadhar;
       setFormData({ ...emptyForm, aadhar: currentAadhar });
@@ -275,7 +256,6 @@ const RegistrationForm = () => {
       else if (formData.aadhar.replace(/\s/g, "").length !== 12) newErrors.aadhar = "Aadhaar must be 12 digits";
       if (!formData.nameOnAadhar.trim())             newErrors.nameOnAadhar = "Name on Aadhaar is required";
 
-      // Block duplicate Aadhaar only on fresh registrations (not rejoin links / not already in rejoin mode)
       if (!isResubmit && !isRejoinLink && aadharCheck?.exists && !isRejoin) {
         const s = aadharCheck.status;
         if (s === 'blacklisted')
@@ -329,9 +309,20 @@ const RegistrationForm = () => {
     }
 
     if (step === 4) {
-      if (!documents.idPhoto)      newErrors.idPhoto = "Employee photo is required";
-      if (!documents.aadharCard)   newErrors.aadharCard = "Aadhaar card is required";
+      const isTelecom = formData.department?.toLowerCase() === "telecom";
+
+      // ✅ Mandatory for ALL departments: Photo, Aadhaar Card, Resume, Bank Passbook
+      if (!documents.idPhoto)      newErrors.idPhoto      = "Employee photo is required";
+      if (!documents.aadharCard)   newErrors.aadharCard   = "Aadhaar card is required";
+      if (!documents.resume)       newErrors.resume       = "Resume is required";
       if (!documents.bankPassbook) newErrors.bankPassbook = "Bank passbook / cancelled cheque is required";
+
+      // ✅ Extra mandatory ONLY for Telecom: Medical Certificate, Academic Records, FARM-ToCli
+      if (isTelecom) {
+        if (!documents.medicalCertificate) newErrors.medicalCertificate = "Medical certificate is required for Telecom employees";
+        if (!documents.academicRecords)    newErrors.academicRecords    = "Academic records are required for Telecom employees";
+        if (!documents.farmToCli)          newErrors.farmToCli          = "FARM-ToCli Certificate is required for Telecom employees";
+      }
     }
 
     setErrors(newErrors);
@@ -363,7 +354,6 @@ const RegistrationForm = () => {
 
       await employeeService.submitRegistration(payload, documents);
 
-      // Non-blocking email confirmations
       const emailPayload = {
         firstName: formData.firstName, fatherHusbandName: formData.fatherHusbandName,
         lastName: formData.lastName, email: formData.email, phone: formData.phone,
@@ -397,9 +387,6 @@ const RegistrationForm = () => {
   };
 
   const steps = ["Personal Info", "Employment", "Bank Details", "Documents"];
-
-  // ── Derived UI flags ──────────────────────────────────────────────────────
-  // Aadhaar-based rejoin option: only show on fresh registrations (not HR rejoin links)
   const showRejoinOption   = !isResubmit && !isRejoinLink && aadharCheck?.exists && aadharCheck?.canRejoin;
   const showBlockedWarning = !isResubmit && !isRejoinLink && aadharCheck?.exists && !aadharCheck?.canRejoin;
 
@@ -478,11 +465,7 @@ const RegistrationForm = () => {
               : <CheckCircle className="w-14 h-14 text-green-500" />}
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-3">
-            {isRejoin
-              ? "Rejoin Request Submitted!"
-              : isResubmit
-              ? "Resubmission Successful!"
-              : "Registration Submitted!"}
+            {isRejoin ? "Rejoin Request Submitted!" : isResubmit ? "Resubmission Successful!" : "Registration Submitted!"}
           </h2>
           <p className="text-gray-600 mb-4">
             {isRejoin
@@ -531,21 +514,15 @@ const RegistrationForm = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
 
-        {/* ── Page header ── */}
+        {/* Page header */}
         <div className="text-center mb-8">
           <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 shadow-lg ${
-            isRejoin
-              ? 'bg-gradient-to-br from-indigo-600 to-violet-600'
-              : 'bg-gradient-to-br from-blue-600 to-indigo-600'
+            isRejoin ? 'bg-gradient-to-br from-indigo-600 to-violet-600' : 'bg-gradient-to-br from-blue-600 to-indigo-600'
           }`}>
             {isRejoin ? <UserCheck className="w-8 h-8 text-white" /> : <User className="w-8 h-8 text-white" />}
           </div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {isRejoin
-              ? "Rejoin Registration"
-              : isResubmit
-              ? "Update Your Registration"
-              : "Employee Registration"}
+            {isRejoin ? "Rejoin Registration" : isResubmit ? "Update Your Registration" : "Employee Registration"}
           </h1>
           <p className="text-gray-600 mt-2">
             {isRejoin
@@ -556,7 +533,7 @@ const RegistrationForm = () => {
           </p>
         </div>
 
-        {/* ── Rejection reason banner (resubmit flow) ── */}
+        {/* Rejection reason banner */}
         {isResubmit && rejectionReason && (
           <div className="bg-red-50 border-l-4 border-red-500 rounded-r-2xl p-5 mb-6 shadow-sm">
             <div className="flex items-start gap-3">
@@ -566,19 +543,13 @@ const RegistrationForm = () => {
               <div>
                 <p className="text-sm font-bold text-red-800 mb-1 uppercase tracking-wide">Reason for Rejection</p>
                 <p className="text-sm text-red-700 leading-relaxed">{rejectionReason}</p>
-                <p className="text-xs text-red-500 mt-2 font-medium">
-                  Please correct the above issue and resubmit your form.
-                </p>
+                <p className="text-xs text-red-500 mt-2 font-medium">Please correct the above issue and resubmit your form.</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            ✅ NEW: HR REJOIN LINK BANNER
-            Shown automatically when the link itself is a rejoin invite.
-            Replaces the manual checkbox flow for this case.
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* HR Rejoin Link Banner */}
         {isRejoinLink && (
           <div className="mb-6 rounded-2xl border-2 border-indigo-300 bg-white overflow-hidden shadow-md">
             <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 to-violet-500" />
@@ -591,14 +562,9 @@ const RegistrationForm = () => {
                   <p className="text-sm font-bold text-indigo-800 mb-1">Rejoin Registration — Previous Data Loaded</p>
                   <p className="text-sm text-indigo-700 leading-relaxed mb-4">
                     HR has invited you to rejoin. Your previous employment details have been pre-filled into the form.
-                    Please review every section and update anything that has changed since your last employment
-                    (address, phone, bank details, etc.) before submitting.
-                    {oldEmployeeId && (
-                      <span className="ml-1 font-semibold">Your previous Employee ID was: {oldEmployeeId}.</span>
-                    )}
+                    Please review every section and update anything that has changed since your last employment before submitting.
+                    {oldEmployeeId && <span className="ml-1 font-semibold">Your previous Employee ID was: {oldEmployeeId}.</span>}
                   </p>
-
-                  {/* Preview grid of key pre-filled values */}
                   {formData.firstName && (
                     <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
                       <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
@@ -621,7 +587,6 @@ const RegistrationForm = () => {
                       </div>
                     </div>
                   )}
-
                   <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
                     <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-blue-700 leading-relaxed">
@@ -635,18 +600,13 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            MANUAL REJOIN OPTION PANEL
-            Only shown on Step 1 when Aadhaar belongs to an inactive/rejected
-            employee on a fresh (non-HR-invite) registration link.
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* Manual rejoin option */}
         {currentStep === 1 && showRejoinOption && (
           <div className="mb-6">
             <div className={`rounded-2xl border-2 shadow-md overflow-hidden transition-all duration-300 ${
               isRejoin ? 'border-indigo-400 bg-white' : 'border-amber-300 bg-amber-50'
             }`}>
               <div className={`h-1.5 w-full ${isRejoin ? 'bg-gradient-to-r from-indigo-500 to-violet-500' : 'bg-amber-400'}`} />
-
               {!isRejoin && (
                 <div className="p-5">
                   <div className="flex items-start gap-4">
@@ -657,10 +617,8 @@ const RegistrationForm = () => {
                       <p className="text-sm font-bold text-amber-800 mb-1">Returning Employee Detected</p>
                       <p className="text-sm text-amber-700 leading-relaxed mb-4">
                         This Aadhaar number is linked to a previous employee record
-                        {aadharCheck?.employeeId && (
-                          <span className="font-semibold"> (ID: {aadharCheck.employeeId})</span>
-                        )}.
-                        If you are rejoining, tick the box below to auto-fill your saved details — you only need to update what has changed.
+                        {aadharCheck?.employeeId && <span className="font-semibold"> (ID: {aadharCheck.employeeId})</span>}.
+                        If you are rejoining, tick the box below to auto-fill your saved details.
                       </p>
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <div
@@ -676,7 +634,6 @@ const RegistrationForm = () => {
                   </div>
                 </div>
               )}
-
               {isRejoin && (
                 <div className="p-5">
                   <div className="flex items-start gap-4">
@@ -686,45 +643,18 @@ const RegistrationForm = () => {
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
                         <p className="text-sm font-bold text-indigo-800">Form Auto-filled from Previous Record</p>
-                        <button
-                          type="button"
-                          onClick={() => handleRejoinToggle(false)}
-                          className="text-xs text-indigo-500 hover:text-indigo-700 underline font-medium"
-                        >
+                        <button type="button" onClick={() => handleRejoinToggle(false)}
+                          className="text-xs text-indigo-500 hover:text-indigo-700 underline font-medium">
                           Clear &amp; start fresh
                         </button>
                       </div>
                       <p className="text-sm text-indigo-700 leading-relaxed mb-4">
-                        Your saved information has been pre-loaded into the form below. Please review each field
-                        and update anything that has changed since your last employment.
+                        Your saved information has been pre-loaded. Please review and update anything that has changed.
                       </p>
-                      {aadharCheck?.data && (
-                        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
-                          <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                            <RefreshCw className="w-3.5 h-3.5" /> Pre-filled data preview
-                          </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {[
-                              ['Name',        `${aadharCheck.data.firstName || ''} ${aadharCheck.data.lastName || ''}`.trim()],
-                              ['Employee ID', aadharCheck.employeeId || '—'],
-                              ['Department',  aadharCheck.data.department  || '—'],
-                              ['Designation', aadharCheck.data.position    || '—'],
-                              ['Email',       aadharCheck.data.email       || '—'],
-                              ['Phone',       aadharCheck.data.phone       || '—'],
-                            ].map(([label, val]) => (
-                              <div key={label} className="bg-white rounded-lg px-3 py-2 border border-indigo-100">
-                                <p className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
-                                <p className="text-xs font-bold text-indigo-900 truncate">{val}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                       <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
                         <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                         <p className="text-xs text-blue-700 leading-relaxed">
-                          <span className="font-semibold">All form fields are fully editable.</span> Scroll through
-                          each step and update any information that has changed before submitting.
+                          <span className="font-semibold">All form fields are fully editable.</span> Update any information that has changed before submitting.
                         </p>
                       </div>
                       <label className="flex items-start gap-3 mt-4 cursor-pointer" onClick={() => handleRejoinToggle(false)}>
@@ -743,7 +673,7 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        {/* ── Blocked warning (blacklisted / active / already pending) ── */}
+        {/* Blocked warning */}
         {currentStep === 1 && showBlockedWarning && (
           <div className="mb-6 rounded-2xl border-2 border-red-300 bg-red-50 overflow-hidden shadow-sm">
             <div className="h-1.5 w-full bg-red-500" />
@@ -754,18 +684,16 @@ const RegistrationForm = () => {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-red-800 mb-1">
-                    {aadharCheck.status === 'blacklisted'
-                      ? 'Aadhaar Blacklisted'
-                      : aadharCheck.status === 'active'
-                      ? 'Already an Active Employee'
+                    {aadharCheck.status === 'blacklisted' ? 'Aadhaar Blacklisted'
+                      : aadharCheck.status === 'active' ? 'Already an Active Employee'
                       : 'Application Already Pending'}
                   </p>
                   <p className="text-sm text-red-700 leading-relaxed">
                     {aadharCheck.status === 'blacklisted'
-                      ? 'This Aadhaar number has been blacklisted. You are not eligible to register or rejoin. Please contact HR for clarification.'
+                      ? 'This Aadhaar number has been blacklisted. Please contact HR for clarification.'
                       : aadharCheck.status === 'active'
-                      ? 'An active employee record already exists for this Aadhaar. If you believe this is an error, please contact HR immediately.'
-                      : 'There is already a pending application for this Aadhaar number. Please wait for HR to process it, or contact HR directly.'}
+                      ? 'An active employee record already exists for this Aadhaar. Please contact HR immediately.'
+                      : 'There is already a pending application for this Aadhaar. Please wait or contact HR directly.'}
                   </p>
                 </div>
               </div>
@@ -773,7 +701,7 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        {/* ── Persistent rejoin mode banner (steps 2, 3, 4) ── */}
+        {/* Persistent rejoin banner (steps 2-4) */}
         {isRejoin && currentStep > 1 && (
           <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-center gap-3">
             <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -787,19 +715,16 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        {/* ── Progress stepper ── */}
+        {/* Progress stepper */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between">
             {steps.map((step, idx) => (
               <React.Fragment key={idx}>
                 <div className="flex flex-col items-center">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                    currentStep > idx + 1
-                      ? "bg-green-500 text-white"
+                    currentStep > idx + 1 ? "bg-green-500 text-white"
                       : currentStep === idx + 1
-                      ? isRejoin
-                        ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
-                        : "bg-blue-600 text-white ring-4 ring-blue-100"
+                      ? isRejoin ? "bg-indigo-600 text-white ring-4 ring-indigo-100" : "bg-blue-600 text-white ring-4 ring-blue-100"
                       : "bg-gray-200 text-gray-500"
                   }`}>
                     {currentStep > idx + 1 ? <Check className="w-4 h-4" /> : idx + 1}
@@ -810,9 +735,7 @@ const RegistrationForm = () => {
                 </div>
                 {idx < steps.length - 1 && (
                   <div className={`flex-1 h-1 mx-2 rounded-full transition-all ${
-                    currentStep > idx + 1
-                      ? isRejoin ? "bg-indigo-500" : "bg-green-500"
-                      : "bg-gray-200"
+                    currentStep > idx + 1 ? isRejoin ? "bg-indigo-500" : "bg-green-500" : "bg-gray-200"
                   }`} />
                 )}
               </React.Fragment>
@@ -820,7 +743,7 @@ const RegistrationForm = () => {
           </div>
         </div>
 
-        {/* ── Form card ── */}
+        {/* Form card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {errors.submit && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
@@ -831,25 +754,34 @@ const RegistrationForm = () => {
 
           {currentStep === 1 && (
             <PersonalInfo
-              formData={formData}
-              errors={errors}
+              formData={formData} errors={errors}
               onChange={handleInputChange}
-              aadharChecking={aadharChecking}
-              isRejoin={isRejoin}
+              aadharChecking={aadharChecking} isRejoin={isRejoin}
             />
           )}
-          {currentStep === 2 && <EmploymentDetails formData={formData} errors={errors} onChange={handleInputChange} />}
-          {currentStep === 3 && <BankDetailsinfo   formData={formData} errors={errors} onChange={handleInputChange} />}
-          {currentStep === 4 && <Documents         formData={documents} errors={errors} onFileChange={handleDocChange} />}
+          {currentStep === 2 && (
+            <EmploymentDetails formData={formData} errors={errors} onChange={handleInputChange} />
+          )}
+          {currentStep === 3 && (
+            <BankDetailsinfo formData={formData} errors={errors} onChange={handleInputChange} />
+          )}
+
+          {/* ✅ Pass department so DocumentUploadStep knows to show/require Telecom docs */}
+          {currentStep === 4 && (
+            <Documents
+              formData={documents}
+              errors={errors}
+              onFileChange={handleDocChange}
+              department={formData.department}
+            />
+          )}
 
           {/* Navigation */}
           <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
-            <button
-              type="button" onClick={handleBack} disabled={currentStep === 1}
+            <button type="button" onClick={handleBack} disabled={currentStep === 1}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
                 currentStep === 1 ? "text-gray-400 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100 border border-gray-300"
-              }`}
-            >
+              }`}>
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
 
