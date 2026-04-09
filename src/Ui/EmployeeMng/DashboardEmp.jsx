@@ -1,28 +1,36 @@
 // src/Ui/EmployeeMng/EmployeeManagement.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// CHANGES vs previous version:
-//   ✅ pendingRejoinCount is merged into the "Pending Approvals" badge
-//   ✅ Separate "Pending Rejoin Approvals" button removed
-//   ✅ sendRejoinInvite uses correct API after DB migration fix
-// ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Plus, Link2, Upload, Download, Search, Filter,
-  Eye, Edit2, Trash2, Loader, AlertCircle, Users,
+  Eye, Edit2, Loader, AlertCircle, Users,
   CheckCircle, XCircle, Info, AlertTriangle, ClipboardList,
-  UserCheck, Send, Mail, Clock, RefreshCw, UserPlus,
+  UserCheck, Send, Mail, Clock, RefreshCw,
+  Activity, CreditCard,
 } from "lucide-react";
-import AddEmployeeWizard  from "./AddEmp";
-import PublicLinkModal    from "./GenerateLink";
-import ImportExcelModal   from "./EmployeeExcel";
-import ViewEmployee       from "./ViewEmployee";
-import EditEmployee       from "./EditEmployee";
-import employeeService    from "../../services/employeeService";
-import { useNavigate }    from "react-router-dom";
+import AddEmployeeWizard    from "./AddEmp";
+import PublicLinkModal      from "./GenerateLink";
+import ImportExcelModal     from "./EmployeeExcel";
+import ViewEmployee         from "./ViewEmployee";
+import EditEmployee         from "./EditEmployee";
+import CombinedActivityLog  from "./Combinedactivitylogo";
+import EmployeeIDCardModal  from "./EmployeeIDCard";
+import employeeService      from "../../services/employeeService";
+import { useNavigate }      from "react-router-dom";
 
 const BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
   "http://localhost:5000/api";
+
+// ── Full name helper: First + Father/Husband + Last ───────────────────────────
+const buildFullName = (emp) =>
+  [
+    emp?.first_name          || emp?.firstName          || "",
+    emp?.father_husband_name || emp?.fatherHusbandName  || "",
+    emp?.last_name           || emp?.lastName           || "",
+  ]
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .join(" ");
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TOAST
@@ -110,6 +118,7 @@ const StatusReasonModal = ({ targetStatus, employeeName, onConfirm, onCancel }) 
             <span className="text-2xl">{config.icon}</span>
             <div>
               <h3 className="text-white font-bold text-base">Mark as {targetStatus}</h3>
+              {/* ✅ FIX: employeeName now passed as First+Father/Husband+Last from parent */}
               <p className="text-white/80 text-xs mt-0.5">{employeeName}</p>
             </div>
           </div>
@@ -143,12 +152,15 @@ const StatusReasonModal = ({ targetStatus, employeeName, onConfirm, onCancel }) 
 // REJOIN INVITE MODAL
 // ══════════════════════════════════════════════════════════════════════════════
 const RejoinInviteModal = ({ employee, onConfirm, onCancel, isSending }) => {
-  const firstName = employee.first_name || employee.firstName || "";
-  const lastName  = employee.last_name  || employee.lastName  || "";
-  const name      = `${firstName} ${lastName}`.trim();
-  const email     = employee.email || "—";
-  const empId     = employee.employee_id || employee.id || "—";
-  const dept      = employee.department || "—";
+  const firstName  = employee.first_name  || employee.firstName  || "";
+  const lastName   = employee.last_name   || employee.lastName   || "";
+  const fatherName = employee.father_husband_name || employee.fatherHusbandName || "";
+
+  // ✅ FIX: Full name = First + Father/Husband + Last
+  const name  = [firstName, fatherName, lastName].map(s => s.trim()).filter(Boolean).join(" ");
+  const email = employee.email || "—";
+  const empId = employee.employee_id || employee.id || "—";
+  const dept  = employee.department || "—";
 
   return (
     <div className="fixed inset-0 z-[9999] backdrop-blur-sm bg-black/40 flex items-center justify-center p-4">
@@ -172,6 +184,7 @@ const RejoinInviteModal = ({ employee, onConfirm, onCancel, isSending }) => {
                 {firstName[0] || "?"}{lastName[0] || ""}
               </div>
               <div>
+                {/* ✅ FIX: Shows First+Father/Husband+Last */}
                 <p className="font-bold text-indigo-900 text-sm">{name || "—"}</p>
                 <p className="text-xs text-indigo-600">{empId}</p>
               </div>
@@ -305,21 +318,25 @@ function normalizeStatus(status) {
 const EmployeeManagement = ({ showToast: parentShowToast }) => {
   const navigate = useNavigate();
 
-  const [employees,        setEmployees]        = useState([]);
-  const [loading,          setLoading]          = useState(true);
-  const [error,            setError]            = useState("");
-  const [showModal,        setShowModal]        = useState(false);
-  const [modalType,        setModalType]        = useState("");
-  const [showImportModal,  setShowImportModal]  = useState(false);
-  const [searchTerm,       setSearchTerm]       = useState("");
-  const [filterStatus,     setFilterStatus]     = useState("all");
-  const [exportLoading,    setExportLoading]    = useState(false);
-  const [viewEmployee,     setViewEmployee]     = useState(null);
-  const [editEmployee,     setEditEmployee]     = useState(null);
-  const [toasts,           setToasts]           = useState([]);
-  const [confirm,          setConfirm]          = useState(null);
-  const [pendingCount,     setPendingCount]     = useState(0);
+  const [employees,          setEmployees]          = useState([]);
+  const [loading,            setLoading]            = useState(true);
+  const [error,              setError]              = useState("");
+  const [showModal,          setShowModal]          = useState(false);
+  const [modalType,          setModalType]          = useState("");
+  const [showImportModal,    setShowImportModal]    = useState(false);
+  const [searchTerm,         setSearchTerm]         = useState("");
+  const [filterStatus,       setFilterStatus]       = useState("all");
+  const [exportLoading,      setExportLoading]      = useState(false);
+  const [viewEmployee,       setViewEmployee]       = useState(null);
+  const [editEmployee,       setEditEmployee]       = useState(null);
+  const [showActivityLog,    setShowActivityLog]    = useState(false);
+  const [toasts,             setToasts]             = useState([]);
+  const [confirm,            setConfirm]            = useState(null);
+  const [pendingCount,       setPendingCount]       = useState(0);
   const [pendingRejoinCount, setPendingRejoinCount] = useState(0);
+
+  // ── ID Card state ──────────────────────────────────────────────────────────
+  const [idCardEmployee,   setIdCardEmployee]   = useState(null);
 
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [reasonModal,      setReasonModal]      = useState(null);
@@ -362,11 +379,9 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
 
   const fetchCounts = useCallback(async () => {
     try {
-      // Regular pending
       const r1 = await employeeService.getPendingSubmissions();
       if (r1.success) setPendingCount((r1.data || []).filter(e => e.status === 'pending').length);
 
-      // Pending rejoin
       const r2 = await fetch(`${BASE_URL}/employees/pending-rejoin-count`);
       const d2 = await r2.json();
       if (d2.success) setPendingRejoinCount(d2.count || 0);
@@ -405,7 +420,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       const statusRes  = await fetch(`${BASE_URL}/employees/${empId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, reason }),
       });
       const statusData = await statusRes.json();
       if (!statusData.success) throw new Error(statusData.message || "Failed to update status");
@@ -488,22 +503,6 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
     );
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = await confirmAction("Are you sure you want to deactivate this employee?");
-    if (!confirmed) return;
-    try {
-      const response = await employeeService.deleteEmployee(id);
-      if (response.success) {
-        setEmployees((prev) =>
-          prev.map((e) => (e.id === id || e.employee_id === id) ? { ...e, status: "Inactive" } : e)
-        );
-        toast("Employee deactivated successfully", "success");
-      } else throw new Error(response.message);
-    } catch (err) {
-      toast(err.message || "Failed to deactivate employee", "error");
-    }
-  };
-
   const handleExportData = async () => {
     setExportLoading(true);
     try {
@@ -530,11 +529,9 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
   // ── Filter ────────────────────────────────────────────────────────────────
   const filteredEmployees = employees.filter((emp) => {
     const q          = searchTerm.toLowerCase();
-    const firstName  = emp.first_name || emp.firstName || "";
-    const lastName   = emp.last_name  || emp.lastName  || "";
+    const fullName   = buildFullName(emp).toLowerCase();
     const matchSearch =
-      firstName.toLowerCase().includes(q) ||
-      lastName.toLowerCase().includes(q)  ||
+      fullName.includes(q) ||
       (emp.employee_id || "").toLowerCase().includes(q) ||
       (emp.email || "").toLowerCase().includes(q);
     const normalized  = normalizeStatus(emp.status);
@@ -543,7 +540,6 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
     return matchSearch && matchFilter;
   });
 
-  // ── Combined badge count ───────────────────────────────────────────────────
   const totalPendingCount = pendingCount + pendingRejoinCount;
 
   if (loading) {
@@ -564,7 +560,8 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       {reasonModal && (
         <StatusReasonModal
           targetStatus={reasonModal.newStatus}
-          employeeName={`${reasonModal.emp.first_name || reasonModal.emp.firstName || ""} ${reasonModal.emp.last_name || reasonModal.emp.lastName || ""}`.trim()}
+          // ✅ FIX: employeeName = First + Father/Husband + Last
+          employeeName={buildFullName(reasonModal.emp)}
           onConfirm={(reason) => executeStatusChange(reasonModal.emp, reasonModal.newStatus, reason)}
           onCancel={() => setReasonModal(null)}
         />
@@ -578,6 +575,19 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
         />
       )}
 
+      {/* ── ID Card Modal ── */}
+      {idCardEmployee && (
+        <EmployeeIDCardModal
+          employee={idCardEmployee}
+          onClose={() => setIdCardEmployee(null)}
+        />
+      )}
+
+      {/* ── Combined Activity Log Modal ── */}
+      {showActivityLog && (
+        <CombinedActivityLog onClose={() => setShowActivityLog(false)} />
+      )}
+
       {/* ── Header ── */}
       <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -587,8 +597,18 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
           </p>
         </div>
 
-        {/* ── Single Pending Approvals button (regular + rejoin combined) ── */}
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setShowActivityLog(true)}
+            className="relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.97]"
+            style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)", color: "#fff" }}
+          >
+            <span className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
+              <Activity className="w-4 h-4" />
+            </span>
+            <span>Activity Log</span>
+          </button>
+
           <button
             onClick={() => navigate("/employee/pending")}
             className="relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.97]"
@@ -604,10 +624,8 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
             </span>
             <span>Pending Approvals</span>
             {totalPendingCount > 0 && (
-              <span
-                className="flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold"
-                style={{ background: "#fff", color: "#d97706" }}
-              >
+              <span className="flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold"
+                style={{ background: "#fff", color: "#d97706" }}>
                 {totalPendingCount > 99 ? "99+" : totalPendingCount}
               </span>
             )}
@@ -701,21 +719,26 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {["Employee", "ID", "Department", "Designation", "Joining Date", "Status", "Actions"].map((h) => (
-                      <th key={h} className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
-                    ))}
+                   {["Employee", "ID", "Department", "Designation", "Joining Date", "Status", "Actions"].map((h) => (
+  <th key={h} className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
+))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredEmployees.map((emp) => {
                     const firstName   = emp.first_name   || emp.firstName   || "";
                     const lastName    = emp.last_name    || emp.lastName    || "";
+                    const fatherName  = emp.father_husband_name || emp.fatherHusbandName || "";
                     const empId       = emp.employee_id  || emp.id          || "";
                     const department  = emp.department   || "";
                     const designation = emp.designation  || emp.position    || "";
                     const joiningDate = emp.joining_date || emp.joiningDate || "";
                     const normalized  = normalizeStatus(emp.status);
                     const isInactive  = normalized === "Inactive";
+
+                    // ✅ FIX: Full name = First + Father/Husband + Last
+                    const fullName = [firstName, fatherName, lastName]
+                      .map(s => s.trim()).filter(Boolean).join(" ");
 
                     return (
                       <tr key={emp.id || emp.employee_id} className="hover:bg-gray-50 transition-colors">
@@ -725,7 +748,8 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                               {firstName[0] || "N"}{lastName[0] || "A"}
                             </div>
                             <div>
-                              <p className="font-semibold text-gray-900 text-sm">{firstName} {lastName}</p>
+                              {/* ✅ FIX: Shows First + Father/Husband + Last */}
+                              <p className="font-semibold text-gray-900 text-sm">{fullName}</p>
                               <p className="text-xs text-gray-500">{emp.email}</p>
                             </div>
                           </div>
@@ -747,48 +771,76 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                         <td className="px-6 py-4">
                           <StatusDropdown emp={emp} onStatusChange={handleStatusChange} updatingId={updatingStatusId} />
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1">
-                            <button className="p-2 hover:bg-blue-50 rounded-lg transition-all" title="View"
-                              onClick={() => setViewEmployee(emp)}>
-                              <Eye className="w-4 h-4 text-blue-600" />
-                            </button>
-                            <button className="p-2 hover:bg-green-50 rounded-lg transition-all" title="Edit"
-                              onClick={() => setEditEmployee(emp)}>
-                              <Edit2 className="w-4 h-4 text-green-600" />
-                            </button>
-                            {normalized === "Active" && (
-                              <button className="p-2 hover:bg-red-50 rounded-lg transition-all" title="Deactivate"
-                                onClick={() => handleDelete(emp.id || emp.employee_id)}>
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                              </button>
-                            )}
-                            {/* Invite to Rejoin — only for Inactive employees */}
-                            {isInactive && (
-                              <button
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-all text-xs font-semibold border border-indigo-200 hover:border-indigo-300"
-                                title="Send rejoin invitation email"
-                                onClick={() => setRejoinModal(emp)}
-                              >
-                                <Send className="w-3.5 h-3.5" />
-                                Invite to Rejoin
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+<td className="px-4 py-4">
+  <div className="flex flex-col gap-1.5">
+    {/* Row 1: 3 icon buttons */}
+    <div className="flex items-center gap-1.5">
+      {/* View */}
+      <button
+        onClick={() => setViewEmployee(emp)}
+        title="View Employee"
+        className="group relative flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-400 transition-all duration-150"
+      >
+        <Eye className="w-3.5 h-3.5 text-blue-600" />
+        <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">View</span>
+      </button>
+
+      {/* Edit */}
+      <button
+        onClick={() => setEditEmployee(emp)}
+        title="Edit Employee"
+        className="group relative flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-400 transition-all duration-150"
+      >
+        <Edit2 className="w-3.5 h-3.5 text-emerald-600" />
+        <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">Edit</span>
+      </button>
+
+      {/* ID Card */}
+      <button
+        onClick={() => setIdCardEmployee(emp)}
+        title="Generate ID Card"
+        className="group relative flex items-center justify-center w-8 h-8 rounded-lg bg-violet-50 hover:bg-violet-100 border border-violet-200 hover:border-violet-400 transition-all duration-150"
+      >
+        <CreditCard className="w-3.5 h-3.5 text-violet-600" />
+        <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">ID Card</span>
+      </button>
+    </div>
+
+    {/* Row 2: Invite to Rejoin — snug fit under 3 buttons */}
+    {isInactive && (
+      <button
+        onClick={() => setRejoinModal(emp)}
+        title="Invite to Rejoin"
+        className="flex items-center justify-center gap-1 h-6 px-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-150 active:scale-[0.97]"
+        style={{ width: "calc(3 * 2rem + 2 * 0.375rem)" }}
+      >
+        <Send className="w-2.5 h-2.5 flex-shrink-0" />
+        <span className="text-[10px] font-semibold whitespace-nowrap">Invite to Rejoin</span>
+      </button>
+    )}
+  </div>
+</td>            
+</tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
 
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 flex-wrap gap-2">
               <span>Showing {filteredEmployees.length} of {employees.length} employees</span>
-              <span className="flex items-center gap-1.5">
-                <Send className="w-3 h-3 text-indigo-500" />
-                <span className="text-indigo-600 font-medium">"Invite to Rejoin"</span>
-                appears for Inactive employees — sends a pre-filled registration link by email
+              <span className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <CreditCard className="w-3 h-3 text-indigo-500" />
+                  <span className="text-indigo-600 font-medium">ID Card</span>
+                  — generate &amp; print for any employee
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="flex items-center gap-1.5">
+                  <Send className="w-3 h-3 text-indigo-500" />
+                  <span className="text-indigo-600 font-medium">"Invite to Rejoin"</span>
+                  — for Inactive employees
+                </span>
               </span>
             </div>
           </>

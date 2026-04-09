@@ -10,6 +10,7 @@
 //   ✅ Approve calls POST /api/registrations/:id/approve
 //      → keeps new data, assigns new Employee ID
 //   ✅ Cleanup cron trigger on mount (hits /cleanup-expired-rejoin-invites)
+//   ✅ FARM-ToCli Certificate added to DOC_DEFS (shown for Telecom employees)
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -18,7 +19,7 @@ import {
   Building2, Calendar, Banknote, User, AlertTriangle, Clock, History,
   FileText, CreditCard, Shield, UserCircle, Building, FileCheck, Award,
   ZoomIn, ExternalLink, Download, ChevronLeft, ChevronRight,
-  X as XIcon, Trash2,
+  X as XIcon, Trash2, Radio,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -52,6 +53,8 @@ const getFileType = (path, mime) => {
   if (m.includes("image") || /\.(jpg|jpeg|png|gif|webp|bmp)$/.test(p)) return "image";
   return "other";
 };
+const isTelecomDept = (dept) =>
+  (dept || "").toLowerCase() === "telecom";
 
 const InfoField = ({ label, value }) =>
   value ? (
@@ -60,6 +63,28 @@ const InfoField = ({ label, value }) =>
       <p className="text-sm text-gray-800 font-medium">{value}</p>
     </div>
   ) : null;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DOCUMENT DEFINITIONS
+// All documents; FARM-ToCli is flagged as telecomOnly so it only renders
+// in the modal/card when the employee's department is Telecom.
+// ══════════════════════════════════════════════════════════════════════════════
+const ALL_DOC_DEFS = [
+  { type: "idPhoto",            label: "Employee Photo",        icon: <UserCircle className="w-4 h-4" />, telecomOnly: false },
+  { type: "aadharCard",         label: "Aadhaar Card",          icon: <CreditCard className="w-4 h-4" />, telecomOnly: false },
+  { type: "panCard",            label: "PAN Card",              icon: <FileCheck  className="w-4 h-4" />, telecomOnly: false },
+  { type: "resume",             label: "Resume",                icon: <FileText   className="w-4 h-4" />, telecomOnly: false },
+  { type: "bankPassbook",       label: "Bank Passbook",         icon: <Building   className="w-4 h-4" />, telecomOnly: false },
+  { type: "medicalCertificate", label: "Medical Certificate",   icon: <Shield     className="w-4 h-4" />, telecomOnly: false },
+  { type: "academicRecords",    label: "Academic Records",      icon: <Award      className="w-4 h-4" />, telecomOnly: false },
+  { type: "payslip",            label: "Pay Slip",              icon: <FileText   className="w-4 h-4" />, telecomOnly: false },
+  { type: "otherCertificates",  label: "Other Certificates",    icon: <FileText   className="w-4 h-4" />, telecomOnly: false },
+  { type: "farmToCli",          label: "FARM-ToCli Certificate",icon: <Radio      className="w-4 h-4" />, telecomOnly: true  },
+];
+
+// Returns the applicable doc defs based on department
+const getDocDefs = (department) =>
+  ALL_DOC_DEFS.filter((d) => !d.telecomOnly || isTelecomDept(department));
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONFIRM DIALOG
@@ -181,19 +206,10 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
 const FullDetailModal = ({ sub, onClose }) => {
   const [lightbox, setLightbox] = useState(null);
 
-  const DOC_DEFS = [
-    { type: "idPhoto",            label: "Employee Photo",      icon: <UserCircle className="w-4 h-4" /> },
-    { type: "aadharCard",         label: "Aadhaar Card",        icon: <CreditCard className="w-4 h-4" /> },
-    { type: "panCard",            label: "PAN Card",            icon: <FileCheck className="w-4 h-4" /> },
-    { type: "resume",             label: "Resume",              icon: <FileText className="w-4 h-4" /> },
-    { type: "bankPassbook",       label: "Bank Passbook",       icon: <Building className="w-4 h-4" /> },
-    { type: "medicalCertificate", label: "Medical Certificate", icon: <Shield className="w-4 h-4" /> },
-    { type: "academicRecords",    label: "Academic Records",    icon: <Award className="w-4 h-4" /> },
-    { type: "payslip",            label: "Pay Slip",            icon: <FileText className="w-4 h-4" /> },
-    { type: "otherCertificates",  label: "Other Certificates",  icon: <FileText className="w-4 h-4" /> },
-  ];
+  // Build doc defs based on this employee's department
+  const docDefs = getDocDefs(sub.department);
 
-  const uploadedDocs = DOC_DEFS.map(def => {
+  const uploadedDocs = docDefs.map(def => {
     const found = Array.isArray(sub.documents)
       ? sub.documents.find(d => d.type === def.type || d.document_type === def.type)
       : null;
@@ -226,6 +242,7 @@ const FullDetailModal = ({ sub, onClose }) => {
   );
 
   const name = `${sub.first_name || ""} ${sub.last_name || ""}`.trim();
+  const isTelecom = isTelecomDept(sub.department);
 
   return (
     <>
@@ -252,6 +269,12 @@ const FullDetailModal = ({ sub, onClose }) => {
                     style={{ background: "rgba(251,191,36,0.25)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.4)" }}>
                     RETURNING EMPLOYEE
                   </span>
+                  {isTelecom && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ background: "rgba(99,102,241,0.25)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.4)" }}>
+                      TELECOM
+                    </span>
+                  )}
                 </div>
                 <p className="text-indigo-200 text-sm">
                   {sub.position || sub.designation || "Position not specified"} &bull; {sub.department || "Department not specified"}
@@ -327,20 +350,31 @@ const FullDetailModal = ({ sub, onClose }) => {
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="5" title="Employment Details" icon={<Banknote className="w-4 h-4" />} />
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Department"       value={sub.department} />
-                    <Field label="Designation"      value={sub.position || sub.designation} />
-                    <Field label="Employment Type"  value={sub.employment_type} />
-                    <Field label="Joining Date"     value={fmt(sub.joining_date)} />
+                    <Field label="Department"        value={sub.department} />
+                    <Field label="Designation"       value={sub.position || sub.designation} />
+                    <Field label="Employment Type"   value={sub.employment_type} />
+                    <Field label="Joining Date"      value={fmt(sub.joining_date)} />
                     <Field label="Reporting Manager" value={sub.reporting_manager} />
-                    <Field label="Bank Name"        value={sub.bank_name} />
-                    <Field label="Account Number"   value={sub.account_number} />
-                    <Field label="IFSC Code"        value={sub.ifsc_code} />
-                    <Field label="Account Holder"   value={sub.account_holder_name} />
+                    <Field label="Bank Name"         value={sub.bank_name} />
+                    <Field label="Account Number"    value={sub.account_number} />
+                    <Field label="IFSC Code"         value={sub.ifsc_code} />
+                    <Field label="Account Holder"    value={sub.account_holder_name} />
                   </div>
                 </div>
 
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="6" title="Uploaded Documents" icon={<Shield className="w-4 h-4" />} />
+
+                  {/* Telecom badge inside documents section */}
+                  {isTelecom && (
+                    <div className="flex items-center gap-2 mb-3 p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg">
+                      <Radio className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                      <p className="text-xs text-indigo-700 font-medium">
+                        FARM-ToCli Certificate is required for this Telecom employee.
+                      </p>
+                    </div>
+                  )}
+
                   {availableDocs.length === 0 ? (
                     <p className="text-sm text-gray-400 italic text-center py-4">No documents uploaded</p>
                   ) : (
@@ -348,10 +382,15 @@ const FullDetailModal = ({ sub, onClose }) => {
                       {uploadedDocs.map((doc) => {
                         const url = fullUrl(doc.path);
                         const ft  = getFileType(doc.path, doc.mime_type);
+                        const isFarmToCli = doc.type === "farmToCli";
                         return (
                           <div key={doc.type}
                             className={`rounded-xl border overflow-hidden transition-all ${
-                              url ? "border-indigo-200 bg-white hover:border-indigo-400 hover:shadow-md cursor-pointer" : "border-gray-200 bg-gray-50"
+                              url
+                                ? "border-indigo-200 bg-white hover:border-indigo-400 hover:shadow-md cursor-pointer"
+                                : isFarmToCli && isTelecom
+                                ? "border-red-300 bg-red-50"   // highlight missing mandatory telecom doc
+                                : "border-gray-200 bg-gray-50"
                             }`}
                             onClick={() => url && openLightbox(doc.type)}>
                             <div className="relative h-24 bg-gray-100 flex items-center justify-center overflow-hidden">
@@ -370,7 +409,9 @@ const FullDetailModal = ({ sub, onClose }) => {
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-center w-full h-full bg-gray-100">
-                                  <div className="w-9 h-9 rounded-xl bg-gray-200 text-gray-400 flex items-center justify-center">{doc.icon}</div>
+                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                    isFarmToCli && isTelecom ? "bg-red-100 text-red-400" : "bg-gray-200 text-gray-400"
+                                  }`}>{doc.icon}</div>
                                 </div>
                               )}
                               {url && (
@@ -383,11 +424,23 @@ const FullDetailModal = ({ sub, onClose }) => {
                               <div className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                                 url ? "bg-green-500 text-white" : "bg-gray-300 text-gray-600"
                               }`}>{url ? "✓" : "—"}</div>
+                              {/* Telecom-only badge on FARM-ToCli card */}
+                              {isFarmToCli && (
+                                <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-600 text-white">
+                                  Telecom
+                                </div>
+                              )}
                             </div>
                             <div className="px-3 py-2 border-t border-gray-100">
                               <p className="text-xs font-semibold text-gray-800 truncate">{doc.label}</p>
-                              <p className={`text-[10px] mt-0.5 ${url ? "text-green-600" : "text-gray-400"}`}>
-                                {url ? "Click to view" : "Not uploaded"}
+                              <p className={`text-[10px] mt-0.5 ${
+                                url
+                                  ? "text-green-600"
+                                  : isFarmToCli && isTelecom
+                                  ? "text-red-500 font-semibold"
+                                  : "text-gray-400"
+                              }`}>
+                                {url ? "Click to view" : isFarmToCli && isTelecom ? "⚠ Required — not uploaded" : "Not uploaded"}
                               </p>
                             </div>
                           </div>
@@ -480,6 +533,7 @@ const SubmissionCard = ({ sub, onApprove, onReject, onDelete, isProcessing, isDe
         day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
       })
     : "—";
+  const isTelecom = isTelecomDept(sub.department);
 
   return (
     <>
@@ -512,6 +566,11 @@ const SubmissionCard = ({ sub, onApprove, onReject, onDelete, isProcessing, isDe
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
                 <History className="w-2.5 h-2.5" /> Pending Rejoin
               </span>
+              {isTelecom && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full border border-violet-200">
+                  <Radio className="w-2.5 h-2.5" /> Telecom — FARM-ToCli Required
+                </span>
+              )}
               <span className="text-[10px] text-gray-400 flex items-center gap-1">
                 <Clock className="w-2.5 h-2.5" /> Requested: {submittedAt}
               </span>
@@ -523,7 +582,7 @@ const SubmissionCard = ({ sub, onApprove, onReject, onDelete, isProcessing, isDe
             </div>
           </div>
 
-          {/* ✅ Action buttons — Delete is now functional */}
+          {/* Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
             <button
               onClick={() => setShowDetails(true)}
@@ -535,7 +594,6 @@ const SubmissionCard = ({ sub, onApprove, onReject, onDelete, isProcessing, isDe
               className="flex items-center gap-1 px-2.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-xs font-medium text-gray-500">
               {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
-            {/* ✅ WORKING DELETE BUTTON */}
             <button
               onClick={() => onDelete(sub)}
               disabled={isProcessing || isDeleting}
@@ -645,21 +703,20 @@ const SubmissionCard = ({ sub, onApprove, onReject, onDelete, isProcessing, isDe
 const PendingRejoinApprovals = () => {
   const navigate = useNavigate();
 
-  const [submissions,  setSubmissions]  = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState("");
-  const [processingId, setProcessingId] = useState(null);
-  const [deletingId,   setDeletingId]   = useState(null);
-  const [rejectModal,  setRejectModal]  = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // ✅ confirm dialog state
-  const [toast,        setToast]        = useState(null);
+  const [submissions,   setSubmissions]   = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState("");
+  const [processingId,  setProcessingId]  = useState(null);
+  const [deletingId,    setDeletingId]    = useState(null);
+  const [rejectModal,   setRejectModal]   = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [toast,         setToast]         = useState(null);
 
   const showToast = (message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4500);
   };
 
-  // ── Fetch from dedicated endpoint ─────────────────────────────────────────
   const fetchSubmissions = useCallback(async () => {
     try {
       setLoading(true);
@@ -678,15 +735,11 @@ const PendingRejoinApprovals = () => {
     }
   }, []);
 
-  // ── Trigger cleanup of expired invites on mount (silent) ─────────────────
   useEffect(() => {
     fetchSubmissions();
-    // Fire-and-forget cleanup
-    fetch(`${BASE_URL}/employees/cleanup-expired-rejoin-invites`)
-      .catch(() => {}); // silent — don't block UI
+    fetch(`${BASE_URL}/employees/cleanup-expired-rejoin-invites`).catch(() => {});
   }, [fetchSubmissions]);
 
-  // ── Approve ───────────────────────────────────────────────────────────────
   const handleApprove = async (sub) => {
     setProcessingId(sub.id);
     try {
@@ -706,7 +759,6 @@ const PendingRejoinApprovals = () => {
     }
   };
 
-  // ── Decline (reject-rejoin → restores snapshot) ───────────────────────────
   const handleRejectConfirm = async (reason) => {
     if (!rejectModal) return;
     const sub = rejectModal;
@@ -732,16 +784,12 @@ const PendingRejoinApprovals = () => {
     }
   };
 
-  // ── Delete (cancel request + restore snapshot) ────────────────────────────
-  const handleDeleteRequest = (sub) => {
-    setDeleteConfirm(sub);
-  };
+  const handleDeleteRequest  = (sub) => setDeleteConfirm(sub);
 
   const handleDeleteConfirm = async () => {
     const sub = deleteConfirm;
     setDeleteConfirm(null);
     if (!sub) return;
-
     setDeletingId(sub.id);
     try {
       const res  = await fetch(`${BASE_URL}/employees/${sub.id}/pending-rejoin`, {
@@ -762,9 +810,6 @@ const PendingRejoinApprovals = () => {
     }
   };
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="p-8 min-h-screen bg-gray-50">
 
@@ -782,7 +827,6 @@ const PendingRejoinApprovals = () => {
         </div>
       )}
 
-      {/* Reject modal */}
       {rejectModal && (
         <RejectModal
           submission={rejectModal}
@@ -792,7 +836,6 @@ const PendingRejoinApprovals = () => {
         />
       )}
 
-      {/* ✅ Delete confirm dialog */}
       {deleteConfirm && (
         <ConfirmDialog
           title="Cancel Rejoin Request?"
@@ -837,9 +880,9 @@ const PendingRejoinApprovals = () => {
       {submissions.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           {[
-            { label: "Total Pending Rejoin", value: submissions.length,                                                              color: "#5b21b6" },
-            { label: "Latest Request",       value: fmtDateTime(submissions[0]?.rejoin_requested_at || submissions[0]?.updated_at), color: "#d97706" },
-            { label: "Departments Involved", value: [...new Set(submissions.map(s => s.department).filter(Boolean))].length || "—", color: "#0891b2" },
+            { label: "Total Pending Rejoin",  value: submissions.length,                                                              color: "#5b21b6" },
+            { label: "Latest Request",        value: fmtDateTime(submissions[0]?.rejoin_requested_at || submissions[0]?.updated_at), color: "#d97706" },
+            { label: "Departments Involved",  value: [...new Set(submissions.map(s => s.department).filter(Boolean))].length || "—", color: "#0891b2" },
           ].map((stat, i) => (
             <div key={i} className="bg-white rounded-xl border border-gray-200 px-5 py-4 shadow-sm">
               <p className="text-xs font-medium text-gray-500 mb-1">{stat.label}</p>
@@ -858,18 +901,18 @@ const PendingRejoinApprovals = () => {
             <strong>Approve</strong> → new submitted data is saved, a new Employee ID is assigned, old ID archived. &nbsp;|&nbsp;
             <strong>Decline</strong> → original pre-submission data is restored, employee returns to Inactive. &nbsp;|&nbsp;
             <strong>Delete</strong> → same as Decline but without sending an email to the employee.
+            &nbsp;|&nbsp;
+            <strong className="text-violet-700">Telecom employees</strong> → FARM-ToCli Certificate is mandatory; verify it is uploaded before approving.
           </p>
         </div>
       </div>
 
-      {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-24">
           <Loader className="w-10 h-10 text-indigo-600 animate-spin" />
         </div>
       )}
 
-      {/* Error */}
       {!loading && error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
@@ -878,7 +921,6 @@ const PendingRejoinApprovals = () => {
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && !error && submissions.length === 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-16 text-center">
           <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"
@@ -895,7 +937,6 @@ const PendingRejoinApprovals = () => {
         </div>
       )}
 
-      {/* Submission cards */}
       {!loading && !error && submissions.length > 0 && (
         <div className="space-y-4">
           {submissions.map((sub) => (

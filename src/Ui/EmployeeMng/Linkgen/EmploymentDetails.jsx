@@ -36,11 +36,7 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
   const departments = [
     'IT',
     'Telecom',
-    'Engineering',
-    'Finance',
-    'Sales',
-    'Marketing',
-    'Other',
+    'Corporate Office',
   ];
 
   const circles = [

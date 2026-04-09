@@ -1,15 +1,22 @@
-import React, { useState } from "react";
-import { X, ChevronLeft, ChevronRight, Check, AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, ChevronLeft, ChevronRight, Check, AlertCircle, Loader2 } from "lucide-react";
 import PersonalInformation from "./AddEmp/PersonalInfo";
 import EmploymentDetails from "./AddEmp/employeeDetails";
 import SalaryDetails from "./AddEmp/SalaryInfo";
 import DocumentUpload from "./AddEmp/IDProof";
+import employeeService from "../../services/employeeService"; // adjust path if needed
 
+// ─────────────────────────────────────────────────────────────────────────────
+// KEY CHANGE: generateEmployeeId prop is no longer used for the initial value.
+// Instead we fetch the real next ID from the DB when the wizard opens.
+// The prop is kept for backward compatibility but ignored.
+// ─────────────────────────────────────────────────────────────────────────────
 const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingId, setIsLoadingId] = useState(true); // ← new: loading state for ID fetch
 
   const [formData, setFormData] = useState({
     // ── Personal ──
@@ -72,7 +79,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     ref3ContactNo: "",
     ref3Email: "",
     // ── Employment ──
-    employeeId: generateEmployeeId(),
+    employeeId: "Loading...", // placeholder until DB responds
     joiningDate: "",
     department: "",
     designation: "",
@@ -98,13 +105,46 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     academicRecords: null,
     payslip: null,
     otherCertificates: null,
+    farmToCli: null,
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ FETCH REAL NEXT EMPLOYEE ID FROM DATABASE ON MOUNT
+  // This replaces the old generateEmployeeId() prop call which only looked
+  // at client-side state and could produce IDs that already exist in the DB.
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const fetchNextId = async () => {
+      setIsLoadingId(true);
+      try {
+        const nextId = await employeeService.getNextEmployeeId();
+        if (!cancelled) {
+          setFormData((prev) => ({ ...prev, employeeId: nextId }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch next employee ID:", err);
+        // Fallback to the local generator if the API is unreachable
+        if (!cancelled) {
+          const fallback =
+            typeof generateEmployeeId === "function"
+              ? generateEmployeeId()
+              : "EMP001";
+          setFormData((prev) => ({ ...prev, employeeId: fallback }));
+        }
+      } finally {
+        if (!cancelled) setIsLoadingId(false);
+      }
+    };
+    fetchNextId();
+    return () => { cancelled = true; }; // cleanup on unmount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const steps = [
-    { number: 1, title: "Personal Info", component: PersonalInformation },
-    { number: 2, title: "Employee Details", component: EmploymentDetails },
-    { number: 3, title: "Salary & Bank", component: SalaryDetails },
-    { number: 4, title: "Documents", component: DocumentUpload },
+    { number: 1, title: "Personal Info",    component: PersonalInformation },
+    { number: 2, title: "Employee Details", component: EmploymentDetails   },
+    { number: 3, title: "Salary & Bank",    component: SalaryDetails       },
+    { number: 4, title: "Documents",        component: DocumentUpload      },
   ];
 
   const handleInputChange = (e) => {
@@ -124,12 +164,8 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       return;
     }
     const validTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "application/pdf",
+      "image/jpeg", "image/jpg", "image/png",
+      "image/gif", "image/webp", "application/pdf",
     ];
     if (!validTypes.includes(file.type)) {
       setErrors((prev) => ({
@@ -158,7 +194,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     const newErrors = {};
 
     if (step === 1) {
-      // Personal Details
       if (!formData.firstName.trim())
         newErrors.firstName = "First name is required";
       else if (formData.firstName.length < 2)
@@ -178,8 +213,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       if (!formData.maritalStatus)
         newErrors.maritalStatus = "Marital status is required";
       if (!formData.educationalQualification.trim())
-        newErrors.educationalQualification =
-          "Educational qualification is required";
+        newErrors.educationalQualification = "Educational qualification is required";
       if (!formData.bloodGroup)
         newErrors.bloodGroup = "Blood group is required";
 
@@ -189,8 +223,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
           (new Date() - new Date(formData.dob)) / 31557600000,
         );
         if (age < 18) newErrors.dob = "Employee must be at least 18 years old";
-        else if (age > 100)
-          newErrors.dob = "Please enter a valid date of birth";
+        else if (age > 100) newErrors.dob = "Please enter a valid date of birth";
       }
       if (!formData.gender) newErrors.gender = "Gender is required";
       if (!formData.email.trim()) newErrors.email = "Email is required";
@@ -201,9 +234,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         newErrors.phone = "Enter a valid 10-digit Indian phone number";
       if (!formData.panNumber.trim())
         newErrors.panNumber = "PAN number is required";
-      else if (
-        !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase())
-      )
+      else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase()))
         newErrors.panNumber = "Enter a valid PAN (e.g. ABCDE1234F)";
       if (!formData.nameOnPan.trim())
         newErrors.nameOnPan = "Name on PAN is required";
@@ -214,7 +245,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       if (!formData.nameOnAadhar.trim())
         newErrors.nameOnAadhar = "Name on Aadhaar is required";
 
-      // Family Details
       if (!formData.familyMemberName.trim())
         newErrors.familyMemberName = "Family member name is required";
       if (!formData.familyContactNo.trim())
@@ -224,7 +254,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       if (!formData.familyWorkingStatus)
         newErrors.familyWorkingStatus = "Working status is required";
 
-      // Emergency Contact
       if (!formData.emergencyContactName.trim())
         newErrors.emergencyContactName = "Contact name is required";
       if (!formData.emergencyContactNo.trim())
@@ -236,7 +265,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       if (!formData.emergencyContactRelation)
         newErrors.emergencyContactRelation = "Relation is required";
 
-      // Address
       if (!formData.permanentAddress.trim())
         newErrors.permanentAddress = "Permanent address is required";
       if (!formData.permanentPhone.trim())
@@ -254,7 +282,8 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     if (step === 2) {
       if (!formData.joiningDate)
         newErrors.joiningDate = "Joining date is required";
-      if (!formData.department) newErrors.department = "Department is required";
+      if (!formData.department)
+        newErrors.department = "Department is required";
       if (!formData.designation.trim())
         newErrors.designation = "Designation is required";
       if (!formData.employmentType)
@@ -275,9 +304,26 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     }
 
     if (step === 4) {
-      if (!documents.photo) newErrors.photo = "Employee photo is required";
+      const isTelecom =
+        (formData.department || "").toLowerCase().trim() === "telecom";
+
+      if (!documents.photo)
+        newErrors.photo = "Employee photo is required";
       if (!documents.aadharCard)
-        newErrors.aadharCard = "Aadhar card is required";
+        newErrors.aadharCard = "Aadhaar card is required";
+      if (!documents.resume)
+        newErrors.resume = "Resume is required";
+      if (!documents.bankPassbook)
+        newErrors.bankPassbook = "Bank passbook / cancelled cheque is required";
+
+      if (isTelecom) {
+        if (!documents.medicalCertificate)
+          newErrors.medicalCertificate =
+            "Medical certificate is required for Telecom employees";
+        if (!documents.farmToCli)
+          newErrors.farmToCli =
+            "FARM-ToCli Certificate is required for Telecom employees";
+      }
     }
 
     setErrors(newErrors);
@@ -289,9 +335,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       setCurrentStep((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      const firstError = document.querySelector(
-        ".border-red-500, .border-red-300",
-      );
+      const firstError = document.querySelector(".border-red-500, .border-red-300");
       if (firstError)
         firstError.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -328,8 +372,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       setIsSubmitting(false);
     }
   };
-
-  const CurrentStepComponent = steps[currentStep - 1].component;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1100] p-4">
@@ -379,14 +421,18 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                     )}
                   </div>
                   <span
-                    className={`mt-2 text-xs font-medium ${currentStep >= step.number ? "text-gray-900" : "text-gray-400"}`}
+                    className={`mt-2 text-xs font-medium ${
+                      currentStep >= step.number ? "text-gray-900" : "text-gray-400"
+                    }`}
                   >
                     {step.title}
                   </span>
                 </div>
                 {index < steps.length - 1 && (
                   <div
-                    className={`flex-1 h-1 mx-2 rounded-full transition-all ${currentStep > step.number ? "bg-green-500" : "bg-gray-200"}`}
+                    className={`flex-1 h-1 mx-2 rounded-full transition-all ${
+                      currentStep > step.number ? "bg-green-500" : "bg-gray-200"
+                    }`}
                   />
                 )}
               </React.Fragment>
@@ -403,21 +449,55 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
             className="flex-1 overflow-y-auto px-8 py-6"
             style={{ scrollbarWidth: "thin" }}
           >
+            {/* ── Loading overlay while fetching employee ID ── */}
+            {isLoadingId && (
+              <div className="mb-4 flex items-center gap-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Fetching next available Employee ID from database…
+              </div>
+            )}
+
             {errors.submit && (
               <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
                 <p className="text-sm text-red-800">{errors.submit}</p>
               </div>
             )}
-            <CurrentStepComponent
-              formData={formData}
-              handleInputChange={handleInputChange}
-              documents={documents}
-              handleFileUpload={handleFileUpload}
-              handleFileRemove={handleFileRemove}
-              errors={errors}
-              touched={touched}
-            />
+
+            {currentStep === 1 && (
+              <PersonalInformation
+                formData={formData}
+                handleInputChange={handleInputChange}
+                errors={errors}
+                touched={touched}
+              />
+            )}
+            {currentStep === 2 && (
+              <EmploymentDetails
+                formData={formData}
+                handleInputChange={handleInputChange}
+                errors={errors}
+                touched={touched}
+              />
+            )}
+            {currentStep === 3 && (
+              <SalaryDetails
+                formData={formData}
+                handleInputChange={handleInputChange}
+                errors={errors}
+                touched={touched}
+              />
+            )}
+            {currentStep === 4 && (
+              <DocumentUpload
+                documents={documents}
+                handleFileUpload={handleFileUpload}
+                handleFileRemove={handleFileRemove}
+                errors={errors}
+                department={formData.department}
+              />
+            )}
+
             <div className="h-8" />
           </div>
 
@@ -444,7 +524,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingId}
                 className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all shadow-md disabled:opacity-50"
               >
                 Next <ChevronRight className="w-4 h-4" />
@@ -452,7 +532,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
             ) : (
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingId}
                 className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all shadow-md disabled:opacity-50"
               >
                 {isSubmitting ? (

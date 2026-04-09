@@ -2,21 +2,9 @@
 
 export const departments = [
   'IT',
-  'Human Resources',
-  'Finance',
-  'Marketing',
-  'Sales',
-  'Operations',
-  'Customer Support',
-  'Legal',
-  'Administration',
-  'Research & Development',
-  'Quality Assurance',
-  'Procurement',
-  'Logistics',
-  'Design',
-  'Product Management',
-  'Telecom',           // ← Added
+  'Telecom',  
+ 'Corporate Office',
+           // ← Added
 ];
 
 export const employmentTypes = [
