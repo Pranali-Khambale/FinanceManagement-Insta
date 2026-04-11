@@ -1,78 +1,39 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE: src/Ui/AdvancePayment/AddRequestModal.jsx
+// Step 1 → select type | Step 2 → fill details | Step 3 → professional success
+// On Step 3: header and close (×) button are completely hidden.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
-  X,
-  Upload,
-  Plus,
-  ArrowRight,
-  CheckCircle2,
-  FileImage,
-  Receipt,
-  Building2,
-  User,
-  Globe,
-  Printer,
-  Download,
-  Calendar,
-  Hash,
-  IndianRupee,
-  Stamp,
-  AlertCircle,
+  X, Upload, Plus, ArrowRight, CheckCircle2,
+  FileImage, Users, Globe, AlertCircle, Loader2, Building2,
 } from "lucide-react";
 import { PAYMENT_TYPES } from "../../data/content";
+import advancePaymentService from "../../services/advancePaymentService";
 
-// ─── Payment Type Card ────────────────────────────────────────────────────────
+// ── Payment type card ─────────────────────────────────────────────────────────
 function PaymentTypeCard({ pt, selected, onClick }) {
   const icons = {
     org_to_emp: (
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect x="2" y="7" width="9" height="14" rx="1.5" />
-        <path d="M16 3h5v18h-5" />
-        <line x1="6" y1="11" x2="7" y2="11" />
-        <line x1="6" y1="15" x2="7" y2="15" />
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="7" width="9" height="14" rx="1.5"/>
+        <path d="M16 3h5v18h-5"/>
+        <line x1="6" y1="11" x2="7" y2="11"/>
+        <line x1="6" y1="15" x2="7" y2="15"/>
       </svg>
     ),
     emp_to_emp: (
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
     ),
     other: (
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
       </svg>
     ),
   };
@@ -81,89 +42,193 @@ function PaymentTypeCard({ pt, selected, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="relative w-full text-left rounded-xl border-2 p-3.5 transition-all duration-150 focus:outline-none"
       style={{
-        borderColor: selected ? pt.color : "#e2e8f0",
-        background: selected ? pt.lightBg : "#fff",
-        boxShadow: selected ? `0 0 0 3px ${pt.color}22` : "none",
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 7,
+        padding: "14px 8px 11px",
+        borderRadius: 12,
+        cursor: "pointer",
+        border: "none",
+        outline: `${selected ? "2px" : "1.5px"} solid ${selected ? pt.color : "#e2e8f0"}`,
+        background: selected ? pt.color + "10" : "#fafafa",
+        boxShadow: selected ? `0 0 0 3px ${pt.color}20` : "none",
+        transition: "all 0.15s",
       }}
     >
       {selected && (
         <span
-          className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full flex items-center justify-center"
-          style={{ background: pt.color }}
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 14,
+            height: 14,
+            borderRadius: "50%",
+            background: pt.color,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
-            <path
-              d="M2 6l3 3 5-5"
-              stroke="#fff"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+          <svg width="7" height="7" viewBox="0 0 10 10" fill="none">
+            <path d="M2 5l2 2 4-4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </span>
       )}
-      <span
-        className="flex items-center justify-center w-9 h-9 rounded-xl mb-2"
+      <div
         style={{
-          background: selected ? pt.color : "#f1f5f9",
+          width: 34,
+          height: 34,
+          borderRadius: 9,
+          background: selected ? pt.color : "#eef1f6",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           color: selected ? "#fff" : pt.color,
         }}
       >
         {icons[pt.key]}
-      </span>
-      <p
-        className="text-xs font-bold leading-tight"
-        style={{ color: selected ? pt.textColor : "#334155" }}
+      </div>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: selected ? pt.color : "#64748b",
+          textAlign: "center",
+          lineHeight: 1.3,
+        }}
       >
         {pt.label}
-      </p>
-      <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+      </span>
+      <span style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", lineHeight: 1.3 }}>
         {pt.desc}
-      </p>
+      </span>
     </button>
   );
 }
 
-// ─── Field ────────────────────────────────────────────────────────────────────
+// ── Field / input primitives ──────────────────────────────────────────────────
 function Field({ label, required, error, children }) {
   return (
     <div>
-      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
-        {label} {required && <span className="text-red-400">*</span>}
+      <label
+        style={{
+          display: "block",
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#64748b",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          marginBottom: 6,
+        }}
+      >
+        {label} {required && <span style={{ color: "#ef4444" }}>*</span>}
       </label>
       {children}
       {error && (
-        <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-          <AlertCircle size={10} />
-          {error}
+        <p style={{ display: "flex", alignItems: "center", gap: 4, margin: "4px 0 0", fontSize: 11, color: "#ef4444" }}>
+          <AlertCircle size={10} /> {error}
         </p>
       )}
     </div>
   );
 }
 
-function Input({ error, ...props }) {
+function Inp({ error, ...props }) {
   return (
     <input
       {...props}
-      className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white transition-all placeholder-slate-300
-        ${error ? "border-red-300 bg-red-50/40 focus:ring-red-200" : "border-slate-200 hover:border-slate-300"}`}
+      style={{
+        width: "100%",
+        padding: "9px 12px",
+        borderRadius: 9,
+        fontSize: 13,
+        border: `1.5px solid ${error ? "#fca5a5" : "#e2e8f0"}`,
+        background: error ? "#fff5f5" : "#fff",
+        color: "#1e293b",
+        outline: "none",
+        fontFamily: "inherit",
+        boxSizing: "border-box",
+      }}
     />
   );
 }
 
-// ─── Receipt Row ──────────────────────────────────────────────────────────────
-function ReceiptRow({ label, value, bold, accent, color }) {
+// ── Step indicator ────────────────────────────────────────────────────────────
+function StepIndicator({ step, pt }) {
+  const labels = ["Select type", "Fill details", "Done"];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "14px 22px 0" }}>
+      {labels.map((l, i) => {
+        const num = i + 1;
+        const done = step > num;
+        const active = step === num;
+        return (
+          <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: done ? "#dcfce7" : active ? pt.color : "#f1f5f9",
+                  color: done ? "#16a34a" : active ? "#fff" : "#94a3b8",
+                  transition: "all 0.2s",
+                  flexShrink: 0,
+                }}
+              >
+                {done ? (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                ) : num}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: active ? "#334155" : done ? "#64748b" : "#94a3b8" }}>
+                {l}
+              </span>
+            </div>
+            {i < labels.length - 1 && <div style={{ width: 20, height: 1, background: "#e2e8f0" }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Summary row ───────────────────────────────────────────────────────────────
+function SRow({ label, value, mono }) {
   return (
     <div
-      className={`flex items-center justify-between py-2.5 border-b border-dashed border-slate-100 last:border-0 ${bold ? "font-bold" : ""}`}
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "6px 0",
+        borderBottom: "0.5px dashed #e8edf2",
+      }}
     >
-      <span className="text-xs text-slate-500">{label}</span>
+      <span style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>{label}</span>
       <span
-        className={`text-sm ${bold ? "font-bold" : "font-medium"} ${accent ? "font-bold text-lg" : ""}`}
-        style={{ color: accent ? color : "#1e293b" }}
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: "#1e293b",
+          fontFamily: mono ? "monospace" : "inherit",
+          textAlign: "right",
+          marginLeft: 12,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          maxWidth: "60%",
+        }}
       >
         {value}
       </span>
@@ -171,544 +236,289 @@ function ReceiptRow({ label, value, bold, accent, color }) {
   );
 }
 
-// ─── Payment Receipt Modal ────────────────────────────────────────────────────
-function PaymentReceipt({ data, pt, onClose }) {
-  const receiptRef = useRef(null);
-
-  const handlePrint = () => {
-    const content = receiptRef.current?.innerHTML;
-    const win = window.open("", "_blank");
-    win.document.write(`
-      <html><head><title>Payment Receipt – ${data.id}</title>
-      <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 24px; color: #1e293b; }
-        h1 { font-size: 20px; margin-bottom: 4px; }
-        .sub { color: #64748b; font-size: 13px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 8px 0; font-size: 13px; border-bottom: 1px dashed #e2e8f0; }
-        td:last-child { text-align: right; font-weight: 600; }
-        .amount { font-size: 22px; font-weight: 800; color: ${pt.color}; }
-        .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; background: #d1fae5; color: #065f46; }
-        @media print { body { padding: 0; } }
-      </style></head><body>
-      <h1>Payment Advance Receipt</h1>
-      <div class="sub">Receipt ID: ${data.id} &nbsp;|&nbsp; Date: ${data.date}</div>
-      ${content}
-      <p style="margin-top:24px;font-size:11px;color:#94a3b8;">This is a system-generated receipt. No signature required.</p>
-      </body></html>
-    `);
-    win.document.close();
-    win.print();
-  };
-
-  const typeLabel = {
-    org_to_emp: "Organisation → Employee",
-    emp_to_emp: "Employee → Employee",
-    other: "External / Vendor",
-  };
-
+// ── Section divider ───────────────────────────────────────────────────────────
+function SectionDivider({ label, color }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Receipt Header */}
-        <div
-          className="relative px-6 py-5 shrink-0 overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, ${pt.color}, ${pt.color}bb)`,
-          }}
-        >
-          {/* decorative circles */}
-          <div
-            className="absolute -top-6 -right-6 w-28 h-28 rounded-full opacity-10"
-            style={{ background: "#fff" }}
-          />
-          <div
-            className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full opacity-10"
-            style={{ background: "#fff" }}
-          />
-
-          <div className="relative flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Receipt size={18} className="text-white/80" />
-                <p className="text-white/80 text-xs font-semibold tracking-wider uppercase">
-                  Payment Receipt
-                </p>
-              </div>
-              <h3 className="text-white font-extrabold text-xl tracking-tight">
-                ₹ {Number(data.amount).toLocaleString("en-IN")}
-              </h3>
-              <p className="text-white/70 text-xs mt-0.5">
-                {data.id} · {data.date}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handlePrint}
-                className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                title="Print"
-              >
-                <Printer size={14} className="text-white" />
-              </button>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-              >
-                <X size={14} className="text-white" />
-              </button>
-            </div>
-          </div>
-
-          {/* Status badge */}
-          <div className="relative mt-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              Pending Approval
-            </span>
-          </div>
-        </div>
-
-        {/* Receipt Body */}
-        <div
-          ref={receiptRef}
-          className="overflow-y-auto flex-1 px-6 py-4 space-y-4"
-        >
-          {/* Requester */}
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-              Requester Details
-            </p>
-            <div className="bg-slate-50 rounded-xl p-3 space-y-0">
-              <ReceiptRow
-                label="Employee ID"
-                value={data.empId}
-                color={pt.color}
-              />
-              <ReceiptRow label="Name" value={data.name} color={pt.color} />
-              <ReceiptRow
-                label="Department"
-                value={data.dept}
-                color={pt.color}
-              />
-            </div>
-          </div>
-
-          {/* Recipient – emp_to_emp */}
-          {data.paymentType === "emp_to_emp" && (
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                Recipient Employee
-              </p>
-              <div className="bg-slate-50 rounded-xl p-3 space-y-0">
-                <ReceiptRow
-                  label="Employee ID"
-                  value={data.toEmpId}
-                  color={pt.color}
-                />
-                <ReceiptRow
-                  label="Name"
-                  value={data.toEmpName}
-                  color={pt.color}
-                />
-                {data.toEmpDept && (
-                  <ReceiptRow
-                    label="Department"
-                    value={data.toEmpDept}
-                    color={pt.color}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Recipient – other */}
-          {data.paymentType === "other" && (
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                Vendor / External
-              </p>
-              <div className="bg-slate-50 rounded-xl p-3 space-y-0">
-                <ReceiptRow
-                  label="Vendor Name"
-                  value={data.vendorName}
-                  color={pt.color}
-                />
-                {data.vendorRef && (
-                  <ReceiptRow
-                    label="Invoice / Ref"
-                    value={data.vendorRef}
-                    color={pt.color}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Payment Info */}
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-              Payment Information
-            </p>
-            <div className="bg-slate-50 rounded-xl p-3 space-y-0">
-              <ReceiptRow label="Request ID" value={data.id} color={pt.color} />
-              <ReceiptRow label="Date" value={data.date} color={pt.color} />
-              <ReceiptRow
-                label="Payment Type"
-                value={typeLabel[data.paymentType]}
-                color={pt.color}
-              />
-              <ReceiptRow
-                label="Amount"
-                value={`₹ ${Number(data.amount).toLocaleString("en-IN")}`}
-                bold
-                accent
-                color={pt.color}
-              />
-            </div>
-          </div>
-
-          {/* Reason */}
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-              Reason
-            </p>
-            <div className="bg-slate-50 rounded-xl p-3">
-              <p className="text-sm text-slate-700 leading-relaxed">
-                {data.reason}
-              </p>
-            </div>
-          </div>
-
-          {/* Attached screenshot */}
-          {data.screenshot && (
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                Payment Screenshot
-              </p>
-              <div
-                className="flex items-center gap-3 border rounded-xl p-3"
-                style={{ borderColor: pt.color + "44", background: pt.lightBg }}
-              >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: pt.color }}
-                >
-                  <FileImage size={16} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-semibold truncate"
-                    style={{ color: pt.textColor }}
-                  >
-                    {data.screenshot}
-                  </p>
-                  <p className="text-[10px] text-slate-400">
-                    Payment screenshot attached
-                  </p>
-                </div>
-                <CheckCircle2
-                  size={16}
-                  style={{ color: pt.color }}
-                  className="shrink-0"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Proof document (optional) */}
-          {data.proof && (
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                Supporting Document
-              </p>
-              <div className="flex items-center gap-3 border border-slate-200 rounded-xl p-3 bg-slate-50">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-slate-200">
-                  <Upload size={15} className="text-slate-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate text-slate-700">
-                    {data.proof}
-                  </p>
-                  <p className="text-[10px] text-slate-400">
-                    Supporting proof document
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Footer note */}
-          <p className="text-[10px] text-slate-400 text-center pt-1 pb-2">
-            This is a system-generated receipt. No signature required.
-          </p>
-        </div>
-
-        {/* Receipt Footer */}
-        <div className="flex gap-3 px-6 pb-5 pt-3 border-t border-slate-100 shrink-0">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
-          >
-            Close
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all shadow-sm"
-            style={{
-              background: `linear-gradient(135deg, ${pt.color}, ${pt.color}cc)`,
-            }}
-          >
-            <Printer size={15} />
-            Print Receipt
-          </button>
-        </div>
-      </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0" }}>
+      <div style={{ flex: 1, height: 1, background: "#f1f5f9" }} />
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "4px 10px",
+          borderRadius: 99,
+          fontSize: 11,
+          fontWeight: 700,
+          background: color + "12",
+          color,
+        }}
+      >
+        <ArrowRight size={10} /> {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: "#f1f5f9" }} />
     </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-export default function AddRequestModal({ onClose, onAdd }) {
-  const [step, setStep] = useState(1); // 1=type, 2=form, 3=receipt
+// ── Type icon helper ──────────────────────────────────────────────────────────
+function TypeIcon({ ptKey, color, size = 15 }) {
+  if (ptKey === "emp_to_emp") return <Users size={size} color={color} />;
+  if (ptKey === "other") return <Globe size={size} color={color} />;
+  return <Building2 size={size} color={color} />;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
+  const [step, setStep] = useState(1);
   const [ptKey, setPtKey] = useState("org_to_emp");
   const [form, setForm] = useState({
-    empId: "",
-    name: "",
-    dept: "",
-    amount: "",
-    reason: "",
-    toEmpId: "",
-    toEmpName: "",
-    toEmpDept: "",
-    vendorName: "",
-    vendorRef: "",
+    empId: "", name: "", dept: "", amount: "", reason: "",
+    toEmpId: "", toEmpName: "", toEmpDept: "",
+    vendorName: "", vendorRef: "",
   });
-  const [proofName, setProof] = useState("");
-  const [screenshotName, setScreenshot] = useState(""); // MANDATORY
+  const [screenshotName, setScreenshotName] = useState("");
   const [screenshotFile, setScreenshotFile] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState(null);
+  const [proofName, setProofName] = useState("");
+  const [proofFile, setProofFile] = useState(null);
   const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState(null); // holds submitted data for receipt
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
 
   const pt = PAYMENT_TYPES[ptKey];
-
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
     setErrors((er) => ({ ...er, [k]: "" }));
   };
 
-  const handleProof = (e) => {
-    const f = e.target.files[0];
-    if (f) setProof(f.name);
-  };
-
   const handleScreenshot = (e) => {
     const f = e.target.files[0];
-    if (f) {
-      setScreenshot(f.name);
-      setScreenshotFile(f);
-      setErrors((er) => ({ ...er, screenshot: "" }));
-      // Preview
-      const reader = new FileReader();
-      reader.onload = (ev) => setScreenshotPreview(ev.target.result);
-      reader.readAsDataURL(f);
-    }
+    if (!f) return;
+    setScreenshotName(f.name);
+    setScreenshotFile(f);
+    setErrors((er) => ({ ...er, screenshot: "" }));
+    const r = new FileReader();
+    r.onload = (ev) => setScreenshotPreview(ev.target.result);
+    r.readAsDataURL(f);
+  };
+
+  const handleProof = (e) => {
+    const f = e.target.files[0];
+    if (f) { setProofName(f.name); setProofFile(f); }
   };
 
   const validate = () => {
     const er = {};
-    if (!form.empId) er.empId = "Required";
-    if (!form.name) er.name = "Required";
-    if (!form.dept) er.dept = "Required";
-    if (!form.amount || isNaN(form.amount)) er.amount = "Enter a valid amount";
-    if (!form.reason) er.reason = "Required";
-    if (!screenshotName) er.screenshot = "Payment screenshot is mandatory";
+    if (!form.empId)                              er.empId      = "Required";
+    if (!form.name)                               er.name       = "Required";
+    if (!form.dept)                               er.dept       = "Required";
+    if (!form.amount || Number(form.amount) <= 0) er.amount     = "Enter a valid amount";
+    if (!form.reason)                             er.reason     = "Required";
+    if (!screenshotFile)                          er.screenshot = "Payment screenshot is mandatory";
     if (ptKey === "emp_to_emp") {
       if (!form.toEmpId) er.toEmpId = "Required";
       if (!form.toEmpName) er.toEmpName = "Required";
     }
-    if (ptKey === "other") {
-      if (!form.vendorName) er.vendorName = "Required";
-    }
+    if (ptKey === "other" && !form.vendorName) er.vendorName = "Required";
     return er;
   };
 
-  const submit = () => {
+  const submit = async () => {
     const er = validate();
-    if (Object.keys(er).length) {
-      setErrors(er);
-      return;
+    if (Object.keys(er).length) { setErrors(er); return; }
+    setSubmitting(true);
+    try {
+      const payload = {
+        payment_type_key: ptKey,
+        emp_id:      form.empId,
+        emp_name:    form.name,
+        emp_dept:    form.dept,
+        amount:      form.amount,
+        reason:      form.reason,
+        to_emp_id:   form.toEmpId   || undefined,
+        to_emp_name: form.toEmpName || undefined,
+        to_emp_dept: form.toEmpDept || undefined,
+        vendor_name: form.vendorName || undefined,
+        vendor_ref:  form.vendorRef  || undefined,
+      };
+      const res = await advancePaymentService.createRequest(
+        payload, screenshotFile, proofFile || null, null, linkToken
+      );
+      const receipt = {
+        empId:       form.empId,
+        name:        form.name,
+        dept:        form.dept,
+        amount:      form.amount,
+        reason:      form.reason,
+        screenshot:  screenshotName,
+        proof:       proofName || null,
+        id:          res.data?.requestCode || res.data?.request_code || ("ADV-" + Date.now()),
+        date:        new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        status:      "pending",
+        paymentType: ptKey,
+        toEmpId:     form.toEmpId   || null,
+        toEmpName:   form.toEmpName || null,
+        toEmpDept:   form.toEmpDept || null,
+        vendorName:  form.vendorName || null,
+        vendorRef:   form.vendorRef  || null,
+      };
+      if (onAdd) await onAdd(receipt);
+      setResult(receipt);
+      setStep(3);
+    } catch (err) {
+      alert(err.message || "Failed to submit request. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    const base = {
-      empId: form.empId,
-      name: form.name,
-      dept: form.dept,
-      amount: form.amount,
-      reason: form.reason,
-      proof: proofName || null,
-      screenshot: screenshotName,
-      id: "ADV-" + Date.now(),
-      date: new Date().toISOString().slice(0, 10),
-      status: "pending",
-      paymentType: ptKey,
-    };
-
-    if (ptKey === "emp_to_emp") {
-      base.toEmpId = form.toEmpId;
-      base.toEmpName = form.toEmpName;
-      base.toEmpDept = form.toEmpDept;
-    }
-    if (ptKey === "other") {
-      base.vendorName = form.vendorName;
-      base.vendorRef = form.vendorRef;
-    }
-
-    onAdd(base);
-    setSubmitted(base);
-    setStep(3); // show receipt
   };
 
-  const steps = ["Select Type", "Fill Details", "Receipt"];
-
-  // ── If receipt step ──────────────────────────────────────────────────────────
-  if (step === 3 && submitted) {
-    return <PaymentReceipt data={submitted} pt={pt} onClose={onClose} />;
-  }
-
-  // ── Main Modal ───────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* ── Header with blur background ── */}
-        <div className="relative px-6 py-5 flex items-start justify-between shrink-0 overflow-hidden">
-          {/* Blurred gradient backdrop */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(135deg, ${pt.color}ee, ${pt.color}99)`,
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-            }}
-          />
-          {/* Decorative blurred blobs */}
-          <div
-            className="absolute -top-8 -right-8 w-32 h-32 rounded-full blur-2xl opacity-30"
-            style={{ background: "#fff" }}
-          />
-          <div
-            className="absolute -bottom-6 left-6 w-20 h-20 rounded-full blur-xl opacity-20"
-            style={{ background: "#fff" }}
-          />
+    <>
+      <style>{`
+        @keyframes spin   { to { transform: rotate(360deg); } }
+        @keyframes popIn  { 0%{transform:scale(.7);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+      `}</style>
 
-          {/* Content (above blur) */}
-          <div className="relative flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white/30">
-              <Plus size={18} className="text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-bold text-base">
-                New Advance Request
-              </h3>
-              <p className="text-white/70 text-xs mt-0.5">
-                {step === 1
-                  ? "Select payment type to continue"
-                  : `Type: ${pt.label}`}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="relative text-white/70 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/15 backdrop-blur-sm"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* ── Step indicator ── */}
-        <div className="px-6 pt-4 pb-0 shrink-0 flex items-center gap-2">
-          {steps.map((label, i) => {
-            const idx = i + 1;
-            const done = step > idx;
-            const active = step === idx;
-            return (
-              <div key={label} className="flex items-center gap-2">
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 50,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(10,15,30,0.45)",
+          backdropFilter: "blur(5px)",
+          padding: 16,
+        }}
+      >
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 18,
+            width: "100%",
+            maxWidth: 520,
+            boxShadow: "0 24px 64px rgba(10,15,30,0.18)",
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: "90vh",
+            overflow: "hidden",
+          }}
+        >
+          {/* ── Header — only shown on steps 1 & 2 ── */}
+          {step < 3 && (
+            <div
+              style={{
+                padding: "18px 22px",
+                borderBottom: "1px solid #f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
                   style={{
-                    background: done ? pt.color : active ? pt.color : "#e2e8f0",
-                    color: done || active ? "#fff" : "#94a3b8",
+                    width: 36,
+                    height: 36,
+                    borderRadius: 9,
+                    background: pt.color + "15",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {done ? <CheckCircle2 size={13} /> : idx}
+                  <Plus size={16} color={pt.color} />
                 </div>
-                <span
-                  className={`text-xs font-semibold ${active ? "text-slate-700" : done ? "text-slate-500" : "text-slate-350"}`}
-                >
-                  {label}
-                </span>
-                {i < steps.length - 1 && (
-                  <div className="w-5 h-px bg-slate-200 mx-1" />
-                )}
+                <div>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>
+                    New advance request
+                  </p>
+                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>
+                    {step === 1 ? "Select a payment type to continue" : `Type: ${pt.label}`}
+                  </p>
+                </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* ── Body (scrollable) ── */}
-        <div className="overflow-y-auto flex-1 p-6 space-y-5">
-          {/* STEP 1 */}
-          {step === 1 && (
-            <div className="grid grid-cols-3 gap-3">
-              {Object.values(PAYMENT_TYPES).map((p) => (
-                <PaymentTypeCard
-                  key={p.key}
-                  pt={p}
-                  selected={ptKey === p.key}
-                  onClick={() => setPtKey(p.key)}
-                />
-              ))}
+              {/* Close button — only steps 1 & 2 */}
+              <button
+                onClick={onClose}
+                style={{
+                  width: 28,
+                  height: 28,
+                  border: "1.5px solid #e2e8f0",
+                  borderRadius: 7,
+                  background: "#fafafa",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#94a3b8",
+                }}
+              >
+                <X size={14} />
+              </button>
             </div>
           )}
 
-          {/* STEP 2 */}
-          {step === 2 && (
-            <div className="space-y-4">
-              {/* Requester fields */}
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                  {ptKey === "emp_to_emp"
-                    ? "Requesting Employee"
-                    : "Employee Details"}
+          {/* ── Step indicator — steps 1 & 2 only ── */}
+          {step < 3 && <StepIndicator step={step} pt={pt} />}
+
+          {/* ── Body ── */}
+          <div
+            style={{
+              overflowY: "auto",
+              flex: 1,
+              padding: step === 3 ? "32px 26px 12px" : "18px 22px",
+            }}
+          >
+            {/* ── Step 1: Select payment type ── */}
+            {step === 1 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                {Object.values(PAYMENT_TYPES).map((p) => (
+                  <PaymentTypeCard
+                    key={p.key}
+                    pt={p}
+                    selected={ptKey === p.key}
+                    onClick={() => setPtKey(p.key)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ── Step 2: Fill details ── */}
+            {step === 2 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <p
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: "#94a3b8",
+                    textTransform: "uppercase",
+                    letterSpacing: ".07em",
+                  }}
+                >
+                  {ptKey === "emp_to_emp" ? "Requesting employee" : "Employee details"}
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <Field label="Employee ID" required error={errors.empId}>
-                    <Input
-                      placeholder="EMP001"
-                      value={form.empId}
-                      onChange={set("empId")}
-                      error={errors.empId}
-                    />
+                    <Inp placeholder="Insta-260401" value={form.empId} onChange={set("empId")} error={errors.empId} />
                   </Field>
-                  <Field label="Full Name" required error={errors.name}>
-                    <Input
-                      placeholder="John Doe"
-                      value={form.name}
-                      onChange={set("name")}
-                      error={errors.name}
-                    />
+                  <Field label="Full name" required error={errors.name}>
+                    <Inp placeholder="John Doe" value={form.name} onChange={set("name")} error={errors.name} />
                   </Field>
                   <Field label="Department" required error={errors.dept}>
-                    <Input
-                      placeholder="Engineering"
-                      value={form.dept}
-                      onChange={set("dept")}
-                      error={errors.dept}
-                    />
+                    <Inp placeholder="Engineering" value={form.dept} onChange={set("dept")} error={errors.dept} />
                   </Field>
                   <Field label="Amount (₹)" required error={errors.amount}>
-                    <Input
+                    <Inp
                       type="number"
+                      min="1"
                       placeholder="10000"
                       value={form.amount}
                       onChange={set("amount")}
@@ -716,335 +526,557 @@ export default function AddRequestModal({ onClose, onAdd }) {
                     />
                   </Field>
                 </div>
-              </div>
 
-              {/* Recipient: emp_to_emp */}
-              {ptKey === "emp_to_emp" && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-px flex-1 bg-slate-100" />
-                    <div
-                      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ background: pt.lightBg, color: pt.textColor }}
-                    >
-                      <ArrowRight size={11} /> Recipient Employee
+                {/* Recipient employee fields */}
+                {ptKey === "emp_to_emp" && (
+                  <>
+                    <SectionDivider label="Recipient employee" color={pt.color} />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Field label="Recipient emp ID" required error={errors.toEmpId}>
+                        <Inp placeholder="Insta-260401" value={form.toEmpId} onChange={set("toEmpId")} error={errors.toEmpId} />
+                      </Field>
+                      <Field label="Recipient name" required error={errors.toEmpName}>
+                        <Inp placeholder="Jane Smith" value={form.toEmpName} onChange={set("toEmpName")} error={errors.toEmpName} />
+                      </Field>
+                      <Field label="Recipient department" error={errors.toEmpDept}>
+                        <Inp placeholder="Design" value={form.toEmpDept} onChange={set("toEmpDept")} error={errors.toEmpDept} />
+                      </Field>
                     </div>
-                    <div className="h-px flex-1 bg-slate-100" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field
-                      label="Recipient Employee ID"
-                      required
-                      error={errors.toEmpId}
-                    >
-                      <Input
-                        placeholder="EMP002"
-                        value={form.toEmpId}
-                        onChange={set("toEmpId")}
-                        error={errors.toEmpId}
-                      />
-                    </Field>
-                    <Field
-                      label="Recipient Name"
-                      required
-                      error={errors.toEmpName}
-                    >
-                      <Input
-                        placeholder="Jane Smith"
-                        value={form.toEmpName}
-                        onChange={set("toEmpName")}
-                        error={errors.toEmpName}
-                      />
-                    </Field>
-                    <Field
-                      label="Recipient Department"
-                      error={errors.toEmpDept}
-                    >
-                      <Input
-                        placeholder="Design"
-                        value={form.toEmpDept}
-                        onChange={set("toEmpDept")}
-                        error={errors.toEmpDept}
-                      />
-                    </Field>
-                  </div>
-                </div>
-              )}
-
-              {/* Recipient: other */}
-              {ptKey === "other" && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-px flex-1 bg-slate-100" />
-                    <div
-                      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ background: pt.lightBg, color: pt.textColor }}
-                    >
-                      <ArrowRight size={11} /> Vendor / External Details
-                    </div>
-                    <div className="h-px flex-1 bg-slate-100" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field
-                      label="Vendor / Party Name"
-                      required
-                      error={errors.vendorName}
-                    >
-                      <Input
-                        placeholder="LexPro LLP"
-                        value={form.vendorName}
-                        onChange={set("vendorName")}
-                        error={errors.vendorName}
-                      />
-                    </Field>
-                    <Field
-                      label="Reference / Invoice No."
-                      error={errors.vendorRef}
-                    >
-                      <Input
-                        placeholder="INV-001"
-                        value={form.vendorRef}
-                        onChange={set("vendorRef")}
-                        error={errors.vendorRef}
-                      />
-                    </Field>
-                  </div>
-                </div>
-              )}
-
-              {/* Reason */}
-              <Field label="Reason" required error={errors.reason}>
-                <textarea
-                  rows={3}
-                  placeholder="Describe the reason for this advance request..."
-                  value={form.reason}
-                  onChange={set("reason")}
-                  className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white resize-none transition-all placeholder-slate-300
-                    ${errors.reason ? "border-red-300 bg-red-50/40" : "border-slate-200 hover:border-slate-300"}`}
-                />
-                {errors.reason && (
-                  <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-                    <AlertCircle size={10} />
-                    {errors.reason}
-                  </p>
+                  </>
                 )}
-              </Field>
 
-              {/* ── PAYMENT SCREENSHOT (MANDATORY) ── */}
-              <div>
-                <p className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1">
-                  Payment Screenshot
-                  <span className="text-red-400">*</span>
-                  <span
-                    className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
-                    style={{ background: pt.lightBg, color: pt.textColor }}
+                {/* Vendor fields */}
+                {ptKey === "other" && (
+                  <>
+                    <SectionDivider label="Vendor / external" color={pt.color} />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Field label="Vendor name" required error={errors.vendorName}>
+                        <Inp placeholder="LexPro LLP" value={form.vendorName} onChange={set("vendorName")} error={errors.vendorName} />
+                      </Field>
+                      <Field label="Reference / invoice" error={errors.vendorRef}>
+                        <Inp placeholder="INV-001" value={form.vendorRef} onChange={set("vendorRef")} error={errors.vendorRef} />
+                      </Field>
+                    </div>
+                  </>
+                )}
+
+                {/* Reason */}
+                <Field label="Reason" required error={errors.reason}>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe the reason for this advance request…"
+                    value={form.reason}
+                    onChange={set("reason")}
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: 9,
+                      fontSize: 13,
+                      border: `1.5px solid ${errors.reason ? "#fca5a5" : "#e2e8f0"}`,
+                      background: errors.reason ? "#fff5f5" : "#fff",
+                      color: "#1e293b",
+                      fontFamily: "inherit",
+                      resize: "none",
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  {errors.reason && (
+                    <p style={{ display: "flex", alignItems: "center", gap: 4, margin: "4px 0 0", fontSize: 11, color: "#ef4444" }}>
+                      <AlertCircle size={10} /> {errors.reason}
+                    </p>
+                  )}
+                </Field>
+
+                {/* Payment screenshot — mandatory */}
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 6px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      letterSpacing: ".06em",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                   >
-                    Mandatory
-                  </span>
-                </p>
-
-                <label
-                  className={`relative flex items-center gap-4 border-2 rounded-xl p-4 cursor-pointer transition-all group
-                    ${errors.screenshot ? "border-red-300 bg-red-50/30" : screenshotName ? "" : "hover:border-indigo-300 hover:bg-indigo-50/20"}`}
-                  style={{
-                    borderColor: errors.screenshot
-                      ? undefined
-                      : screenshotName
-                        ? pt.color
-                        : undefined,
-                    borderStyle: screenshotName ? "solid" : "dashed",
-                    background: screenshotName ? pt.lightBg : undefined,
-                  }}
-                >
-                  {/* Preview thumbnail */}
-                  {screenshotPreview ? (
-                    <div
-                      className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 shadow-sm"
-                      style={{ borderColor: pt.color + "44" }}
+                    Payment screenshot <span style={{ color: "#ef4444" }}>*</span>
+                    <span
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: 99,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        background: pt.color + "15",
+                        color: pt.color,
+                        textTransform: "uppercase",
+                        letterSpacing: ".06em",
+                      }}
                     >
+                      Mandatory
+                    </span>
+                  </p>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      border: `1.5px ${screenshotName ? "solid" : "dashed"} ${
+                        errors.screenshot ? "#fca5a5" : screenshotName ? pt.color : "#cbd5e1"
+                      }`,
+                      background: screenshotName ? pt.color + "08" : "#fafafa",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {screenshotPreview ? (
                       <img
                         src={screenshotPreview}
-                        alt="screenshot preview"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border-2 border-dashed transition-all"
-                      style={{
-                        borderColor: errors.screenshot ? "#fca5a5" : "#cbd5e1",
-                        background: errors.screenshot ? "#fff0f0" : "#f8fafc",
-                      }}
-                    >
-                      <FileImage
-                        size={20}
+                        alt=""
                         style={{
-                          color: errors.screenshot ? "#ef4444" : "#94a3b8",
+                          width: 48,
+                          height: 48,
+                          borderRadius: 8,
+                          objectFit: "cover",
+                          flexShrink: 0,
+                          border: `1.5px solid ${pt.color}44`,
                         }}
                       />
-                    </div>
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    {screenshotName ? (
-                      <>
-                        <p
-                          className="text-sm font-bold truncate"
-                          style={{ color: pt.textColor }}
-                        >
-                          {screenshotName}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                          <CheckCircle2 size={11} style={{ color: pt.color }} />
-                          Payment screenshot attached
-                        </p>
-                      </>
                     ) : (
-                      <>
-                        <p className="text-sm font-semibold text-slate-600">
-                          Upload Payment Screenshot
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          PNG, JPG, JPEG · Required to submit
-                        </p>
-                      </>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 9,
+                          background: errors.screenshot ? "#fef2f2" : "#f1f5f9",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <FileImage size={18} color={errors.screenshot ? "#ef4444" : "#94a3b8"} />
+                      </div>
                     )}
-                  </div>
-
-                  {screenshotName ? (
-                    <CheckCircle2
-                      size={20}
-                      style={{ color: pt.color }}
-                      className="shrink-0"
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {screenshotName ? (
+                        <>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: pt.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {screenshotName}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>Screenshot attached</p>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#64748b" }}>Upload payment screenshot</p>
+                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>PNG, JPG, JPEG · Required to submit</p>
+                        </>
+                      )}
+                    </div>
+                    {screenshotName ? (
+                      <CheckCircle2 size={18} color={pt.color} style={{ flexShrink: 0 }} />
+                    ) : (
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "6px 10px",
+                          borderRadius: 7,
+                          border: `1px solid ${pt.color}44`,
+                          color: pt.color,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: "#fff",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Upload size={11} /> Browse
+                      </span>
+                    )}
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp"
+                      onChange={handleScreenshot}
+                      style={{ display: "none" }}
                     />
-                  ) : (
+                  </label>
+                  {errors.screenshot && (
+                    <p style={{ display: "flex", alignItems: "center", gap: 4, margin: "4px 0 0", fontSize: 11, color: "#ef4444" }}>
+                      <AlertCircle size={10} /> {errors.screenshot}
+                    </p>
+                  )}
+                </div>
+
+                {/* Supporting document — optional */}
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 6px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      letterSpacing: ".06em",
+                    }}
+                  >
+                    Supporting document{" "}
+                    <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#cbd5e1" }}>
+                      optional
+                    </span>
+                  </p>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "11px 14px",
+                      borderRadius: 10,
+                      border: `1.5px dashed ${proofName ? pt.color : "#e2e8f0"}`,
+                      background: "#fafafa",
+                      cursor: "pointer",
+                      transition: "border 0.15s",
+                    }}
+                  >
                     <div
-                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all group-hover:shadow-sm"
                       style={{
-                        borderColor: pt.color + "44",
-                        color: pt.color,
-                        background: "#fff",
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        background: proofName ? pt.color + "15" : "#f1f5f9",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
                       }}
                     >
-                      <Upload size={12} />
-                      Browse
+                      <Upload size={15} color={proofName ? pt.color : "#94a3b8"} />
                     </div>
-                  )}
-
-                  <input
-                    type="file"
-                    accept=".png,.jpg,.jpeg"
-                    onChange={handleScreenshot}
-                    className="hidden"
-                  />
-                </label>
-
-                {errors.screenshot && (
-                  <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-                    <AlertCircle size={10} />
-                    {errors.screenshot}
-                  </p>
-                )}
-              </div>
-
-              {/* ── Supporting Document (Optional) ── */}
-              <div>
-                <p className="text-xs font-semibold text-slate-600 mb-1.5">
-                  Supporting Document
-                  <span className="ml-2 text-[10px] text-slate-400 font-normal">
-                    Optional
-                  </span>
-                </p>
-                <label
-                  className="flex items-center gap-4 border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all hover:border-indigo-300 hover:bg-indigo-50/20"
-                  style={{ borderColor: proofName ? pt.color : "#e2e8f0" }}
-                >
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: proofName ? pt.lightBg : "#f8fafc" }}
-                  >
-                    <Upload
-                      size={17}
-                      style={{ color: proofName ? pt.color : "#94a3b8" }}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {proofName ? (
+                        <>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: pt.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {proofName}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>Document attached</p>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#64748b" }}>Upload proof document</p>
+                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>PNG, JPG, PDF · Optional</p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.pdf"
+                      onChange={handleProof}
+                      style={{ display: "none" }}
                     />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {proofName ? (
-                      <>
-                        <p
-                          className="text-sm font-semibold truncate"
-                          style={{ color: pt.color }}
-                        >
-                          {proofName}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          Proof document attached
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm font-semibold text-slate-500">
-                          Upload Proof Document
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          PNG, JPG, PDF · Optional
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    type="file"
-                    accept=".png,.jpg,.jpeg,.pdf"
-                    onChange={handleProof}
-                    className="hidden"
-                  />
-                </label>
+                  </label>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* ── Footer ── */}
-        <div className="flex gap-3 px-6 pb-6 pt-3 border-t border-slate-100 shrink-0">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
-          >
-            Cancel
-          </button>
-
-          {step === 1 ? (
-            <button
-              onClick={() => setStep(2)}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all shadow-sm"
-              style={{
-                background: `linear-gradient(135deg, ${pt.color}, ${pt.color}cc)`,
-              }}
-            >
-              Continue <ArrowRight size={15} />
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => setStep(1)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
-              >
-                Back
-              </button>
-              <button
-                onClick={submit}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all shadow-sm"
+            {/* ── Step 3: Success — no header, no × button ── */}
+            {step === 3 && result && (
+              <div
                 style={{
-                  background: `linear-gradient(135deg, ${pt.color}, ${pt.color}cc)`,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  animation: "fadeIn .25s ease",
                 }}
               >
-                <CheckCircle2 size={15} />
-                Submit &amp; View Receipt
+                {/* Animated check circle */}
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    background: "#EAF3DE",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 18,
+                    animation: "popIn .45s cubic-bezier(.34,1.56,.64,1) both",
+                  }}
+                >
+                  <CheckCircle2 size={30} color="#3B6D11" />
+                </div>
+
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: "#1e293b",
+                    textAlign: "center",
+                    animation: "fadeUp .3s ease .15s both",
+                  }}
+                >
+                  Request submitted!
+                </p>
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 13,
+                    color: "#64748b",
+                    lineHeight: 1.7,
+                    textAlign: "center",
+                    animation: "fadeUp .3s ease .22s both",
+                  }}
+                >
+                  Your advance payment request has been received.<br />
+                  HR will review it and get back to you shortly.
+                </p>
+
+                {/* Pending status pill */}
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    marginTop: 14,
+                    padding: "5px 12px",
+                    borderRadius: 99,
+                    background: "#EAF3DE",
+                    border: "0.5px solid #97C459",
+                    animation: "fadeUp .3s ease .28s both",
+                  }}
+                >
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#639922" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#3B6D11" }}>Pending HR approval</span>
+                </div>
+
+                {/* Summary card */}
+                <div
+                  style={{
+                    width: "100%",
+                    marginTop: 20,
+                    borderRadius: 14,
+                    border: "0.5px solid #e2e8f0",
+                    overflow: "hidden",
+                    animation: "fadeUp .3s ease .35s both",
+                  }}
+                >
+                  {/* Card top strip */}
+                  <div
+                    style={{
+                      background: pt.color + "0d",
+                      borderBottom: `0.5px solid ${pt.color}20`,
+                      padding: "11px 16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          background: pt.color + "1a",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <TypeIcon ptKey={ptKey} color={pt.color} size={15} />
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#334155" }}>Advance payment</p>
+                        <p style={{ margin: 0, fontSize: 10, color: "#94a3b8" }}>{pt.label}</p>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "4px 11px",
+                        borderRadius: 99,
+                        background: "#EAF3DE",
+                        border: "0.5px solid #97C459",
+                      }}
+                    >
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#639922" }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#3B6D11" }}>Pending approval</span>
+                    </div>
+                  </div>
+
+                  {/* Data rows */}
+                  <div style={{ padding: "12px 16px 14px", background: "#f8fafc" }}>
+                    <SRow label="Request ID" value={result.id}   mono />
+                    <SRow label="Employee"   value={`${result.name} · ${result.empId}`} />
+                    <SRow label="Department" value={result.dept} />
+                    <SRow label="Date"       value={result.date} />
+                    {result.toEmpName && (
+                      <SRow
+                        label="Recipient"
+                        value={`${result.toEmpName}${result.toEmpId ? " · " + result.toEmpId : ""}`}
+                      />
+                    )}
+                    {result.vendorName && (
+                      <SRow
+                        label="Vendor"
+                        value={result.vendorRef ? `${result.vendorName} · ${result.vendorRef}` : result.vendorName}
+                      />
+                    )}
+
+                    {/* Amount */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginTop: 11,
+                        paddingTop: 11,
+                        borderTop: `1.5px solid ${pt.color}22`,
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Total amount</span>
+                      <span style={{ fontSize: 20, fontWeight: 700, color: pt.color }}>
+                        ₹ {Number(result.amount).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Screenshot footer */}
+                  {result.screenshot && (
+                    <div
+                      style={{
+                        padding: "9px 16px",
+                        borderTop: "0.5px solid #e8edf2",
+                        background: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <FileImage size={13} color="#94a3b8" />
+                      <span style={{ fontSize: 11, color: "#64748b", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {result.screenshot}
+                      </span>
+                      <span style={{ fontSize: 10, color: "#94a3b8", flexShrink: 0 }}>Screenshot attached</span>
+                    </div>
+                  )}
+                </div>
+
+                
+              </div>
+            )}
+          </div>
+
+          {/* ── Footer ── */}
+          <div
+            style={{
+              padding: "14px 22px 18px",
+              borderTop: step === 3 ? "none" : "1px solid #f1f5f9",
+              background: "#fff",
+              display: "flex",
+              gap: 8,
+              flexShrink: 0,
+            }}
+          >
+            {step === 3 ? (
+              /* Done button */
+              <button
+                onClick={onClose}
+                style={{
+                  flex: 1,
+                  padding: "11px 16px",
+                  borderRadius: 10,
+                  border: `1.5px solid ${pt.color}40`,
+                  background: pt.color + "0e",
+                  color: pt.color,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  animation: "fadeUp .3s ease .6s both",
+                }}
+              >
+                Done
               </button>
-            </>
-          )}
+            ) : (
+              <>
+                <button
+                  onClick={onClose}
+                  disabled={submitting}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 9,
+                    border: "1.5px solid #e2e8f0",
+                    background: "#fff",
+                    color: "#64748b",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+
+                {step === 2 && (
+                  <button
+                    onClick={() => setStep(1)}
+                    disabled={submitting}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 9,
+                      border: "1.5px solid #e2e8f0",
+                      background: "#fff",
+                      color: "#64748b",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ← Back
+                  </button>
+                )}
+
+                <button
+                  onClick={step === 1 ? () => setStep(2) : submit}
+                  disabled={submitting}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "10px 16px",
+                    borderRadius: 9,
+                    border: "none",
+                    background: submitting ? "#cbd5e1" : pt.color,
+                    color: submitting ? "#94a3b8" : "#fff",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    boxShadow: submitting ? "none" : `0 4px 14px ${pt.color}40`,
+                  }}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Submitting…
+                    </>
+                  ) : step === 1 ? (
+                    <>Continue <ArrowRight size={14} /></>
+                  ) : (
+                    <><CheckCircle2 size={14} /> Submit request</>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
