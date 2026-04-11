@@ -317,7 +317,7 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
     if (!form.reason)                             er.reason     = "Required";
     if (!screenshotFile)                          er.screenshot = "Payment screenshot is mandatory";
     if (ptKey === "emp_to_emp") {
-      if (!form.toEmpId)   er.toEmpId   = "Required";
+      if (!form.toEmpId) er.toEmpId = "Required";
       if (!form.toEmpName) er.toEmpName = "Required";
     }
     if (ptKey === "other" && !form.vendorName) er.vendorName = "Required";

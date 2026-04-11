@@ -18,6 +18,7 @@ import ForgotPassword from "./pages/forgotpass";
 import EmployeeRoutes from "./pages/EmployeeMngement";
 import useAutoLogout  from "./Authontication/logauth";
 import AdvancePayment from "./pages/AdvancePayment";
+import PayrollPage from "./pages/PayrollPage";
 
 // ✅ 1. Import AdvanceRequestForm — from Ui folder (NOT pages)
 import AdvanceRequestForm from "./Ui/AdvancePayment/AdvanceRequestLinkForm";
@@ -136,12 +137,25 @@ function App() {
           element={<ProtectedRoute><MainLayout><AdvancePayment /></MainLayout></ProtectedRoute>}
         />
 
-        {/* Employee wildcard — all other /employee/... routes */}
+       
+
+        {/* ✅ Payroll route (MOVE HERE) */}
+        <Route
+          path="/employee/payroll"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PayrollPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        
         <Route
           path="/employee/*"
           element={<ProtectedRoute><MainLayout><EmployeeRoutes /></MainLayout></ProtectedRoute>}
         />
-
         {/* Fallback */}
         <Route path="/"  element={<Navigate to="/login" replace />} />
         <Route path="*"  element={<Navigate to="/login" replace />} />
