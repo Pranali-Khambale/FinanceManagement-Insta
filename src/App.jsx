@@ -16,6 +16,7 @@ import ForgotPassword from "./pages/forgotpass";
 import EmployeeRoutes from "./pages/EmployeeMngement";
 import useAutoLogout from "./Authontication/logauth";
 import AdvancePayment from "./pages/AdvancePayment";
+import PayrollPage from "./pages/PayrollPage";
 
 const RegistrationForm = lazy(
   () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
@@ -157,8 +158,8 @@ function App() {
     <Router>
       <Routes>
         {/* Public routes */}
-        <Route path="/login"                 element={<AdminLogin />} />
-        <Route path="/register"              element={<AdminRegistration />} />
+        <Route path="/login" element={<AdminLogin />} />
+        <Route path="/register" element={<AdminRegistration />} />
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
         {/* Normal registration link */}
@@ -205,7 +206,21 @@ function App() {
           }
         />
 
-        {/* Employee wildcard — catches all other /employee/... routes */}
+       
+
+        {/* ✅ Payroll route (MOVE HERE) */}
+        <Route
+          path="/employee/payroll"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PayrollPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        
         <Route
           path="/employee/*"
           element={
@@ -216,10 +231,9 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         {/* Fallback */}
-        <Route path="/"  element={<Navigate to="/login" replace />} />
-        <Route path="*"  element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
