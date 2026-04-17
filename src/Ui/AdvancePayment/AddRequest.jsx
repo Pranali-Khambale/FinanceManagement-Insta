@@ -2,11 +2,23 @@
 // FILE: src/Ui/AdvancePayment/AddRequestModal.jsx
 // Step 1 → select type | Step 2 → fill details | Step 3 → professional success
 // On Step 3: header and close (×) button are completely hidden.
+// FIX: zIndex raised to 9999 on overlay so header is also blurred correctly.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState } from "react";
 import {
-  X, Upload, Plus, ArrowRight, CheckCircle2,
-  FileImage, Users, Globe, AlertCircle, Loader2, Building2,
+  X,
+  Upload,
+  Plus,
+  ArrowRight,
+  CheckCircle2,
+  FileImage,
+  Users,
+  Globe,
+  AlertCircle,
+  Loader2,
+  Building2,
+  Truck,
+  ShieldCheck,
 } from "lucide-react";
 import { PAYMENT_TYPES } from "../../data/content";
 import advancePaymentService from "../../services/advancePaymentService";
@@ -15,25 +27,69 @@ import advancePaymentService from "../../services/advancePaymentService";
 function PaymentTypeCard({ pt, selected, onClick }) {
   const icons = {
     org_to_emp: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="7" width="9" height="14" rx="1.5"/>
-        <path d="M16 3h5v18h-5"/>
-        <line x1="6" y1="11" x2="7" y2="11"/>
-        <line x1="6" y1="15" x2="7" y2="15"/>
+      <svg
+        width="19"
+        height="19"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="2" y="7" width="9" height="14" rx="1.5" />
+        <path d="M16 3h5v18h-5" />
+        <line x1="6" y1="11" x2="7" y2="11" />
+        <line x1="6" y1="15" x2="7" y2="15" />
       </svg>
     ),
     emp_to_emp: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      <svg
+        width="19"
+        height="19"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    org_to_vendor: (
+      <svg
+        width="19"
+        height="19"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="1" y="3" width="15" height="13" rx="1.5" />
+        <path d="M16 8h4l3 5v3h-7V8z" />
+        <circle cx="5.5" cy="18.5" r="2.5" />
+        <circle cx="18.5" cy="18.5" r="2.5" />
       </svg>
     ),
     other: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      <svg
+        width="19"
+        height="19"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
       </svg>
     ),
   };
@@ -74,7 +130,13 @@ function PaymentTypeCard({ pt, selected, onClick }) {
           }}
         >
           <svg width="7" height="7" viewBox="0 0 10 10" fill="none">
-            <path d="M2 5l2 2 4-4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M2 5l2 2 4-4"
+              stroke="#fff"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </span>
       )}
@@ -103,7 +165,14 @@ function PaymentTypeCard({ pt, selected, onClick }) {
       >
         {pt.label}
       </span>
-      <span style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", lineHeight: 1.3 }}>
+      <span
+        style={{
+          fontSize: 10,
+          color: "#94a3b8",
+          textAlign: "center",
+          lineHeight: 1.3,
+        }}
+      >
         {pt.desc}
       </span>
     </button>
@@ -129,7 +198,16 @@ function Field({ label, required, error, children }) {
       </label>
       {children}
       {error && (
-        <p style={{ display: "flex", alignItems: "center", gap: 4, margin: "4px 0 0", fontSize: 11, color: "#ef4444" }}>
+        <p
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            margin: "4px 0 0",
+            fontSize: 11,
+            color: "#ef4444",
+          }}
+        >
           <AlertCircle size={10} /> {error}
         </p>
       )}
@@ -137,7 +215,7 @@ function Field({ label, required, error, children }) {
   );
 }
 
-function Inp({ error, ...props }) {
+function Inp({ error, extraStyle, ...props }) {
   return (
     <input
       {...props}
@@ -152,6 +230,7 @@ function Inp({ error, ...props }) {
         outline: "none",
         fontFamily: "inherit",
         boxSizing: "border-box",
+        ...extraStyle,
       }}
     />
   );
@@ -161,13 +240,23 @@ function Inp({ error, ...props }) {
 function StepIndicator({ step, pt }) {
   const labels = ["Select type", "Fill details", "Done"];
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "14px 22px 0" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "14px 22px 0",
+      }}
+    >
       {labels.map((l, i) => {
         const num = i + 1;
         const done = step > num;
         const active = step === num;
         return (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div
+            key={l}
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div
                 style={{
@@ -186,16 +275,33 @@ function StepIndicator({ step, pt }) {
                 }}
               >
                 {done ? (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="20 6 9 17 4 12"/>
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
                   </svg>
-                ) : num}
+                ) : (
+                  num
+                )}
               </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: active ? "#334155" : done ? "#64748b" : "#94a3b8" }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: active ? "#334155" : done ? "#64748b" : "#94a3b8",
+                }}
+              >
                 {l}
               </span>
             </div>
-            {i < labels.length - 1 && <div style={{ width: 20, height: 1, background: "#e2e8f0" }} />}
+            {i < labels.length - 1 && (
+              <div style={{ width: 20, height: 1, background: "#e2e8f0" }} />
+            )}
           </div>
         );
       })}
@@ -215,7 +321,9 @@ function SRow({ label, value, mono }) {
         borderBottom: "0.5px dashed #e8edf2",
       }}
     >
-      <span style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>
+        {label}
+      </span>
       <span
         style={{
           fontSize: 12,
@@ -237,9 +345,11 @@ function SRow({ label, value, mono }) {
 }
 
 // ── Section divider ───────────────────────────────────────────────────────────
-function SectionDivider({ label, color }) {
+function SectionDivider({ label, color, icon }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0" }}>
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0" }}
+    >
       <div style={{ flex: 1, height: 1, background: "#f1f5f9" }} />
       <span
         style={{
@@ -254,7 +364,7 @@ function SectionDivider({ label, color }) {
           color,
         }}
       >
-        <ArrowRight size={10} /> {label}
+        {icon ?? <ArrowRight size={10} />} {label}
       </span>
       <div style={{ flex: 1, height: 1, background: "#f1f5f9" }} />
     </div>
@@ -265,7 +375,47 @@ function SectionDivider({ label, color }) {
 function TypeIcon({ ptKey, color, size = 15 }) {
   if (ptKey === "emp_to_emp") return <Users size={size} color={color} />;
   if (ptKey === "other") return <Globe size={size} color={color} />;
+  if (ptKey === "org_to_vendor") return <Truck size={size} color={color} />;
   return <Building2 size={size} color={color} />;
+}
+
+// ── Approved person section (all 4 types) ─────────────────────────────────────
+function ApprovedPersonSection({ form, errors, set }) {
+  return (
+    <>
+      <SectionDivider
+        label="Approved by"
+        color="#7c3aed"
+        icon={<ShieldCheck size={10} />}
+      />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <Field label="Approver name" required error={errors.approverName}>
+          <Inp
+            placeholder="Ramesh Iyer"
+            value={form.approverName}
+            onChange={set("approverName")}
+            error={errors.approverName}
+          />
+        </Field>
+        <Field label="Approver ID" required error={errors.approverId}>
+          <Inp
+            placeholder="Insta-100201"
+            value={form.approverId}
+            onChange={set("approverId")}
+            error={errors.approverId}
+          />
+        </Field>
+        <Field label="Designation" error={errors.approverDesignation}>
+          <Inp
+            placeholder="HR Manager"
+            value={form.approverDesignation}
+            onChange={set("approverDesignation")}
+            error={errors.approverDesignation}
+          />
+        </Field>
+      </div>
+    </>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -273,10 +423,31 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
   const [step, setStep] = useState(1);
   const [ptKey, setPtKey] = useState("org_to_emp");
   const [form, setForm] = useState({
-    empId: "", name: "", dept: "", amount: "", reason: "",
-    toEmpId: "", toEmpName: "", toEmpDept: "",
-    vendorName: "", vendorRef: "",
+    // ── employee-based types (org_to_emp, emp_to_emp, other) ──
+    empId: "",
+    name: "",
+    dept: "",
+    amount: "",
+    reason: "",
+    // ── emp_to_emp recipient ──
+    toEmpId: "",
+    toEmpName: "",
+    toEmpDept: "",
+    // ── other: external vendor ──
+    vendorName: "",
+    vendorRef: "",
+    // ── org_to_vendor: vendor is the primary entity ──
+    toVendorName: "",
+    toVendorGST: "",
+    toVendorRef: "",
+    toVendorAmount: "",
+    toVendorReason: "",
+    // ── approved person (all 4 types) ──
+    approverName: "",
+    approverId: "",
+    approverDesignation: "",
   });
+
   const [screenshotName, setScreenshotName] = useState("");
   const [screenshotFile, setScreenshotFile] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState(null);
@@ -305,64 +476,135 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
 
   const handleProof = (e) => {
     const f = e.target.files[0];
-    if (f) { setProofName(f.name); setProofFile(f); }
+    if (f) {
+      setProofName(f.name);
+      setProofFile(f);
+    }
   };
 
   const validate = () => {
     const er = {};
-    if (!form.empId)                              er.empId      = "Required";
-    if (!form.name)                               er.name       = "Required";
-    if (!form.dept)                               er.dept       = "Required";
-    if (!form.amount || Number(form.amount) <= 0) er.amount     = "Enter a valid amount";
-    if (!form.reason)                             er.reason     = "Required";
-    if (!screenshotFile)                          er.screenshot = "Payment screenshot is mandatory";
+
+    if (ptKey === "org_to_vendor") {
+      if (!form.toVendorName) er.toVendorName = "Required";
+      if (!form.toVendorAmount || Number(form.toVendorAmount) <= 0)
+        er.toVendorAmount = "Enter a valid amount";
+      if (!form.toVendorReason) er.toVendorReason = "Required";
+    } else {
+      if (!form.empId) er.empId = "Required";
+      if (!form.name) er.name = "Required";
+      if (!form.dept) er.dept = "Required";
+      if (!form.amount || Number(form.amount) <= 0)
+        er.amount = "Enter a valid amount";
+      if (!form.reason) er.reason = "Required";
+    }
+
+    if (!screenshotFile) er.screenshot = "Payment screenshot is mandatory";
+
     if (ptKey === "emp_to_emp") {
       if (!form.toEmpId) er.toEmpId = "Required";
       if (!form.toEmpName) er.toEmpName = "Required";
     }
+
     if (ptKey === "other" && !form.vendorName) er.vendorName = "Required";
+
+    if (!form.approverName) er.approverName = "Required";
+    if (!form.approverId) er.approverId = "Required";
+
     return er;
   };
 
   const submit = async () => {
     const er = validate();
-    if (Object.keys(er).length) { setErrors(er); return; }
+    if (Object.keys(er).length) {
+      setErrors(er);
+      return;
+    }
     setSubmitting(true);
     try {
+      const finalAmount =
+        ptKey === "org_to_vendor" ? form.toVendorAmount : form.amount;
+      const finalReason =
+        ptKey === "org_to_vendor" ? form.toVendorReason : form.reason;
+
       const payload = {
         payment_type_key: ptKey,
-        emp_id:      form.empId,
-        emp_name:    form.name,
-        emp_dept:    form.dept,
-        amount:      form.amount,
-        reason:      form.reason,
-        to_emp_id:   form.toEmpId   || undefined,
+        emp_id: form.empId || undefined,
+        emp_name: form.name || undefined,
+        emp_dept: form.dept || undefined,
+        amount: finalAmount,
+        reason: finalReason,
+        to_emp_id: form.toEmpId || undefined,
         to_emp_name: form.toEmpName || undefined,
         to_emp_dept: form.toEmpDept || undefined,
         vendor_name: form.vendorName || undefined,
-        vendor_ref:  form.vendorRef  || undefined,
+        vendor_ref: form.vendorRef || undefined,
+        to_vendor_name: form.toVendorName || undefined,
+        to_vendor_gst: form.toVendorGST || undefined,
+        to_vendor_ref: form.toVendorRef || undefined,
+        approver_name: form.approverName,
+        approver_id: form.approverId,
+        approver_designation: form.approverDesignation || undefined,
       };
+
       const res = await advancePaymentService.createRequest(
-        payload, screenshotFile, proofFile || null, null, linkToken
+        payload,
+        screenshotFile,
+        proofFile || null,
+        null,
+        linkToken,
       );
+
       const receipt = {
-        empId:       form.empId,
-        name:        form.name,
-        dept:        form.dept,
-        amount:      form.amount,
-        reason:      form.reason,
-        screenshot:  screenshotName,
-        proof:       proofName || null,
-        id:          res.data?.requestCode || res.data?.request_code || ("ADV-" + Date.now()),
-        date:        new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-        status:      "pending",
+        id:
+          res.data?.requestCode ||
+          res.data?.request_code ||
+          "ADV-" + Date.now(),
+        request_code: res.data?.requestCode || res.data?.request_code,
+        status: "pending",
+        date: new Date().toISOString().slice(0, 10),
         paymentType: ptKey,
-        toEmpId:     form.toEmpId   || null,
-        toEmpName:   form.toEmpName || null,
-        toEmpDept:   form.toEmpDept || null,
-        vendorName:  form.vendorName || null,
-        vendorRef:   form.vendorRef  || null,
+        payment_type_key: ptKey,
+        empId: form.empId || null,
+        emp_id: form.empId || null,
+        name: form.name || null,
+        emp_name: form.name || null,
+        dept: form.dept || null,
+        emp_dept: form.dept || null,
+        amount: finalAmount,
+        reason: finalReason,
+        toEmpId: form.toEmpId || null,
+        to_emp_id: form.toEmpId || null,
+        toEmpName: form.toEmpName || null,
+        to_emp_name: form.toEmpName || null,
+        toEmpDept: form.toEmpDept || null,
+        to_emp_dept: form.toEmpDept || null,
+        vendorName: form.vendorName || null,
+        vendor_name: form.vendorName || null,
+        vendorRef: form.vendorRef || null,
+        vendor_ref: form.vendorRef || null,
+        toVendorName: form.toVendorName || null,
+        to_vendor_name: form.toVendorName || null,
+        toVendorGST: form.toVendorGST || null,
+        to_vendor_gst: form.toVendorGST || null,
+        toVendorRef: form.toVendorRef || null,
+        to_vendor_ref: form.toVendorRef || null,
+        approverName: form.approverName,
+        approver_name: form.approverName,
+        approverId: form.approverId,
+        approver_id: form.approverId,
+        approverDesignation: form.approverDesignation || null,
+        approver_designation: form.approverDesignation || null,
+        screenshotName: screenshotName || null,
+        screenshotFile: screenshotFile || null,
+        screenshotUrl: null,
+        proofName: proofName || null,
+        proofFile: proofFile || null,
+        proofUrl: null,
+        screenshot: screenshotName || null,
+        proof: proofName || null,
       };
+
       if (onAdd) await onAdd(receipt);
       setResult(receipt);
       setStep(3);
@@ -372,6 +614,266 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
       setSubmitting(false);
     }
   };
+
+  // ── screenshot upload label (shared) ──────────────────────────────────────
+  const screenshotLabel = (
+    <div>
+      <p
+        style={{
+          margin: "0 0 6px",
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#64748b",
+          textTransform: "uppercase",
+          letterSpacing: ".06em",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        Payment screenshot <span style={{ color: "#ef4444" }}>*</span>
+        <span
+          style={{
+            padding: "2px 7px",
+            borderRadius: 99,
+            fontSize: 9,
+            fontWeight: 700,
+            background: pt.color + "15",
+            color: pt.color,
+            textTransform: "uppercase",
+            letterSpacing: ".06em",
+          }}
+        >
+          Mandatory
+        </span>
+      </p>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 14px",
+          borderRadius: 10,
+          border: `1.5px ${screenshotName ? "solid" : "dashed"} ${errors.screenshot ? "#fca5a5" : screenshotName ? pt.color : "#cbd5e1"}`,
+          background: screenshotName ? pt.color + "08" : "#fafafa",
+          cursor: "pointer",
+          transition: "all 0.15s",
+        }}
+      >
+        {screenshotPreview ? (
+          <img
+            src={screenshotPreview}
+            alt=""
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 8,
+              objectFit: "cover",
+              flexShrink: 0,
+              border: `1.5px solid ${pt.color}44`,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 9,
+              background: errors.screenshot ? "#fef2f2" : "#f1f5f9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <FileImage
+              size={18}
+              color={errors.screenshot ? "#ef4444" : "#94a3b8"}
+            />
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {screenshotName ? (
+            <>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: pt.color,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {screenshotName}
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>
+                Screenshot attached · tap to change
+              </p>
+            </>
+          ) : (
+            <>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#64748b",
+                }}
+              >
+                Upload payment screenshot
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>
+                PNG, JPG, JPEG · Required to submit
+              </p>
+            </>
+          )}
+        </div>
+        {screenshotName ? (
+          <CheckCircle2 size={18} color={pt.color} style={{ flexShrink: 0 }} />
+        ) : (
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "6px 10px",
+              borderRadius: 7,
+              border: `1px solid ${pt.color}44`,
+              color: pt.color,
+              fontSize: 12,
+              fontWeight: 600,
+              background: "#fff",
+              flexShrink: 0,
+            }}
+          >
+            <Upload size={11} /> Browse
+          </span>
+        )}
+        <input
+          type="file"
+          accept=".png,.jpg,.jpeg,.webp"
+          onChange={handleScreenshot}
+          style={{ display: "none" }}
+        />
+      </label>
+      {errors.screenshot && (
+        <p
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            margin: "4px 0 0",
+            fontSize: 11,
+            color: "#ef4444",
+          }}
+        >
+          <AlertCircle size={10} /> {errors.screenshot}
+        </p>
+      )}
+    </div>
+  );
+
+  // ── proof upload label (shared) ───────────────────────────────────────────
+  const proofLabel = (
+    <div>
+      <p
+        style={{
+          margin: "0 0 6px",
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#64748b",
+          textTransform: "uppercase",
+          letterSpacing: ".06em",
+        }}
+      >
+        Supporting document{" "}
+        <span
+          style={{
+            fontWeight: 400,
+            textTransform: "none",
+            letterSpacing: 0,
+            color: "#cbd5e1",
+          }}
+        >
+          optional
+        </span>
+      </p>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "11px 14px",
+          borderRadius: 10,
+          border: `1.5px dashed ${proofName ? pt.color : "#e2e8f0"}`,
+          background: "#fafafa",
+          cursor: "pointer",
+          transition: "border 0.15s",
+        }}
+      >
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            background: proofName ? pt.color + "15" : "#f1f5f9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Upload size={15} color={proofName ? pt.color : "#94a3b8"} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {proofName ? (
+            <>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: pt.color,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {proofName}
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>
+                Document attached · tap to change
+              </p>
+            </>
+          ) : (
+            <>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#64748b",
+                }}
+              >
+                Upload proof document
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>
+                PNG, JPG, PDF · Optional
+              </p>
+            </>
+          )}
+        </div>
+        <input
+          type="file"
+          accept=".png,.jpg,.jpeg,.pdf"
+          onChange={handleProof}
+          style={{ display: "none" }}
+        />
+      </label>
+    </div>
+  );
 
   return (
     <>
@@ -386,12 +888,15 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
         style={{
           position: "fixed",
           inset: 0,
-          zIndex: 50,
+          // ─── FIX: raised from 50 → 9999 so the overlay sits above the
+          //         app header, meaning backdropFilter blurs it correctly. ───
+          zIndex: 9999,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           background: "rgba(10,15,30,0.45)",
           backdropFilter: "blur(5px)",
+          WebkitBackdropFilter: "blur(5px)", // Safari support
           padding: 16,
         }}
       >
@@ -435,15 +940,29 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                   <Plus size={16} color={pt.color} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#1e293b",
+                    }}
+                  >
                     New advance request
                   </p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>
-                    {step === 1 ? "Select a payment type to continue" : `Type: ${pt.label}`}
+                  <p
+                    style={{
+                      margin: "2px 0 0",
+                      fontSize: 11,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    {step === 1
+                      ? "Select a payment type to continue"
+                      : `Type: ${pt.label}`}
                   </p>
                 </div>
               </div>
-              {/* Close button — only steps 1 & 2 */}
               <button
                 onClick={onClose}
                 style={{
@@ -464,7 +983,7 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
             </div>
           )}
 
-          {/* ── Step indicator — steps 1 & 2 only ── */}
+          {/* ── Step indicator ── */}
           {step < 3 && <StepIndicator step={step} pt={pt} />}
 
           {/* ── Body ── */}
@@ -475,9 +994,15 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
               padding: step === 3 ? "32px 26px 12px" : "18px 22px",
             }}
           >
-            {/* ── Step 1: Select payment type ── */}
+            {/* ── Step 1 ── */}
             {step === 1 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2,1fr)",
+                  gap: 10,
+                }}
+              >
                 {Object.values(PAYMENT_TYPES).map((p) => (
                   <PaymentTypeCard
                     key={p.key}
@@ -489,301 +1014,324 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
               </div>
             )}
 
-            {/* ── Step 2: Fill details ── */}
+            {/* ── Step 2 ── */}
             {step === 2 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <p
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: ".07em",
-                  }}
-                >
-                  {ptKey === "emp_to_emp" ? "Requesting employee" : "Employee details"}
-                </p>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Field label="Employee ID" required error={errors.empId}>
-                    <Inp placeholder="Insta-260401" value={form.empId} onChange={set("empId")} error={errors.empId} />
-                  </Field>
-                  <Field label="Full name" required error={errors.name}>
-                    <Inp placeholder="John Doe" value={form.name} onChange={set("name")} error={errors.name} />
-                  </Field>
-                  <Field label="Department" required error={errors.dept}>
-                    <Inp placeholder="Engineering" value={form.dept} onChange={set("dept")} error={errors.dept} />
-                  </Field>
-                  <Field label="Amount (₹)" required error={errors.amount}>
-                    <Inp
-                      type="number"
-                      min="1"
-                      placeholder="10000"
-                      value={form.amount}
-                      onChange={set("amount")}
-                      error={errors.amount}
-                    />
-                  </Field>
-                </div>
-
-                {/* Recipient employee fields */}
-                {ptKey === "emp_to_emp" && (
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 14 }}
+              >
+                {/* ══════ org_to_vendor: VENDOR IS PRIMARY ══════ */}
+                {ptKey === "org_to_vendor" && (
                   <>
-                    <SectionDivider label="Recipient employee" color={pt.color} />
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      <Field label="Recipient emp ID" required error={errors.toEmpId}>
-                        <Inp placeholder="Insta-260401" value={form.toEmpId} onChange={set("toEmpId")} error={errors.toEmpId} />
-                      </Field>
-                      <Field label="Recipient name" required error={errors.toEmpName}>
-                        <Inp placeholder="Jane Smith" value={form.toEmpName} onChange={set("toEmpName")} error={errors.toEmpName} />
-                      </Field>
-                      <Field label="Recipient department" error={errors.toEmpDept}>
-                        <Inp placeholder="Design" value={form.toEmpDept} onChange={set("toEmpDept")} error={errors.toEmpDept} />
-                      </Field>
-                    </div>
-                  </>
-                )}
-
-                {/* Vendor fields */}
-                {ptKey === "other" && (
-                  <>
-                    <SectionDivider label="Vendor / external" color={pt.color} />
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      <Field label="Vendor name" required error={errors.vendorName}>
-                        <Inp placeholder="LexPro LLP" value={form.vendorName} onChange={set("vendorName")} error={errors.vendorName} />
-                      </Field>
-                      <Field label="Reference / invoice" error={errors.vendorRef}>
-                        <Inp placeholder="INV-001" value={form.vendorRef} onChange={set("vendorRef")} error={errors.vendorRef} />
-                      </Field>
-                    </div>
-                  </>
-                )}
-
-                {/* Reason */}
-                <Field label="Reason" required error={errors.reason}>
-                  <textarea
-                    rows={3}
-                    placeholder="Describe the reason for this advance request…"
-                    value={form.reason}
-                    onChange={set("reason")}
-                    style={{
-                      width: "100%",
-                      padding: "9px 12px",
-                      borderRadius: 9,
-                      fontSize: 13,
-                      border: `1.5px solid ${errors.reason ? "#fca5a5" : "#e2e8f0"}`,
-                      background: errors.reason ? "#fff5f5" : "#fff",
-                      color: "#1e293b",
-                      fontFamily: "inherit",
-                      resize: "none",
-                      outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  {errors.reason && (
-                    <p style={{ display: "flex", alignItems: "center", gap: 4, margin: "4px 0 0", fontSize: 11, color: "#ef4444" }}>
-                      <AlertCircle size={10} /> {errors.reason}
-                    </p>
-                  )}
-                </Field>
-
-                {/* Payment screenshot — mandatory */}
-                <div>
-                  <p
-                    style={{
-                      margin: "0 0 6px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      letterSpacing: ".06em",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    Payment screenshot <span style={{ color: "#ef4444" }}>*</span>
-                    <span
+                    <p
                       style={{
-                        padding: "2px 7px",
-                        borderRadius: 99,
-                        fontSize: 9,
+                        margin: "0 0 4px",
+                        fontSize: 10,
                         fontWeight: 700,
-                        background: pt.color + "15",
-                        color: pt.color,
+                        color: "#94a3b8",
                         textTransform: "uppercase",
-                        letterSpacing: ".06em",
+                        letterSpacing: ".07em",
                       }}
                     >
-                      Mandatory
-                    </span>
-                  </p>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "12px 14px",
-                      borderRadius: 10,
-                      border: `1.5px ${screenshotName ? "solid" : "dashed"} ${
-                        errors.screenshot ? "#fca5a5" : screenshotName ? pt.color : "#cbd5e1"
-                      }`,
-                      background: screenshotName ? pt.color + "08" : "#fafafa",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    {screenshotPreview ? (
-                      <img
-                        src={screenshotPreview}
-                        alt=""
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 8,
-                          objectFit: "cover",
-                          flexShrink: 0,
-                          border: `1.5px solid ${pt.color}44`,
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 9,
-                          background: errors.screenshot ? "#fef2f2" : "#f1f5f9",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <FileImage size={18} color={errors.screenshot ? "#ef4444" : "#94a3b8"} />
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {screenshotName ? (
-                        <>
-                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: pt.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {screenshotName}
-                          </p>
-                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>Screenshot attached</p>
-                        </>
-                      ) : (
-                        <>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#64748b" }}>Upload payment screenshot</p>
-                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>PNG, JPG, JPEG · Required to submit</p>
-                        </>
-                      )}
-                    </div>
-                    {screenshotName ? (
-                      <CheckCircle2 size={18} color={pt.color} style={{ flexShrink: 0 }} />
-                    ) : (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "6px 10px",
-                          borderRadius: 7,
-                          border: `1px solid ${pt.color}44`,
-                          color: pt.color,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          background: "#fff",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Upload size={11} /> Browse
-                      </span>
-                    )}
-                    <input
-                      type="file"
-                      accept=".png,.jpg,.jpeg,.webp"
-                      onChange={handleScreenshot}
-                      style={{ display: "none" }}
-                    />
-                  </label>
-                  {errors.screenshot && (
-                    <p style={{ display: "flex", alignItems: "center", gap: 4, margin: "4px 0 0", fontSize: 11, color: "#ef4444" }}>
-                      <AlertCircle size={10} /> {errors.screenshot}
+                      Vendor details
                     </p>
-                  )}
-                </div>
-
-                {/* Supporting document — optional */}
-                <div>
-                  <p
-                    style={{
-                      margin: "0 0 6px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      letterSpacing: ".06em",
-                    }}
-                  >
-                    Supporting document{" "}
-                    <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#cbd5e1" }}>
-                      optional
-                    </span>
-                  </p>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "11px 14px",
-                      borderRadius: 10,
-                      border: `1.5px dashed ${proofName ? pt.color : "#e2e8f0"}`,
-                      background: "#fafafa",
-                      cursor: "pointer",
-                      transition: "border 0.15s",
-                    }}
-                  >
                     <div
                       style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 8,
-                        background: proofName ? pt.color + "15" : "#f1f5f9",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 10,
                       }}
                     >
-                      <Upload size={15} color={proofName ? pt.color : "#94a3b8"} />
+                      <Field
+                        label="Vendor name"
+                        required
+                        error={errors.toVendorName}
+                      >
+                        <Inp
+                          placeholder="Acme Supplies Pvt Ltd"
+                          value={form.toVendorName}
+                          onChange={set("toVendorName")}
+                          error={errors.toVendorName}
+                        />
+                      </Field>
+                      <Field label="GST number" error={errors.toVendorGST}>
+                        <Inp
+                          placeholder="27AABCU9603R1ZX"
+                          value={form.toVendorGST}
+                          onChange={set("toVendorGST")}
+                          error={errors.toVendorGST}
+                          extraStyle={{ textTransform: "uppercase" }}
+                        />
+                      </Field>
+                      <Field label="PO / reference" error={errors.toVendorRef}>
+                        <Inp
+                          placeholder="PO-2026-0041"
+                          value={form.toVendorRef}
+                          onChange={set("toVendorRef")}
+                          error={errors.toVendorRef}
+                        />
+                      </Field>
+                      <Field
+                        label="Amount (₹)"
+                        required
+                        error={errors.toVendorAmount}
+                      >
+                        <Inp
+                          type="number"
+                          min="1"
+                          placeholder="45000"
+                          value={form.toVendorAmount}
+                          onChange={set("toVendorAmount")}
+                          error={errors.toVendorAmount}
+                        />
+                      </Field>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {proofName ? (
-                        <>
-                          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: pt.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {proofName}
-                          </p>
-                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>Document attached</p>
-                        </>
-                      ) : (
-                        <>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#64748b" }}>Upload proof document</p>
-                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>PNG, JPG, PDF · Optional</p>
-                        </>
+                    <Field
+                      label="Reason"
+                      required
+                      error={errors.toVendorReason}
+                    >
+                      <textarea
+                        rows={3}
+                        placeholder="Describe the reason for this vendor advance…"
+                        value={form.toVendorReason}
+                        onChange={set("toVendorReason")}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 9,
+                          fontSize: 13,
+                          border: `1.5px solid ${errors.toVendorReason ? "#fca5a5" : "#e2e8f0"}`,
+                          background: errors.toVendorReason
+                            ? "#fff5f5"
+                            : "#fff",
+                          color: "#1e293b",
+                          fontFamily: "inherit",
+                          resize: "none",
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      {errors.toVendorReason && (
+                        <p
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            margin: "4px 0 0",
+                            fontSize: 11,
+                            color: "#ef4444",
+                          }}
+                        >
+                          <AlertCircle size={10} /> {errors.toVendorReason}
+                        </p>
                       )}
+                    </Field>
+                  </>
+                )}
+
+                {/* ══════ org_to_emp / emp_to_emp / other: EMPLOYEE IS PRIMARY ══════ */}
+                {ptKey !== "org_to_vendor" && (
+                  <>
+                    <p
+                      style={{
+                        margin: "0 0 4px",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "#94a3b8",
+                        textTransform: "uppercase",
+                        letterSpacing: ".07em",
+                      }}
+                    >
+                      {ptKey === "emp_to_emp"
+                        ? "Requesting employee"
+                        : "Employee details"}
+                    </p>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 10,
+                      }}
+                    >
+                      <Field label="Employee ID" required error={errors.empId}>
+                        <Inp
+                          placeholder="Insta-260401"
+                          value={form.empId}
+                          onChange={set("empId")}
+                          error={errors.empId}
+                        />
+                      </Field>
+                      <Field label="Full name" required error={errors.name}>
+                        <Inp
+                          placeholder="John Doe"
+                          value={form.name}
+                          onChange={set("name")}
+                          error={errors.name}
+                        />
+                      </Field>
+                      <Field label="Department" required error={errors.dept}>
+                        <Inp
+                          placeholder="Engineering"
+                          value={form.dept}
+                          onChange={set("dept")}
+                          error={errors.dept}
+                        />
+                      </Field>
+                      <Field label="Amount (₹)" required error={errors.amount}>
+                        <Inp
+                          type="number"
+                          min="1"
+                          placeholder="10000"
+                          value={form.amount}
+                          onChange={set("amount")}
+                          error={errors.amount}
+                        />
+                      </Field>
                     </div>
-                    <input
-                      type="file"
-                      accept=".png,.jpg,.jpeg,.pdf"
-                      onChange={handleProof}
-                      style={{ display: "none" }}
-                    />
-                  </label>
-                </div>
+
+                    {/* emp_to_emp recipient */}
+                    {ptKey === "emp_to_emp" && (
+                      <>
+                        <SectionDivider
+                          label="Recipient employee"
+                          color={pt.color}
+                        />
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 10,
+                          }}
+                        >
+                          <Field
+                            label="Recipient emp ID"
+                            required
+                            error={errors.toEmpId}
+                          >
+                            <Inp
+                              placeholder="Insta-260401"
+                              value={form.toEmpId}
+                              onChange={set("toEmpId")}
+                              error={errors.toEmpId}
+                            />
+                          </Field>
+                          <Field
+                            label="Recipient name"
+                            required
+                            error={errors.toEmpName}
+                          >
+                            <Inp
+                              placeholder="Jane Smith"
+                              value={form.toEmpName}
+                              onChange={set("toEmpName")}
+                              error={errors.toEmpName}
+                            />
+                          </Field>
+                          <Field
+                            label="Recipient department"
+                            error={errors.toEmpDept}
+                          >
+                            <Inp
+                              placeholder="Design"
+                              value={form.toEmpDept}
+                              onChange={set("toEmpDept")}
+                              error={errors.toEmpDept}
+                            />
+                          </Field>
+                        </div>
+                      </>
+                    )}
+
+                    {/* other: external vendor */}
+                    {ptKey === "other" && (
+                      <>
+                        <SectionDivider
+                          label="Vendor / external"
+                          color={pt.color}
+                        />
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 10,
+                          }}
+                        >
+                          <Field
+                            label="Vendor name"
+                            required
+                            error={errors.vendorName}
+                          >
+                            <Inp
+                              placeholder="LexPro LLP"
+                              value={form.vendorName}
+                              onChange={set("vendorName")}
+                              error={errors.vendorName}
+                            />
+                          </Field>
+                          <Field
+                            label="Reference / invoice"
+                            error={errors.vendorRef}
+                          >
+                            <Inp
+                              placeholder="INV-001"
+                              value={form.vendorRef}
+                              onChange={set("vendorRef")}
+                              error={errors.vendorRef}
+                            />
+                          </Field>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Reason */}
+                    <Field label="Reason" required error={errors.reason}>
+                      <textarea
+                        rows={3}
+                        placeholder="Describe the reason for this advance request…"
+                        value={form.reason}
+                        onChange={set("reason")}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 9,
+                          fontSize: 13,
+                          border: `1.5px solid ${errors.reason ? "#fca5a5" : "#e2e8f0"}`,
+                          background: errors.reason ? "#fff5f5" : "#fff",
+                          color: "#1e293b",
+                          fontFamily: "inherit",
+                          resize: "none",
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      {errors.reason && (
+                        <p
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            margin: "4px 0 0",
+                            fontSize: 11,
+                            color: "#ef4444",
+                          }}
+                        >
+                          <AlertCircle size={10} /> {errors.reason}
+                        </p>
+                      )}
+                    </Field>
+                  </>
+                )}
+
+                {/* ══════ Approved by — ALL 4 types ══════ */}
+                <ApprovedPersonSection form={form} errors={errors} set={set} />
+
+                {/* Screenshot + proof */}
+                {screenshotLabel}
+                {proofLabel}
               </div>
             )}
 
-            {/* ── Step 3: Success — no header, no × button ── */}
+            {/* ── Step 3: Success ── */}
             {step === 3 && result && (
               <div
                 style={{
@@ -793,7 +1341,6 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                   animation: "fadeIn .25s ease",
                 }}
               >
-                {/* Animated check circle */}
                 <div
                   style={{
                     width: 64,
@@ -809,7 +1356,6 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                 >
                   <CheckCircle2 size={30} color="#3B6D11" />
                 </div>
-
                 <p
                   style={{
                     margin: 0,
@@ -832,11 +1378,10 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                     animation: "fadeUp .3s ease .22s both",
                   }}
                 >
-                  Your advance payment request has been received.<br />
+                  Your advance payment request has been received.
+                  <br />
                   HR will review it and get back to you shortly.
                 </p>
-
-                {/* Pending status pill */}
                 <div
                   style={{
                     display: "inline-flex",
@@ -850,8 +1395,19 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                     animation: "fadeUp .3s ease .28s both",
                   }}
                 >
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#639922" }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#3B6D11" }}>Pending HR approval</span>
+                  <div
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#639922",
+                    }}
+                  />
+                  <span
+                    style={{ fontSize: 11, fontWeight: 600, color: "#3B6D11" }}
+                  >
+                    Pending HR approval
+                  </span>
                 </div>
 
                 {/* Summary card */}
@@ -876,7 +1432,9 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                       justifyContent: "space-between",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
                       <div
                         style={{
                           width: 28,
@@ -891,8 +1449,21 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                         <TypeIcon ptKey={ptKey} color={pt.color} size={15} />
                       </div>
                       <div>
-                        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#334155" }}>Advance payment</p>
-                        <p style={{ margin: 0, fontSize: 10, color: "#94a3b8" }}>{pt.label}</p>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#334155",
+                          }}
+                        >
+                          Advance payment
+                        </p>
+                        <p
+                          style={{ margin: 0, fontSize: 10, color: "#94a3b8" }}
+                        >
+                          {pt.label}
+                        </p>
                       </div>
                     </div>
                     <div
@@ -906,29 +1477,114 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                         border: "0.5px solid #97C459",
                       }}
                     >
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#639922" }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#3B6D11" }}>Pending approval</span>
+                      <div
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "#639922",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "#3B6D11",
+                        }}
+                      >
+                        Pending approval
+                      </span>
                     </div>
                   </div>
 
                   {/* Data rows */}
-                  <div style={{ padding: "12px 16px 14px", background: "#f8fafc" }}>
-                    <SRow label="Request ID" value={result.id}   mono />
-                    <SRow label="Employee"   value={`${result.name} · ${result.empId}`} />
-                    <SRow label="Department" value={result.dept} />
-                    <SRow label="Date"       value={result.date} />
-                    {result.toEmpName && (
-                      <SRow
-                        label="Recipient"
-                        value={`${result.toEmpName}${result.toEmpId ? " · " + result.toEmpId : ""}`}
-                      />
+                  <div
+                    style={{ padding: "12px 16px 14px", background: "#f8fafc" }}
+                  >
+                    <SRow label="Request ID" value={result.id} mono />
+
+                    {result.paymentType === "org_to_vendor" ? (
+                      <>
+                        <SRow
+                          label="Vendor"
+                          value={
+                            result.toVendorRef
+                              ? `${result.toVendorName} · ${result.toVendorRef}`
+                              : result.toVendorName
+                          }
+                        />
+                        {result.toVendorGST && (
+                          <SRow label="GST" value={result.toVendorGST} mono />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <SRow
+                          label="Employee"
+                          value={`${result.name} · ${result.empId}`}
+                        />
+                        <SRow label="Department" value={result.dept} />
+                        {result.toEmpName && (
+                          <SRow
+                            label="Recipient"
+                            value={`${result.toEmpName}${result.toEmpId ? " · " + result.toEmpId : ""}`}
+                          />
+                        )}
+                        {result.vendorName && (
+                          <SRow
+                            label="Vendor"
+                            value={
+                              result.vendorRef
+                                ? `${result.vendorName} · ${result.vendorRef}`
+                                : result.vendorName
+                            }
+                          />
+                        )}
+                      </>
                     )}
-                    {result.vendorName && (
+
+                    <SRow label="Date" value={result.date} />
+
+                    {/* ── Approved by ── */}
+                    <div
+                      style={{
+                        margin: "8px 0 0",
+                        paddingTop: 8,
+                        borderTop: "0.5px dashed #e8edf2",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <ShieldCheck size={11} color="#7c3aed" />
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "#7c3aed",
+                            textTransform: "uppercase",
+                            letterSpacing: ".06em",
+                          }}
+                        >
+                          Approved by
+                        </span>
+                      </div>
                       <SRow
-                        label="Vendor"
-                        value={result.vendorRef ? `${result.vendorName} · ${result.vendorRef}` : result.vendorName}
+                        label="Approver"
+                        value={`${result.approverName} · ${result.approverId}`}
                       />
-                    )}
+                      {result.approverDesignation && (
+                        <SRow
+                          label="Designation"
+                          value={result.approverDesignation}
+                        />
+                      )}
+                    </div>
 
                     {/* Amount */}
                     <div
@@ -941,15 +1597,29 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                         borderTop: `1.5px solid ${pt.color}22`,
                       }}
                     >
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Total amount</span>
-                      <span style={{ fontSize: 20, fontWeight: 700, color: pt.color }}>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#64748b",
+                        }}
+                      >
+                        Total amount
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 700,
+                          color: pt.color,
+                        }}
+                      >
                         ₹ {Number(result.amount).toLocaleString("en-IN")}
                       </span>
                     </div>
                   </div>
 
                   {/* Screenshot footer */}
-                  {result.screenshot && (
+                  {result.screenshotName && (
                     <div
                       style={{
                         padding: "9px 16px",
@@ -961,15 +1631,30 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                       }}
                     >
                       <FileImage size={13} color="#94a3b8" />
-                      <span style={{ fontSize: 11, color: "#64748b", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {result.screenshot}
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#64748b",
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {result.screenshotName}
                       </span>
-                      <span style={{ fontSize: 10, color: "#94a3b8", flexShrink: 0 }}>Screenshot attached</span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: "#94a3b8",
+                          flexShrink: 0,
+                        }}
+                      >
+                        Screenshot attached
+                      </span>
                     </div>
                   )}
                 </div>
-
-                
               </div>
             )}
           </div>
@@ -986,7 +1671,6 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
             }}
           >
             {step === 3 ? (
-              /* Done button */
               <button
                 onClick={onClose}
                 style={{
@@ -1022,7 +1706,6 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                 >
                   Cancel
                 </button>
-
                 {step === 2 && (
                   <button
                     onClick={() => setStep(1)}
@@ -1041,7 +1724,6 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                     ← Back
                   </button>
                 )}
-
                 <button
                   onClick={step === 1 ? () => setStep(2) : submit}
                   disabled={submitting}
@@ -1064,18 +1746,27 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Submitting…
+                      <Loader2
+                        size={14}
+                        style={{ animation: "spin 1s linear infinite" }}
+                      />{" "}
+                      Submitting…
                     </>
                   ) : step === 1 ? (
-                    <>Continue <ArrowRight size={14} /></>
+                    <>
+                      Continue <ArrowRight size={14} />
+                    </>
                   ) : (
-                    <><CheckCircle2 size={14} /> Submit request</>
+                    <>
+                      <CheckCircle2 size={14} /> Submit request
+                    </>
                   )}
                 </button>
               </>
             )}
           </div>
         </div>
+        
       </div>
     </>
   );
