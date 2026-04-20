@@ -1,91 +1,387 @@
-// src/pages/PayrollPage.jsx
-
-import React, { useState } from "react";
-
-// ── UI Components from src/Ui/Payroll/ ──────────────────────────────────────
-import PayrollHeader from "../Ui/Payroll/PayrollHeader";
-import PayrollStats from "../Ui/Payroll/PayrollStats";
-import PayrollTable from "../Ui/Payroll/PayrollTable";
-
-// ── Data from src/data/ ──────────────────────────────────────────────────────
-import { payrollEmployees, payrollSummaryData } from "../data/PayrollData";
-
 // ─────────────────────────────────────────────────────────────────────────────
+// FILE: src/pages/Payroll.jsx  (or wherever your payroll page lives)
+//
+// WHAT'S NEW:
+//   1. "Init Month" button calls /api/payroll/init-month which re-reads all
+//      approved advance_payment_deductions and rebuilds advance_deduction /
+//      advance_addition on every payroll_record for the month.
+//      Call this after approving any advance payment request.
+//
+//   2. AdvanceEffectsPanel — click the amber badge on any employee to open a
+//      slide-over showing exactly which advance requests affect their salary
+//      this month, with the correct direction:
+//        org_to_emp  → DEDUCTION  (org gave money → recover via salary cut)
+//        emp_to_emp  → DEDUCTION  for payer, ADDITION for recipient
+//        other       → ADDITION   (org paid vendor on behalf → reimburse employee)
+//
+//   3. "Bulk Pay" pays all pending records in one API call.
+//
+//   4. Month selector keeps the display in sync with the server.
+// ─────────────────────────────────────────────────────────────────────────────
+import React, { useState, useEffect, useCallback } from "react";
+import payrollService from "../services/payrollService";
+import PayrollTable      from "../Ui/Payroll/PayrollTable";
+import AdvanceEffectsPanel from "../Ui/Payroll/AdvanceEffectsPanel";
 
-const PayrollPage = () => {
-  const [employees, setEmployees] = useState(payrollEmployees);
-  const [runToast, setRunToast] = useState(null);
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtINR(val) {
+  const v = Number(val);
+  if (!isFinite(v)) return "₹0";
+  return "₹" + v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
 
-  /* Live summary derived from current employee state */
-  const liveSummary = {
-    totalEmployees: payrollSummaryData.totalEmployees,
-    totalPayroll: payrollSummaryData.totalPayroll,
-    paid: employees.filter((e) => e.status === "Paid").length,
-    pending: employees.filter((e) =>
-      ["Pending", "Processing"].includes(e.status),
-    ).length,
-    processing: employees.filter((e) => e.status === "Processing").length,
-    avgSalary: payrollSummaryData.avgSalary,
-  };
+function currentMonth() {
+  return new Date().toLocaleString("en-IN", { month: "long", year: "numeric" });
+}
 
-  /* Called by PayrollTable when a payment is confirmed or rejected */
-  const handleUpdateStatus = (id, newStatus) => {
-    setEmployees((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status: newStatus } : e)),
-    );
-  };
-
-  /* Called by PayrollHeader when Run Payroll is confirmed */
-  const handleRunPayroll = (month, year) => {
-    setRunToast(`🚀 Payroll run initiated for ${month} ${year}`);
-    setTimeout(() => setRunToast(null), 3500);
-  };
-
+// ── Summary Card ──────────────────────────────────────────────────────────────
+function SummaryCard({ label, value, color = "#1E293B", sub, subColor }) {
   return (
     <div
-      className="min-h-screen bg-slate-50"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      style={{
+        padding: "14px 18px",
+        borderRadius: 12,
+        background: "#FFFFFF",
+        border: "1px solid #F1F5F9",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+      }}
     >
-      {/* Google Font */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
-        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
+      <p style={{ margin: 0, fontSize: 11, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {label}
+      </p>
+      <p style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 700, color }}>
+        {value}
+      </p>
+      {sub && (
+        <p style={{ margin: "4px 0 0", fontSize: 11, color: subColor || "#94A3B8" }}>{sub}</p>
+      )}
+    </div>
+  );
+}
 
-      {/* Global run-payroll toast */}
-      {runToast && (
+// ─────────────────────────────────────────────────────────────────────────────
+export default function PayrollPage() {
+  const [month,      setMonth]      = useState(currentMonth());
+  const [data,       setData]       = useState({ employees: [], summary: {} });
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
+  const [initBusy,   setInitBusy]   = useState(false);
+  const [bulkBusy,   setBulkBusy]   = useState(false);
+  const [toast,      setToast]      = useState(null);
+
+  // Advance effects panel state
+  const [advancePanel, setAdvancePanel] = useState(null); // { employeeId, forMonth }
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  // ── Fetch payroll data ──────────────────────────────────────────────────────
+  const fetchPayroll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await payrollService.getPayrollData({ month, limit: 500 });
+      setData(res.data || { employees: [], summary: {} });
+    } catch (err) {
+      setError(err.message || "Failed to load payroll");
+    } finally {
+      setLoading(false);
+    }
+  }, [month]);
+
+  useEffect(() => { fetchPayroll(); }, [fetchPayroll]);
+
+  // ── Init month ──────────────────────────────────────────────────────────────
+  // This re-reads ALL approved advance_payment_deductions for the month
+  // and rebuilds advance_deduction / advance_addition on every payroll_record.
+  // Call after approving any advance payment request.
+  const handleInitMonth = async () => {
+    setInitBusy(true);
+    try {
+      const res = await payrollService.initMonth(month);
+      showToast(`✅ ${res.message || "Month initialised"}`);
+      await fetchPayroll();
+    } catch (err) {
+      showToast(`❌ ${err.message}`, "error");
+    } finally {
+      setInitBusy(false);
+    }
+  };
+
+  // ── Bulk pay all pending ────────────────────────────────────────────────────
+  const handleBulkPay = async () => {
+    const pending = (data.employees || []).filter((e) => e.status === "Pending");
+    if (!pending.length) { showToast("No pending records to pay.", "error"); return; }
+    if (!window.confirm(`Mark ${pending.length} employees as Paid for ${month}?`)) return;
+    setBulkBusy(true);
+    try {
+      const ids = pending.map((e) => e.payrollRecordId).filter(Boolean);
+      await payrollService.markBulkPaid(ids, month);
+      showToast(`💸 ${pending.length} salaries marked as paid!`);
+      await fetchPayroll();
+    } catch (err) {
+      showToast(`❌ ${err.message}`, "error");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const summary = data.summary || {};
+
+  // ── Month options (current + last 11) ───────────────────────────────────────
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    return d.toLocaleString("en-IN", { month: "long", year: "numeric" });
+  });
+
+  return (
+    <div style={{ padding: "24px", maxWidth: 1600, margin: "0 auto" }}>
+      {/* Toast */}
+      {toast && (
         <div
-          className="fixed top-5 right-5 z-50 bg-white border border-indigo-200 shadow-xl rounded-2xl px-5 py-3 flex items-center gap-3"
-          style={{ animation: "slideUp 0.2s ease" }}
+          style={{
+            position: "fixed",
+            top: 20,
+            right: 20,
+            zIndex: 9999,
+            padding: "12px 20px",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 600,
+            background: toast.type === "error" ? "#FEF2F2" : "#FFFFFF",
+            color: toast.type === "error" ? "#DC2626" : "#1E293B",
+            border: `1px solid ${toast.type === "error" ? "#FECACA" : "#D1FAE5"}`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          }}
         >
-          <span className="text-sm font-semibold text-slate-800">
-            {runToast}
-          </span>
-          <button
-            onClick={() => setRunToast(null)}
-            className="text-slate-400 hover:text-slate-600 text-xs"
-          >
-            ✕
-          </button>
+          {toast.msg}
         </div>
       )}
 
-      {/* ── Page content ── */}
-      <div className="max-w-screen-xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      
-        <PayrollHeader onRunPayroll={handleRunPayroll} />
+      {/* ── Header ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#0F172A" }}>
+            Payroll
+          </h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8" }}>
+            Manage salaries, advance effects, and disbursements
+          </p>
+        </div>
 
-        
-        <PayrollStats summary={liveSummary} />
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {/* Month selector */}
+          <select
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 10,
+              border: "1px solid #E2E8F0",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#1E293B",
+              background: "#FFFFFF",
+              cursor: "pointer",
+            }}
+          >
+            {monthOptions.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
 
-        
-        <PayrollTable
-          employees={employees}
-          onUpdateStatus={handleUpdateStatus}
+          {/* Bulk pay */}
+          <button
+            onClick={handleBulkPay}
+            disabled={bulkBusy}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "1px solid #BBF7D0",
+              background: "#F0FDF4",
+              color: "#16A34A",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: bulkBusy ? "not-allowed" : "pointer",
+              opacity: bulkBusy ? 0.7 : 1,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            </svg>
+            {bulkBusy ? "Paying…" : "Pay All Pending"}
+          </button>
+
+       
+        </div>
+      </div>
+
+      {/* ── Summary Cards ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
+        <SummaryCard
+          label="Total employees"
+          value={summary.totalEmployees ?? 0}
+          color="#1E293B"
+        />
+        <SummaryCard
+          label="Pending"
+          value={summary.pending ?? 0}
+          color="#D97706"
+          sub="Awaiting payment"
+          subColor="#D97706"
+        />
+        <SummaryCard
+          label="Paid"
+          value={summary.paid ?? 0}
+          color="#16A34A"
+        />
+        <SummaryCard
+          label="Total payroll"
+          value={fmtINR(summary.totalPayroll)}
+          color="#1D4ED8"
+        />
+        <SummaryCard
+          label="Advance deductions"
+          value={"− " + fmtINR(summary.totalAdvanceDeductions)}
+          color="#DC2626"
+          sub="org→emp + emp payer"
+          subColor="#DC2626"
+        />
+        <SummaryCard
+          label="Advance additions"
+          value={"+ " + fmtINR(summary.totalAdvanceAdditions)}
+          color="#16A34A"
+          sub="emp recipient + vendor"
+          subColor="#16A34A"
         />
       </div>
+
+      {/* ── Advance rules legend ── */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          marginBottom: 20,
+          padding: "12px 16px",
+          borderRadius: 10,
+          background: "#F8FAFC",
+          border: "1px solid #E2E8F0",
+        }}
+      >
+        {[
+          { type: "Org → Employee",     dir: "Deduction",  color: "#DC2626", note: "Org gave advance → salary cut to recover" },
+          { type: "Employee → Employee", dir: "Payer: Deduction / Recipient: Addition", color: "#7C3AED", note: "Payer lent money → cut; recipient reimbursed → boost" },
+          { type: "External / Vendor",  dir: "Addition",   color: "#16A34A", note: "Org paid vendor for employee → salary boost" },
+        ].map((rule) => (
+          <div key={rule.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "3px 10px",
+                borderRadius: 99,
+                background: rule.color + "15",
+                color: rule.color,
+              }}
+            >
+              {rule.type}
+            </span>
+            <span style={{ fontSize: 11, color: "#64748B" }}>→</span>
+            <span style={{ fontSize: 11, color: "#374151" }}>{rule.dir}</span>
+            <span style={{ fontSize: 10, color: "#9CA3AF" }}>({rule.note})</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Error ── */}
+      {error && (
+        <div
+          style={{
+            padding: "12px 16px",
+            borderRadius: 10,
+            background: "#FEF2F2",
+            border: "1px solid #FECACA",
+            color: "#DC2626",
+            fontSize: 13,
+            marginBottom: 16,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {/* ── Loading skeleton ── */}
+      {loading && (
+        <div style={{ textAlign: "center", padding: "60px 0", color: "#94A3B8", fontSize: 14 }}>
+          Loading payroll for {month}…
+        </div>
+      )}
+
+      {/* ── Payroll Table ── */}
+      {!loading && (
+        <PayrollTable
+          employees={data.employees || []}
+          forMonth={month}
+          onUpdateStatus={(id, status) => {
+            setData((prev) => ({
+              ...prev,
+              employees: (prev.employees || []).map((e) =>
+                e.id === id ? { ...e, status } : e
+              ),
+            }));
+          }}
+          onUpdateEmployee={(id, updates) => {
+            setData((prev) => ({
+              ...prev,
+              employees: (prev.employees || []).map((e) =>
+                e.id === id ? { ...e, ...updates } : e
+              ),
+            }));
+          }}
+          onRefresh={fetchPayroll}
+          // Pass a callback so PayrollTable can trigger the advance panel
+          onViewAdvanceEffects={(employeeId) =>
+            setAdvancePanel({ employeeId, forMonth: month })
+          }
+        />
+      )}
+
+      {/* ── Advance Effects Panel ── */}
+      {advancePanel && (
+        <AdvanceEffectsPanel
+          employeeId={advancePanel.employeeId}
+          forMonth={advancePanel.forMonth}
+          onClose={() => setAdvancePanel(null)}
+        />
+      )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
-};
-
-export default PayrollPage;
+}
