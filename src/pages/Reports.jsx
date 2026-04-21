@@ -1,33 +1,10 @@
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { FileText } from 'lucide-react'
+// src/pages/Reports.jsx
+// This file acts as the page entry-point AND re-exports everything from the
+// Ui/Reports barrel so other pages can do:
+//   import { PayrollReport, AdvancePaymentReport } from "../pages/Reports";
 
-export default function Reports() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-          <p className="text-muted-foreground">
-            Generate and export financial reports
-          </p>
-        </div>
-        <Button className="gap-2">
-          <FileText className="h-4 w-4" />
-          Generate Report
-        </Button>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Report Configuration</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Report generation and configuration features will be implemented here.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+export { default } from "../Ui/Reports/ReportsPage";
+export { default as PayrollReport } from "../Ui/Reports/PayrollReport";
+export { default as AdvancePaymentReport } from "../Ui/Reports/AdvancePaymentReport";
+export { default as EmployeeReport } from "../Ui/Reports/EmployeeReport";
+export * from "../Ui/Reports/reportUtils";

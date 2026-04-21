@@ -46,8 +46,8 @@ const MainLayout = ({ children }) => {
   const [isMobile,   setIsMobile]   = useState(window.innerWidth < 1024);
 
   const user = {
-    name:     localStorage.getItem("fullName") || "Admin User",
-    email:    localStorage.getItem("email")    || "admin@company.com",
+    name: localStorage.getItem("fullName") || "Admin User",
+    email: localStorage.getItem("email") || "admin@company.com",
     initials: (localStorage.getItem("fullName") || "A").charAt(0).toUpperCase(),
   };
 
@@ -62,29 +62,92 @@ const MainLayout = ({ children }) => {
 
   const handleToggle = () => {
     if (isMobile) setMobileOpen((p) => !p);
-    else          setCollapsed((p)  => !p);
+    else setCollapsed((p) => !p);
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100vh", width:"100vw", maxWidth:"100vw", overflow:"hidden" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        width: "100vw",
+        maxWidth: "100vw",
+        overflow: "hidden",
+      }}
+    >
       <Header user={user} onToggle={handleToggle} />
-      <div style={{ display:"flex", flex:1, overflow:"hidden", minWidth:0 }}>
+      <div
+        style={{ display: "flex", flex: 1, overflow: "hidden", minWidth: 0 }}
+      >
         {!isMobile && (
-          <div style={{ width: collapsed ? 72 : 260, minWidth: collapsed ? 72 : 260, height:"100%", flexShrink:0, transition:"width .3s, min-width .3s", overflow:"hidden" }}>
-            <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} isMobile={false} mobileOpen={false} setMobileOpen={setMobileOpen} />
+          <div
+            style={{
+              width: collapsed ? 72 : 260,
+              minWidth: collapsed ? 72 : 260,
+              height: "100%",
+              flexShrink: 0,
+              transition: "width .3s, min-width .3s",
+              overflow: "hidden",
+            }}
+          >
+            <Sidebar
+              collapsed={collapsed}
+              setCollapsed={setCollapsed}
+              isMobile={false}
+              mobileOpen={false}
+              setMobileOpen={setMobileOpen}
+            />
           </div>
         )}
         {isMobile && (
           <>
             {mobileOpen && (
-              <div onClick={() => setMobileOpen(false)} style={{ position:"fixed", top:64, left:0, right:0, bottom:0, background:"rgba(0,0,0,.5)", zIndex:40 }} />
+              <div
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  position: "fixed",
+                  top: 64,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: "rgba(0,0,0,.5)",
+                  zIndex: 40,
+                }}
+              />
             )}
-            <div style={{ position:"fixed", top:64, left:0, width:260, height:"calc(100vh - 64px)", zIndex:50, transform: mobileOpen ? "translateX(0)" : "translateX(-100%)", transition:"transform .3s" }}>
-              <Sidebar collapsed={false} setCollapsed={setCollapsed} isMobile={true} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+            <div
+              style={{
+                position: "fixed",
+                top: 64,
+                left: 0,
+                width: 260,
+                height: "calc(100vh - 64px)",
+                zIndex: 50,
+                transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
+                transition: "transform .3s",
+              }}
+            >
+              <Sidebar
+                collapsed={false}
+                setCollapsed={setCollapsed}
+                isMobile={true}
+                mobileOpen={mobileOpen}
+                setMobileOpen={setMobileOpen}
+              />
             </div>
           </>
         )}
-        <main style={{ flex:1, minWidth:0, overflowY:"auto", overflowX:"hidden", background:"#f1f5f9", padding:"32px" }}>
+        <main
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflowY: "auto",
+            overflowX: "hidden",
+            background: "#f1f5f9",
+            padding: "32px",
+          }}
+        >
           {children}
         </main>
       </div>
@@ -104,11 +167,19 @@ function App() {
 
         <Route
           path="/registration/:linkId"
-          element={<Suspense fallback={<LoadingSpinner />}><RegistrationForm /></Suspense>}
+          element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <RegistrationForm />
+            </Suspense>
+          }
         />
         <Route
           path="/registration/resubmit/:token"
-          element={<Suspense fallback={<LoadingSpinner />}><RegistrationForm /></Suspense>}
+          element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <RegistrationForm />
+            </Suspense>
+          }
         />
 
         {/*
@@ -126,11 +197,23 @@ function App() {
         {/* ── Protected routes ─────────────────────────────────────────── */}
         <Route
           path="/employee/dashboard"
-          element={<ProtectedRoute><MainLayout><Dashboard /></MainLayout></ProtectedRoute>}
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/employee/payments"
-          element={<ProtectedRoute><MainLayout><AdvancePayment /></MainLayout></ProtectedRoute>}
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <AdvancePayment />
+              </MainLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/employee/payroll"
@@ -138,13 +221,22 @@ function App() {
         />
         <Route
           path="/employee/*"
-          element={<ProtectedRoute><MainLayout><EmployeeRoutes /></MainLayout></ProtectedRoute>}
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <EmployeeRoutes />
+              </MainLayout>
+            </ProtectedRoute>
+          }
         />
 
         {/* Fallback */}
         <Route path="/"  element={<Navigate to="/login" replace />} />
         <Route path="*"  element={<Navigate to="/login" replace />} />
 
+        {/* Fallback */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
