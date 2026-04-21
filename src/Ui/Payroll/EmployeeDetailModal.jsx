@@ -1,16 +1,12 @@
 // =============================================================================
 // FILE: src/Ui/Payroll/EmployeeDetailModal.jsx
 //
-// FIXES:
-//   1. handleSave now passes raw camelCase `form` directly to onSave()
-//      instead of a pre-transformed snake_case payload.
-//      PayrollTable.handleEditSave already does the correct API mapping —
-//      double-mapping was causing all earnings to arrive as 0/undefined.
-//   2. onSave is awaited — if it throws the modal stays open with inline error.
-//   3. All other logic (tabs, live preview, NaN guard, avatar) unchanged.
+// Fully integrated: PfPtOverrideFields merged into EmployeeDetailModal.
+// Override checkboxes for PF (employee + employer) and PT in Deductions tab.
+// null = auto-calc, 0 = exempt, >0 = explicit override.
 // =============================================================================
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -127,6 +123,219 @@ const Divider = () => (
   <div style={{ height: "0.5px", background: "#e2e8f0", margin: "14px 0" }} />
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PfPtOverrideFields — integrated inline (not a separate export)
+// ─────────────────────────────────────────────────────────────────────────────
+const PfPtOverrideFields = ({
+  pfOverride, setPfOverride,
+  empPf, setEmpPf,
+  coEmpPf, setCoEmpPf,
+  ptOverride, setPtOverride,
+  ptVal, setPtVal,
+  basicSalary,
+}) => {
+  const autoEmpPf  = Math.round((Number(basicSalary) || 0) * 0.12);
+  const autoCoEmpPf = autoEmpPf;
+
+  const checkboxStyle = {
+    width: 15, height: 15, accentColor: "#1a3c6e", cursor: "pointer",
+  };
+
+  const overrideInputStyle = {
+    width: "100%",
+    border: "0.5px solid #e2e8f0",
+    borderRadius: 8,
+    padding: "7px 10px 7px 22px",
+    fontSize: 13,
+    color: "#1e293b",
+    background: "#fff",
+    outline: "none",
+    boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{
+      border: "0.5px solid #e2e8f0",
+      borderRadius: 12,
+      padding: 16,
+      background: "#f8fafc",
+      display: "flex",
+      flexDirection: "column",
+      gap: 16,
+    }}>
+      <p style={{
+        fontSize: 11, fontWeight: 700,
+        color: "#94a3b8",
+        textTransform: "uppercase", letterSpacing: "0.06em",
+        margin: 0,
+      }}>
+        PF &amp; PT Overrides
+        <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+          (leave unchecked to use auto-calculation)
+        </span>
+      </p>
+
+      {/* ── PF Override ── */}
+      <div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            style={checkboxStyle}
+            checked={pfOverride}
+            onChange={e => {
+              setPfOverride(e.target.checked);
+              if (!e.target.checked) {
+                setEmpPf("");
+                setCoEmpPf("");
+              } else {
+                setEmpPf(String(autoEmpPf));
+                setCoEmpPf(String(autoCoEmpPf));
+              }
+            }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 500, color: "#334155" }}>
+            Override PF amounts
+          </span>
+          {!pfOverride && (
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+              (auto: Emp ₹{autoEmpPf.toLocaleString("en-IN")} + Co. ₹{autoCoEmpPf.toLocaleString("en-IN")} = ₹{(autoEmpPf * 2).toLocaleString("en-IN")} total)
+            </span>
+          )}
+        </label>
+
+        {pfOverride && (
+          <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {/* Employee PF */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Employee PF (12%)
+                <span style={{ marginLeft: 6, color: "#059669", fontWeight: 700, textTransform: "none" }}>
+                  Set 0 to exempt
+                </span>
+              </label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#64748b", pointerEvents: "none" }}>₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={empPf}
+                  onChange={e => setEmpPf(e.target.value)}
+                  placeholder={String(autoEmpPf)}
+                  style={overrideInputStyle}
+                  onFocus={e => { e.target.style.borderColor = "#6366f1"; }}
+                  onBlur={e => { e.target.style.borderColor = "#e2e8f0"; }}
+                />
+              </div>
+            </div>
+
+            {/* Employer PF */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Employer PF (12%)
+                <span style={{ marginLeft: 6, color: "#059669", fontWeight: 700, textTransform: "none" }}>
+                  Set 0 to exempt
+                </span>
+              </label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#64748b", pointerEvents: "none" }}>₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={coEmpPf}
+                  onChange={e => setCoEmpPf(e.target.value)}
+                  placeholder={String(autoCoEmpPf)}
+                  style={overrideInputStyle}
+                  onFocus={e => { e.target.style.borderColor = "#6366f1"; }}
+                  onBlur={e => { e.target.style.borderColor = "#e2e8f0"; }}
+                />
+              </div>
+            </div>
+
+            {/* Exempt notice */}
+            {(empPf === "0" || coEmpPf === "0") && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <p style={{
+                  fontSize: 11,
+                  background: "#ecfdf5", border: "0.5px solid #a7f3d0",
+                  color: "#059669", borderRadius: 8, padding: "8px 12px", margin: 0,
+                }}>
+                  ✓ Setting PF to ₹0 marks this employee as PF-exempt for this month.
+                  The "Exempt" badge will show in the payroll table.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── PT Override ── */}
+      <div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            style={checkboxStyle}
+            checked={ptOverride}
+            onChange={e => {
+              setPtOverride(e.target.checked);
+              if (!e.target.checked) setPtVal("");
+              else setPtVal("200");
+            }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 500, color: "#334155" }}>
+            Override Professional Tax (PT)
+          </span>
+          {!ptOverride && (
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+              (auto: ₹200/month, ₹300 in Feb; ₹0 for female gross ≤ ₹25K)
+            </span>
+          )}
+        </label>
+
+        {ptOverride && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                PT Amount
+                <span style={{ marginLeft: 6, color: "#059669", fontWeight: 700, textTransform: "none" }}>
+                  Set 0 to exempt
+                </span>
+              </label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#64748b", pointerEvents: "none" }}>₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={ptVal}
+                  onChange={e => setPtVal(e.target.value)}
+                  placeholder="200"
+                  style={{ ...overrideInputStyle, width: "calc(50% - 5px)" }}
+                  onFocus={e => { e.target.style.borderColor = "#6366f1"; }}
+                  onBlur={e => { e.target.style.borderColor = "#e2e8f0"; }}
+                />
+              </div>
+              {ptVal === "0" && (
+                <p style={{
+                  fontSize: 11,
+                  background: "#ecfdf5", border: "0.5px solid #a7f3d0",
+                  color: "#059669", borderRadius: 8, padding: "8px 12px", margin: 0,
+                }}>
+                  ✓ PT set to ₹0 — this employee is PT-exempt for this month.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tabs
+// ─────────────────────────────────────────────────────────────────────────────
 const TABS = ["Personal", "Salary", "Deductions", "Attendance"];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,7 +347,43 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState(null);
 
-  // ── Live-computed salary preview — recalculates on every form change ────────
+  // ── PF & PT override state ─────────────────────────────────────────────────
+  const [pfOverride, setPfOverride] = useState(false);
+  const [empPf,      setEmpPf]      = useState("");
+  const [coEmpPf,    setCoEmpPf]    = useState("");
+  const [ptOverride, setPtOverride] = useState(false);
+  const [ptVal,      setPtVal]      = useState("");
+
+  // ── Initialise overrides from existing employee data ───────────────────────
+  useEffect(() => {
+    if (employee) {
+      if (employee.pfDeduction != null) {
+        setPfOverride(true);
+        setEmpPf(String(employee.pfDeduction));
+        setCoEmpPf(String(employee.employerPfContribution ?? employee.pfDeduction));
+      }
+      if (employee.pt != null) {
+        setPtOverride(true);
+        setPtVal(String(employee.pt));
+      }
+    }
+  }, [employee]);
+
+  // ── Resolved PF/PT values for preview (override takes precedence) ──────────
+  // When override is active, use override values; otherwise fall back to form or auto.
+  const resolvedEmpPf = pfOverride && empPf !== ""
+    ? Number(empPf)
+    : (form.pfDeduction != null ? n(form.pfDeduction) : null);
+
+  const resolvedCoEmpPf = pfOverride && coEmpPf !== ""
+    ? Number(coEmpPf)
+    : (form.employerPfContribution != null ? n(form.employerPfContribution) : null);
+
+  const resolvedPt = ptOverride && ptVal !== ""
+    ? Number(ptVal)
+    : (form.pt != null ? n(form.pt) : null);
+
+  // ── Live-computed salary preview ───────────────────────────────────────────
   const computed = useMemo(() => {
     const monthDays = n(form.monthDays) || 30;
     const pDays     = form.pDays != null ? n(form.pDays) : monthDays;
@@ -150,8 +395,11 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
     const medAllow = n(form.medicalAllowance);
     const perfPay  = n(form.performancePay);
 
-    const pfDed    = n(form.pfDeduction);
-    const pt       = n(form.pt);
+    // Use override if active, else auto (12% of basic)
+    const empPfDed = resolvedEmpPf != null ? resolvedEmpPf : Math.round(basic * 0.12);
+    const coPfDed  = resolvedCoEmpPf != null ? resolvedCoEmpPf : Math.round(basic * 0.12);
+    const pt       = resolvedPt != null ? resolvedPt : 200;
+
     const tds      = n(form.tds);
     const otherDed = n(form.otherDeduction);
     const advDed   = n(form.advanceDeduction);
@@ -160,30 +408,38 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
     const gross    = basic + hra + orgAllow + medAllow;
     const grossD   = gross * ratio;
     const perfD    = perfPay * ratio;
-    const totalDed = pfDed + pt + tds + otherDed + advDed;
+
+    const totalDed = empPfDed + coPfDed + pt + tds + otherDed + advDed;
     const net      = grossD - totalDed + advAdd;
     const totalEarn = net + perfD;
 
-    return { gross, grossD, perfD, totalDed, net, totalEarn, ratio };
-  }, [form]);
+    return {
+      gross, grossD, perfD,
+      empPfDed, coPfDed,
+      totalPf: empPfDed + coPfDed,
+      pt, totalDed, net, totalEarn, ratio,
+    };
+  }, [form, resolvedEmpPf, resolvedCoEmpPf, resolvedPt]);
 
   const handleChange = (name, value) => {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // ── FIX: Pass raw camelCase form directly to onSave ─────────────────────────
-  // PayrollTable.handleEditSave already reads camelCase keys (updated.basic,
-  // updated.organisationAllowance, etc.) and builds the snake_case API payload
-  // itself. Previously the modal was pre-transforming to snake_case, so
-  // handleEditSave was reading undefined for every field and sending 0s to the DB.
+  // ── Build save payload ─────────────────────────────────────────────────────
+  // null  → no override → server auto-calcs
+  // 0     → explicit exempt
+  // >0    → explicit amount
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
     try {
-      // Pass the raw form (camelCase) — PayrollTable does the API key mapping
-      await onSave?.(form);
-      // Note: PayrollTable.handleEditSave closes the modal on success
-      // by calling setEditTarget(null). If it throws, we catch below.
+      const payload = {
+        ...form,
+        pfDeduction:            pfOverride && empPf   !== "" ? Number(empPf)   : null,
+        employerPfContribution: pfOverride && coEmpPf !== "" ? Number(coEmpPf) : null,
+        pt:                     ptOverride && ptVal   !== "" ? Number(ptVal)   : null,
+      };
+      await onSave?.(payload);
     } catch (err) {
       setSaveError(err.message || "Save failed — please try again.");
     } finally {
@@ -191,12 +447,17 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
     }
   };
 
-  // ── Status badge colours ────────────────────────────────────────────────────
+  // ── Status badge colours ───────────────────────────────────────────────────
   const sc = {
     Active:   { bg: "#ecfdf5", color: "#059669", dot: "#10b981", border: "#a7f3d0" },
     Inactive: { bg: "#fef2f2", color: "#dc2626", dot: "#ef4444", border: "#fca5a5" },
     Pending:  { bg: "#fffbeb", color: "#d97706", dot: "#f59e0b", border: "#fcd34d" },
   }[form.employmentStatus] || { bg: "#ecfdf5", color: "#059669", dot: "#10b981", border: "#a7f3d0" };
+
+  // ── Deductions tab summary values (use resolved overrides) ─────────────────
+  const summaryEmpPf  = resolvedEmpPf  != null ? resolvedEmpPf  : computed.empPfDed;
+  const summaryCoEmpPf = resolvedCoEmpPf != null ? resolvedCoEmpPf : computed.coPfDed;
+  const summaryPt     = resolvedPt     != null ? resolvedPt     : computed.pt;
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -324,10 +585,10 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
 
               <SectionTitle>Bank Details</SectionTitle>
               <Grid>
-                <Input label="Bank Name"   name="bankName"      value={form.bankName}      onChange={handleChange} />
-                <Input label="A/C Number"  name="accountNumber" value={form.accountNumber || form.bankAccountNo} onChange={handleChange} />
-                <Input label="IFSC Code"   name="ifscCode"      value={form.ifscCode}      onChange={handleChange} />
-                <Input label="Bank Branch" name="bankBranch"    value={form.bankBranch}    onChange={handleChange} />
+                <Input label="Bank Name"   name="bankName"      value={form.bankName}                             onChange={handleChange} />
+                <Input label="A/C Number"  name="accountNumber" value={form.accountNumber || form.bankAccountNo}  onChange={handleChange} />
+                <Input label="IFSC Code"   name="ifscCode"      value={form.ifscCode}                             onChange={handleChange} />
+                <Input label="Bank Branch" name="bankBranch"    value={form.bankBranch}                           onChange={handleChange} />
               </Grid>
 
               <SectionTitle>Statutory Info</SectionTitle>
@@ -359,16 +620,25 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
                 border: "0.5px solid #e2e8f0",
               }}>
                 {[
-                  ["Gross Salary (full month)", computed.gross,      "#1a3c6e"],
-                  ["Gross Salary (prorated)",   computed.grossD,     "#1a3c6e"],
-                  ["Total Deductions",          computed.totalDed,   "#dc2626"],
-                  ["Net Salary",                computed.net,        "#059669"],
-                  ["Total with Perf Pay",       computed.totalEarn,  "#1e293b"],
+                  ["Gross Salary (full month)",            computed.gross,      "#1a3c6e"],
+                  ["Gross Salary (prorated)",              computed.grossD,     "#1a3c6e"],
+                  ["PF — Employee (12%)",                  computed.empPfDed,   "#dc2626"],
+                  ["PF — Employer (12%, also deducted)",   computed.coPfDed,    "#dc2626"],
+                  ["Total PF (24%)",                       computed.totalPf,    "#b91c1c"],
+                  ["Total Deductions",                     computed.totalDed,   "#dc2626"],
+                  ["Net Salary",                           computed.net,        "#059669"],
+                  ["Total with Perf Pay",                  computed.totalEarn,  "#1e293b"],
                 ].map(([label, val, color], i, arr) => (
                   <div key={label} style={{
                     display: "flex", justifyContent: "space-between",
                     alignItems: "center", padding: "7px 0",
                     borderBottom: i < arr.length - 1 ? "0.5px solid #e2e8f0" : "none",
+                    background: label.includes("Total PF") ? "#fef2f2" : "transparent",
+                    marginLeft: label.includes("Total PF") ? -6 : 0,
+                    marginRight: label.includes("Total PF") ? -6 : 0,
+                    paddingLeft: label.includes("Total PF") ? 6 : 0,
+                    paddingRight: label.includes("Total PF") ? 6 : 0,
+                    borderRadius: label.includes("Total PF") ? 6 : 0,
                   }}>
                     <span style={{ fontSize: 13, color: "#64748b" }}>{label}</span>
                     <span style={{ fontSize: 13, fontWeight: 600, color }}>{fmt(val)}</span>
@@ -376,45 +646,69 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
                 ))}
               </div>
 
-              {/* PF info note */}
-              {n(form.employerPfContribution) > 0 && (
-                <div style={{
-                  marginTop: 10, padding: "10px 12px", borderRadius: 8,
-                  background: "#f5f3ff", border: "0.5px solid #ddd6fe",
-                }}>
-                  <p style={{ fontSize: 11, color: "#7c3aed", margin: 0 }}>
-                    <strong>Employer PF (company cost):</strong> {fmt(form.employerPfContribution)} —
-                    this is NOT deducted from the employee's salary. It's shown for transparency only.
-                    Combined PF contribution: {fmt(n(form.pfDeduction) + n(form.employerPfContribution))}
-                  </p>
-                </div>
-              )}
+              <div style={{
+                marginTop: 10, padding: "10px 12px", borderRadius: 8,
+                background: "#fef2f2", border: "0.5px solid #fca5a5",
+              }}>
+                <p style={{ fontSize: 11, color: "#b91c1c", margin: 0 }}>
+                  <strong>PF rule:</strong> Both employee share (12%) and employer share (12%) are
+                  deducted from the employee's net salary — 24% of basic total.
+                  You can override either value in the Deductions tab.
+                </p>
+              </div>
             </>
           )}
 
           {/* ══ TAB: Deductions ══════════════════════════════════════════════ */}
           {activeTab === "Deductions" && (
             <>
-              <SectionTitle>Standard Deductions</SectionTitle>
-              <Grid>
-                <Input label="PF (Employee 12%)" name="pfDeduction"    value={form.pfDeduction}    onChange={handleChange} type="number" prefix="₹" hint="Auto = 12% of basic. Override by entering a value." />
-                <Input label="Professional Tax"  name="pt"             value={form.pt}             onChange={handleChange} type="number" prefix="₹" hint="Auto = gender + gross based. Override by entering a value." />
-                <Input label="TDS"               name="tds"            value={form.tds}            onChange={handleChange} type="number" prefix="₹" />
-                <Input label="Other Deductions"  name="otherDeduction" value={form.otherDeduction} onChange={handleChange} type="number" prefix="₹" />
-              </Grid>
+              <SectionTitle>PF &amp; PT Overrides</SectionTitle>
 
-              {/* Employer PF info */}
-              {n(form.employerPfContribution) > 0 && (
+              {/* ── Integrated PfPtOverrideFields ── */}
+              <PfPtOverrideFields
+                pfOverride={pfOverride}   setPfOverride={setPfOverride}
+                empPf={empPf}             setEmpPf={setEmpPf}
+                coEmpPf={coEmpPf}         setCoEmpPf={setCoEmpPf}
+                ptOverride={ptOverride}   setPtOverride={setPtOverride}
+                ptVal={ptVal}             setPtVal={setPtVal}
+                basicSalary={form.basic}
+              />
+
+              {/* Combined PF preview (only shown when override is active) */}
+              {pfOverride && (
                 <div style={{
                   marginTop: 10, padding: "10px 12px", borderRadius: 8,
-                  background: "#f5f3ff", border: "0.5px solid #ddd6fe",
+                  background: "#fef2f2", border: "0.5px solid #fca5a5",
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
                 }}>
-                  <p style={{ fontSize: 11, color: "#7c3aed", margin: 0 }}>
-                    <strong>Employer PF contribution (company cost):</strong> {fmt(form.employerPfContribution)} — shown for payroll cost visibility only.
-                    This amount is NOT deducted from the employee's net salary.
-                  </p>
+                  <span style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>
+                    Total PF deducted (combined)
+                  </span>
+                  <span style={{ fontSize: 14, color: "#b91c1c", fontWeight: 700 }}>
+                    {fmt((empPf !== "" ? Number(empPf) : 0) + (coEmpPf !== "" ? Number(coEmpPf) : 0))}
+                  </span>
                 </div>
               )}
+
+              <SectionTitle>Other Deductions</SectionTitle>
+              <Grid>
+                <Input
+                  label="TDS"
+                  name="tds"
+                  value={form.tds}
+                  onChange={handleChange}
+                  type="number"
+                  prefix="₹"
+                />
+                <Input
+                  label="Other Deductions"
+                  name="otherDeduction"
+                  value={form.otherDeduction}
+                  onChange={handleChange}
+                  type="number"
+                  prefix="₹"
+                />
+              </Grid>
 
               <SectionTitle>Advance Payment Effects (auto-calculated)</SectionTitle>
               <div style={{
@@ -448,14 +742,20 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
                 border: "0.5px solid #fca5a5",
               }}>
                 {[
-                  ["Standard Deductions", n(form.pfDeduction) + n(form.pt) + n(form.tds) + n(form.otherDeduction)],
-                  ["Advance Deduction",   n(form.advanceDeduction)],
-                  ["Advance Addition",    -n(form.advanceAddition)],
+                  ["PF — Employee (12%)",  summaryEmpPf],
+                  ["PF — Employer (12%)",  summaryCoEmpPf],
+                  ["Professional Tax",      summaryPt],
+                  ["TDS",                   n(form.tds)],
+                  ["Other Deductions",      n(form.otherDeduction)],
+                  ["Advance Deduction",     n(form.advanceDeduction)],
+                  ["Advance Addition",     -n(form.advanceAddition)],
                 ].map(([label, val], i, arr) => (
                   <div key={label} style={{
                     display: "flex", justifyContent: "space-between",
                     padding: "5px 0",
                     borderBottom: i < arr.length - 1 ? "0.5px solid #fca5a5" : "none",
+                    background: label.includes("Employer") || label.includes("Employee")
+                      ? "rgba(185,28,28,0.04)" : "transparent",
                   }}>
                     <span style={{ fontSize: 13, color: "#991b1b" }}>{label}</span>
                     <span style={{ fontSize: 13, color: "#991b1b" }}>{fmt(Math.abs(val))}</span>
@@ -549,9 +849,10 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
                 border: "0.5px solid #e2e8f0",
               }}>
                 {[
-                  ["Gross (full month)", computed.gross,  "#64748b"],
-                  ["Gross (earned)",     computed.grossD, "#1a3c6e"],
-                  ["Net Salary",         computed.net,    "#059669"],
+                  ["Gross (full month)", computed.gross,    "#64748b"],
+                  ["Gross (earned)",     computed.grossD,   "#1a3c6e"],
+                  ["Total Deductions",   computed.totalDed, "#dc2626"],
+                  ["Net Salary",         computed.net,      "#059669"],
                 ].map(([label, val, color]) => (
                   <div key={label} style={{
                     display: "flex", justifyContent: "space-between", padding: "5px 0",
@@ -571,7 +872,6 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
           borderTop: "0.5px solid #e2e8f0",
           display: "flex", flexDirection: "column", gap: 8, flexShrink: 0,
         }}>
-          {/* Inline error (shows if the API call fails) */}
           {saveError && (
             <div style={{
               padding: "8px 12px", borderRadius: 8,

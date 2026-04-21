@@ -1,60 +1,323 @@
-// src/Ui/Payroll/PayrollHeader.jsx
-import React, { useState } from 'react';
-import * as XLSX from 'https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs';
-import PayrollHistoryModal from './PayrollHistoryModal';
+// ─────────────────────────────────────────────────────────────────────────────
+// FILE: src/Ui/Payroll/AdvanceEffectsPanel.jsx
+//
+// Shows the advance payment breakdown for a single employee in the payroll table.
+//
+// RULES (mirrors payrollController.js logic exactly):
+//   org_to_emp  → DEDUCTION  for primary employee (org gave money → recover via salary)
+//   emp_to_emp  → ADDITION   for payer   (they gave their own money → compensate via salary)
+//               → DEDUCTION  for recipient (they received money → recover via salary)
+//   other       → ADDITION   for primary employee (org paid vendor on their behalf → reimbursement)
+// ─────────────────────────────────────────────────────────────────────────────
+import React, { useState, useEffect } from "react";
+import payrollService from "../../services/payrollService";
 
-const NEFT_DATA = [
-  { NEFT:'N', Amount:1233, Date:'16/03/2026', 'Employee Name':'Seema Kokare',    'Employee AC Num':'22911020213',    Blank1:'', Blank2:'', 'Default Number':'920020004612264', Narration:'IGRServiceHdeskSalSeemaFeb26',   'IFSC Code':'SCBL0036050', 'Default Number2':10 },
-  { NEFT:'N', Amount:122,  Date:'16/03/2026', 'Employee Name':'Nitin Rajput',    'Employee AC Num':'36027034160',    Blank1:'', Blank2:'', 'Default Number':'920020004612264', Narration:'IGRServiceHdeskSalNitinFeb26',   'IFSC Code':'SBIN0012707', 'Default Number2':10 },
-  { NEFT:'N', Amount:1232, Date:'16/03/2026', 'Employee Name':'Krushna Kapse',   'Employee AC Num':'80063662295',    Blank1:'', Blank2:'', 'Default Number':'920020004612264', Narration:'IGRServiceHdeskSalKrushnaFeb26', 'IFSC Code':'MAHG0005122', 'Default Number2':10 },
-  { NEFT:'N', Amount:1232, Date:'16/03/2026', 'Employee Name':'Ashwini Wadurkar','Employee AC Num':'967710110004528',Blank1:'', Blank2:'', 'Default Number':'920020004612264', Narration:'IGRServiceHdeskSalAshwiniFeb26', 'IFSC Code':'BKID0009677', 'Default Number2':10 },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtINR(val) {
+  const v = Number(val);
+  if (!isFinite(v)) return "₹0.00";
+  return "₹" + v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
-const handleExportExcel = () => {
-  const wb = XLSX.utils.book_new();
-  const headers = ['NEFT','Amount','Date','Employee Name','Employee AC Num','Blank','Blank','Default Number','Narration for what reason','IFSC Code','Default Number'];
-  const rows = NEFT_DATA.map(r => [r.NEFT,r.Amount,r.Date,r['Employee Name'],r['Employee AC Num'],r.Blank1,r.Blank2,r['Default Number'],r.Narration,r['IFSC Code'],r['Default Number2']]);
-  const ws = XLSX.utils.aoa_to_sheet([...rows, [], headers]);
-  ws['!cols'] = [{wch:6},{wch:10},{wch:14},{wch:20},{wch:20},{wch:8},{wch:8},{wch:20},{wch:35},{wch:14},{wch:16}];
-  XLSX.utils.book_append_sheet(wb, ws, 'Sample Records');
-  XLSX.writeFile(wb, 'NEFT_Salary_IGR_Team.xlsx');
+const EFFECT_LABEL = {
+  deduction: { text: "Deduction", bg: "#FEF2F2", color: "#DC2626", border: "#FECACA" },
+  addition:  { text: "Addition",  bg: "#F0FDF4", color: "#16A34A", border: "#BBF7D0" },
 };
 
-const PayrollHeader = ({ onRunPayroll }) => {
-  const [historyOpen, setHistoryOpen] = useState(false);
+const TYPE_META = {
+  org_to_emp: {
+    label: "Org → Employee",
+    desc:  "Organisation gave advance — recovering via salary deduction",
+    bg:    "#EFF6FF",
+    color: "#1D4ED8",
+  },
+  emp_to_emp: {
+    label: "Employee → Employee",
+    desc:  "Payer's salary increases; recipient's salary decreases",
+    bg:    "#F5F3FF",
+    color: "#6D28D9",
+  },
+  other: {
+    label: "External / Vendor",
+    desc:  "Org paid vendor on behalf of employee — reimbursement added to salary",
+    bg:    "#FFFBEB",
+    color: "#B45309",
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AdvanceEffectRow — one advance request's effect on this employee
+// ─────────────────────────────────────────────────────────────────────────────
+function AdvanceEffectRow({ effect }) {
+  const effectCfg = EFFECT_LABEL[effect.effect_type] || EFFECT_LABEL.deduction;
+  const typeMeta  = TYPE_META[effect.payment_type_key] || TYPE_META.org_to_emp;
 
   return (
-    <>
-      {historyOpen && <PayrollHistoryModal onClose={() => setHistoryOpen(false)} />}
-
-      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Payroll Management</h1>
-          <p className="text-sm text-slate-400 mt-1">Manage salaries, payslips and payroll runs for all employees</p>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "10px 14px",
+        borderRadius: 8,
+        border: `1px solid ${effectCfg.border}`,
+        background: effectCfg.bg,
+        marginBottom: 6,
+      }}
+    >
+      {/* Left — type + reason */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+          {/* Type pill */}
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "2px 7px",
+              borderRadius: 99,
+              background: typeMeta.bg,
+              color: typeMeta.color,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              flexShrink: 0,
+            }}
+          >
+            {typeMeta.label}
+          </span>
+          {/* Request code */}
+          <span style={{ fontSize: 11, color: "#64748B", fontFamily: "monospace" }}>
+            {effect.request_code}
+          </span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: "#374151",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={effect.reason}
+        >
+          {effect.reason || "—"}
+        </p>
+        <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
+          {typeMeta.desc}
+        </p>
+      </div>
+
+      {/* Right — effect badge + amount */}
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <span
+          style={{
+            display: "inline-block",
+            fontSize: 10,
+            fontWeight: 700,
+            padding: "2px 8px",
+            borderRadius: 99,
+            background: effectCfg.bg,
+            color: effectCfg.color,
+            border: `1px solid ${effectCfg.border}`,
+            marginBottom: 3,
+          }}
+        >
+          {effectCfg.text}
+        </span>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 14,
+            fontWeight: 700,
+            color: effectCfg.color,
+          }}
+        >
+          {effect.effect_type === "deduction" ? "− " : "+ "}
+          {fmtINR(effect.amount)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AdvanceEffectsPanel — full breakdown panel for one employee
+// ─────────────────────────────────────────────────────────────────────────────
+export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+
+  useEffect(() => {
+    if (!employeeId || !forMonth) return;
+    setLoading(true);
+    setError(null);
+    payrollService
+      .getEmployeePayroll(employeeId, forMonth)
+      .then((res) => {
+        setData(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load advance details");
+        setLoading(false);
+      });
+  }, [employeeId, forMonth]);
+
+  const effects   = data?.advanceEffects  || [];
+  const summary   = data?.advanceSummary  || {};
+  const netEffect = Number(summary.netEffect || 0);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 60,
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "flex-end",
+        background: "rgba(0,0,0,0.3)",
+        backdropFilter: "blur(2px)",
+        padding: 16,
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
+      <div
+        style={{
+          background: "#FFFFFF",
+          borderRadius: 16,
+          width: "100%",
+          maxWidth: 480,
+          maxHeight: "85vh",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid #F1F5F9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexShrink: 0,
+          }}
+        >
+          <div>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#1E293B" }}>
+              Advance effects
+            </p>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94A3B8" }}>
+              {forMonth}
+            </p>
+          </div>
           <button
-            onClick={() => setHistoryOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold shadow-sm hover:bg-slate-50 transition-all"
+            onClick={onClose}
+            style={{
+              width: 28,
+              height: 28,
+              border: "1px solid #E2E8F0",
+              borderRadius: 7,
+              background: "#FAFAFA",
+              cursor: "pointer",
+              fontSize: 14,
+              color: "#94A3B8",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            History
+            ✕
           </button>
-          <button
-            onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold shadow-sm hover:bg-slate-50 transition-all"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            NEFT Excel
-          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: "auto", flex: 1, padding: "16px 20px" }}>
+          {loading && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#94A3B8", fontSize: 14 }}>
+              Loading…
+            </div>
+          )}
+          {error && (
+            <div
+              style={{
+                padding: "12px 16px",
+                borderRadius: 8,
+                background: "#FEF2F2",
+                color: "#DC2626",
+                fontSize: 13,
+              }}
+            >
+              {error}
+            </div>
+          )}
+          {!loading && !error && effects.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#94A3B8", fontSize: 14 }}>
+              No advance effects for this month.
+            </div>
+          )}
+          {!loading && !error && effects.length > 0 && (
+            <>
+              {/* Summary strip */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3,1fr)",
+                  gap: 8,
+                  marginBottom: 16,
+                }}
+              >
+                {[
+                  {
+                    label: "Total deductions",
+                    value: fmtINR(summary.totalDeduction),
+                    color: "#DC2626",
+                    bg: "#FEF2F2",
+                  },
+                  {
+                    label: "Total additions",
+                    value: fmtINR(summary.totalAddition),
+                    color: "#16A34A",
+                    bg: "#F0FDF4",
+                  },
+                  {
+                    label: "Net effect",
+                    value: (netEffect >= 0 ? "+ " : "− ") + fmtINR(Math.abs(netEffect)),
+                    color: netEffect >= 0 ? "#16A34A" : "#DC2626",
+                    bg: netEffect >= 0 ? "#F0FDF4" : "#FEF2F2",
+                  },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: s.bg,
+                    }}
+                  >
+                    <p style={{ margin: 0, fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {s.label}
+                    </p>
+                    <p style={{ margin: "4px 0 0", fontSize: 14, fontWeight: 700, color: s.color }}>
+                      {s.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Effect rows */}
+              {effects.map((e, i) => (
+                <AdvanceEffectRow key={e.deduction_id || i} effect={e} />
+              ))}
+            </>
+          )}
         </div>
       </div>
-    </>
+    </div>
   );
-};
-
-export default PayrollHeader;
+}

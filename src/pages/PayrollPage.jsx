@@ -1,27 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/pages/Payroll.jsx  (or wherever your payroll page lives)
-//
-// WHAT'S NEW:
-//   1. "Init Month" button calls /api/payroll/init-month which re-reads all
-//      approved advance_payment_deductions and rebuilds advance_deduction /
-//      advance_addition on every payroll_record for the month.
-//      Call this after approving any advance payment request.
-//
-//   2. AdvanceEffectsPanel — click the amber badge on any employee to open a
-//      slide-over showing exactly which advance requests affect their salary
-//      this month, with the correct direction:
-//        org_to_emp  → DEDUCTION  (org gave money → recover via salary cut)
-//        emp_to_emp  → DEDUCTION  for payer, ADDITION for recipient
-//        other       → ADDITION   (org paid vendor on behalf → reimburse employee)
-//
-//   3. "Bulk Pay" pays all pending records in one API call.
-//
-//   4. Month selector keeps the display in sync with the server.
+// FILE: src/pages/Payroll.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from "react";
 import payrollService from "../services/payrollService";
-import PayrollTable      from "../Ui/Payroll/PayrollTable";
+import PayrollTable        from "../Ui/Payroll/PayrollTable";
 import AdvanceEffectsPanel from "../Ui/Payroll/AdvanceEffectsPanel";
+import PayrollHistoryModal from "../Ui/Payroll/PayrollHistoryModal";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtINR(val) {
@@ -61,13 +45,14 @@ function SummaryCard({ label, value, color = "#1E293B", sub, subColor }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PayrollPage() {
-  const [month,      setMonth]      = useState(currentMonth());
-  const [data,       setData]       = useState({ employees: [], summary: {} });
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
-  const [initBusy,   setInitBusy]   = useState(false);
-  const [bulkBusy,   setBulkBusy]   = useState(false);
-  const [toast,      setToast]      = useState(null);
+  const [month,       setMonth]       = useState(currentMonth());
+  const [data,        setData]        = useState({ employees: [], summary: {} });
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
+  const [initBusy,    setInitBusy]    = useState(false);
+  const [bulkBusy,    setBulkBusy]    = useState(false);
+  const [toast,       setToast]       = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Advance effects panel state
   const [advancePanel, setAdvancePanel] = useState(null); // { employeeId, forMonth }
@@ -94,9 +79,6 @@ export default function PayrollPage() {
   useEffect(() => { fetchPayroll(); }, [fetchPayroll]);
 
   // ── Init month ──────────────────────────────────────────────────────────────
-  // This re-reads ALL approved advance_payment_deductions for the month
-  // and rebuilds advance_deduction / advance_addition on every payroll_record.
-  // Call after approving any advance payment request.
   const handleInitMonth = async () => {
     setInitBusy(true);
     try {
@@ -139,7 +121,8 @@ export default function PayrollPage() {
 
   return (
     <div style={{ padding: "24px", maxWidth: 1600, margin: "0 auto" }}>
-      {/* Toast */}
+
+      {/* ── Toast ── */}
       {toast && (
         <div
           style={{
@@ -181,8 +164,41 @@ export default function PayrollPage() {
           </p>
         </div>
 
-        {/* Controls */}
+        {/* ── Controls ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+
+          {/* History button */}
+          <button
+            onClick={() => setShowHistory(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "1px solid #E2E8F0",
+              background: "#FFFFFF",
+              color: "#475569",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "#F8FAFC";
+              e.currentTarget.style.borderColor = "#CBD5E1";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "#FFFFFF";
+              e.currentTarget.style.borderColor = "#E2E8F0";
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            History
+          </button>
+
           {/* Month selector */}
           <select
             value={month}
@@ -228,7 +244,6 @@ export default function PayrollPage() {
             {bulkBusy ? "Paying…" : "Pay All Pending"}
           </button>
 
-       
         </div>
       </div>
 
@@ -293,9 +308,9 @@ export default function PayrollPage() {
         }}
       >
         {[
-          { type: "Org → Employee",     dir: "Deduction",  color: "#DC2626", note: "Org gave advance → salary cut to recover" },
+          { type: "Org → Employee",      dir: "Deduction",                            color: "#DC2626", note: "Org gave advance → salary cut to recover" },
           { type: "Employee → Employee", dir: "Payer: Deduction / Recipient: Addition", color: "#7C3AED", note: "Payer lent money → cut; recipient reimbursed → boost" },
-          { type: "External / Vendor",  dir: "Addition",   color: "#16A34A", note: "Org paid vendor for employee → salary boost" },
+          { type: "External / Vendor",   dir: "Addition",                             color: "#16A34A", note: "Org paid vendor for employee → salary boost" },
         ].map((rule) => (
           <div key={rule.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span
@@ -334,7 +349,7 @@ export default function PayrollPage() {
         </div>
       )}
 
-      {/* ── Loading skeleton ── */}
+      {/* ── Loading ── */}
       {loading && (
         <div style={{ textAlign: "center", padding: "60px 0", color: "#94A3B8", fontSize: 14 }}>
           Loading payroll for {month}…
@@ -363,7 +378,6 @@ export default function PayrollPage() {
             }));
           }}
           onRefresh={fetchPayroll}
-          // Pass a callback so PayrollTable can trigger the advance panel
           onViewAdvanceEffects={(employeeId) =>
             setAdvancePanel({ employeeId, forMonth: month })
           }
@@ -376,6 +390,14 @@ export default function PayrollPage() {
           employeeId={advancePanel.employeeId}
           forMonth={advancePanel.forMonth}
           onClose={() => setAdvancePanel(null)}
+        />
+      )}
+
+      {/* ── Payroll History Modal ── */}
+      {showHistory && (
+        <PayrollHistoryModal
+          employees={data.employees || []}
+          onClose={() => setShowHistory(false)}
         />
       )}
 
