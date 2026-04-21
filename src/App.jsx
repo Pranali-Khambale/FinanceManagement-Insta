@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/App.jsx  — add 2 things: 1) import, 2) public route
+// FILE: src/App.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, lazy, Suspense } from "react";
 import {
@@ -9,25 +9,21 @@ import {
   Navigate,
 } from "react-router-dom";
 
-import Sidebar        from "./components/layout/Sidebar";
-import Header         from "./components/layout/Header";
-import Dashboard      from "./pages/Dashboard";
-import AdminLogin     from "./pages/AdminLogin";
+import Sidebar           from "./components/layout/Sidebar";
+import Header            from "./components/layout/Header";
+import Dashboard         from "./pages/Dashboard";
+import AdminLogin        from "./pages/AdminLogin";
 import AdminRegistration from "./pages/AdminRegistration";
-import ForgotPassword from "./pages/forgotpass";
-import EmployeeRoutes from "./pages/EmployeeMngement";
-import useAutoLogout  from "./Authontication/logauth";
-import AdvancePayment from "./pages/AdvancePayment";
-import PayrollPage from "./pages/PayrollPage";
-
-// ✅ 1. Import AdvanceRequestForm — from Ui folder (NOT pages)
+import ForgotPassword    from "./pages/forgotpass";
+import EmployeeRoutes    from "./pages/EmployeeMngement";
+import useAutoLogout     from "./Authontication/logauth";
+import AdvancePayment    from "./pages/AdvancePayment";
+import PayrollPage       from "./pages/PayrollPage";
 import AdvanceRequestForm from "./Ui/AdvancePayment/AdvanceRequestLinkForm";
 
 const RegistrationForm = lazy(
   () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
 );
-
-// ... LoadingSpinner, ProtectedRoute, MainLayout stay exactly the same ...
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -45,9 +41,9 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const MainLayout = ({ children }) => {
-  const [collapsed,   setCollapsed]  = useState(false);
-  const [mobileOpen,  setMobileOpen] = useState(false);
-  const [isMobile,    setIsMobile]   = useState(window.innerWidth < 1024);
+  const [collapsed,  setCollapsed]  = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile,   setIsMobile]   = useState(window.innerWidth < 1024);
 
   const user = {
     name:     localStorage.getItem("fullName") || "Admin User",
@@ -101,12 +97,11 @@ function App() {
     <Router>
       <Routes>
 
-        {/* ── Public routes ──────────────────────────────────────────────── */}
+        {/* ── Public routes ────────────────────────────────────────────── */}
         <Route path="/login"                 element={<AdminLogin />} />
         <Route path="/register"              element={<AdminRegistration />} />
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
-        {/* Employee registration links */}
         <Route
           path="/registration/:linkId"
           element={<Suspense fallback={<LoadingSpinner />}><RegistrationForm /></Suspense>}
@@ -116,46 +111,36 @@ function App() {
           element={<Suspense fallback={<LoadingSpinner />}><RegistrationForm /></Suspense>}
         />
 
-        {/* ✅ 2. Advance payment form — PUBLIC (no ProtectedRoute, no MainLayout)
-               Employee opens this link without being logged in.
-               Must sit ABOVE the /employee/* wildcard.
-               URL shape: /advance-request/salary/eyJhbGci...  */}
+        {/*
+          ✅ ADVANCE PAYMENT FORM — fully public, no auth, no layout.
+          Uses BrowserRouter path (no hash).
+          The backend & GenerateLink must produce links like:
+            https://yourdomain.com/advance-request/emp_to_emp/TOKEN
+          NOT  https://yourdomain.com/#/advance-request/...
+        */}
         <Route
           path="/advance-request/:paymentTypeKey/:token"
           element={<AdvanceRequestForm />}
         />
 
-        {/* ── Protected routes ───────────────────────────────────────────── */}
+        {/* ── Protected routes ─────────────────────────────────────────── */}
         <Route
           path="/employee/dashboard"
           element={<ProtectedRoute><MainLayout><Dashboard /></MainLayout></ProtectedRoute>}
         />
-
-        {/* Advance Payments admin page — must be BEFORE /employee/* wildcard */}
         <Route
           path="/employee/payments"
           element={<ProtectedRoute><MainLayout><AdvancePayment /></MainLayout></ProtectedRoute>}
         />
-
-       
-
-        {/* ✅ Payroll route (MOVE HERE) */}
         <Route
           path="/employee/payroll"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <PayrollPage />
-              </MainLayout>
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><MainLayout><PayrollPage /></MainLayout></ProtectedRoute>}
         />
-
-        
         <Route
           path="/employee/*"
           element={<ProtectedRoute><MainLayout><EmployeeRoutes /></MainLayout></ProtectedRoute>}
         />
+
         {/* Fallback */}
         <Route path="/"  element={<Navigate to="/login" replace />} />
         <Route path="*"  element={<Navigate to="/login" replace />} />

@@ -1,495 +1,810 @@
 // src/Ui/Payroll/PayrollHistoryModal.jsx
-// Full payroll run history with search, filter, export, and detail drill-down.
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import payrollService from "../../services/payrollService";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
 const fmtINR = (n) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-const MONTH_OPTIONS = [
-  "All Months",
-  "April 2026", "March 2026", "February 2026", "January 2026",
-  "December 2025", "November 2025", "October 2025",
-];
-
-const STATUS_CFG = {
-  Paid:     { pill: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
-  Pending:  { pill: "bg-amber-50 text-amber-700 border-amber-200",       dot: "bg-amber-400"  },
-  Rejected: { pill: "bg-red-50 text-red-600 border-red-200",             dot: "bg-red-400"    },
+const fmtCompact = (n) => {
+  const v = Number(n || 0);
+  if (v >= 100000) return "₹" + (v / 100000).toFixed(1) + "L";
+  if (v >= 1000)   return "₹" + (v / 1000).toFixed(1) + "K";
+  return "₹" + v.toFixed(0);
 };
 
+const AVATAR_PALETTE = [
+  { bg: "#dbeafe", color: "#1d4ed8" },
+  { bg: "#fce7f3", color: "#be185d" },
+  { bg: "#d1fae5", color: "#065f46" },
+  { bg: "#fef3c7", color: "#92400e" },
+  { bg: "#ede9fe", color: "#5b21b6" },
+  { bg: "#fee2e2", color: "#991b1b" },
+  { bg: "#e0f2fe", color: "#0369a1" },
+  { bg: "#f3f4f6", color: "#374151" },
+];
+
+const avatarColor = (name = "") =>
+  AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
+
+const initials = (name = "") =>
+  name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+const STATUS = {
+  Paid:     { bg: "#d1fae5", color: "#065f46", dot: "#10b981" },
+  Pending:  { bg: "#fef3c7", color: "#92400e", dot: "#f59e0b" },
+  Rejected: { bg: "#fee2e2", color: "#991b1b", dot: "#ef4444" },
+};
+
+function buildMonths() {
+  const list = ["All Months"];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    list.push(d.toLocaleString("en-IN", { month: "long", year: "numeric" }));
+  }
+  return list;
+}
+
+// ─────────────────────────────────────────────
+// StatusBadge
+// ─────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
-  const c = STATUS_CFG[status] || STATUS_CFG.Pending;
+  const s = STATUS[status] || STATUS.Pending;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${c.pill}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: "3px 10px", borderRadius: 20,
+      background: s.bg, color: s.color,
+      fontSize: 11, fontWeight: 600,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot }} />
       {status}
     </span>
   );
 };
 
-// ── Sample history data generator ────────────────────────────────────────────
-// In production, replace this with a real API call e.g. payrollService.getHistory()
-function generateSampleHistory(employees = []) {
-  const months = ["February 2026", "January 2026", "December 2025", "November 2025"];
-  const records = [];
-  let id = 1;
+// ─────────────────────────────────────────────
+// Skeleton
+// ─────────────────────────────────────────────
+const Skeleton = () => (
+  <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 14 }}>
+    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#f1f5f9" }} />
+    <div style={{ flex: 1 }}>
+      <div style={{ height: 12, width: 150, background: "#f1f5f9", borderRadius: 6, marginBottom: 8 }} />
+      <div style={{ height: 11, width: 220, background: "#f1f5f9", borderRadius: 6 }} />
+    </div>
+  </div>
+);
 
-  months.forEach((month, mi) => {
-    (employees.length > 0 ? employees : DEMO_EMPLOYEES).forEach((emp) => {
-      const basic = emp.basic || 25000;
-      const hra   = emp.hra   || 10000;
-      const org   = emp.organisationAllowance || 5000;
-      const med   = emp.medicalAllowance || 1250;
-      const gross = basic + hra + org + med;
-      const pf    = emp.pfDeduction || Math.round(basic * 0.12);
-      const pt    = emp.pt || 200;
-      const tds   = emp.tds || 0;
-      const net   = gross - pf - pt - tds;
+// ─────────────────────────────────────────────
+// DetailPanel  (inline expanded below each row)
+// ─────────────────────────────────────────────
+const DetailPanel = ({ rec }) => {
+  const earningsRows = [
+    ["Basic",             rec.basic],
+    ["HRA",               rec.hra],
+    ["Org. Allowance",    rec.organisationAllowance],
+    ["Medical Allowance", rec.medicalAllowance],
+    ["Performance Pay",   rec.performancePay],
+    ["Gross Salary",      rec.grossSalary],
+    ["Gross Earned",      rec.grossEarned],
+  ];
 
-      records.push({
-        id: id++,
-        runId: `PR-${2026 - Math.floor(mi / 12)}-${String(mi + 1).padStart(2, "0")}`,
-        employeeId: emp.employeeId || `EMP00${id}`,
-        name:       emp.name || `Employee ${id}`,
-        department: emp.department || "General",
-        designation: emp.designation || "Staff",
-        forMonth:   month,
-        grossSalary: gross,
-        totalDeduction: pf + pt + tds,
-        netSalary:  net,
-        status:     mi === 0 ? "Paid" : mi === 1 ? "Paid" : "Paid",
-        paidOn:     mi === 0
-          ? "16 Mar 2026"
-          : mi === 1
-          ? "15 Feb 2026"
-          : mi === 2
-          ? "16 Jan 2026"
-          : "15 Dec 2025",
-        bankName:   emp.bankName || "State Bank of India",
-        bankAccountNo: emp.bankAccountNo || "XXXX1234",
-      });
-    });
-  });
+  const deductionRows = [
+    ["PF Employee (12%)", rec.pfDeduction],
+    ["PF Employer (12%)", rec.employerPfContribution],
+    ["Total PF (24%)",    rec.totalPfContribution],
+    ["PT",                rec.pt],
+    ["TDS",               rec.tds],
+    ["Other Deduction",   rec.otherDeduction],
+    ...(Number(rec.advanceDeduction) > 0
+      ? [["Advance Recovery", rec.advanceDeduction]]
+      : []),
+    ["Total Deductions",  rec.totalDeduction],
+  ];
 
-  return records;
-}
+  const metaRows = [
+    ["Department",   rec.department],
+    ["Designation",  rec.designation],
+    ["Present Days", rec.pDays != null ? `${rec.pDays} / ${rec.monthDays || 30}` : "—"],
+    ["Bank",         rec.bankName],
+    ["Account No.",  rec.accountNumber || "—"],
+    ["IFSC",         rec.ifscCode || "—"],
+    ["PAN",          rec.panNo || "—"],
+    ["Paid On",      rec.paidAt
+      ? new Date(rec.paidAt).toLocaleDateString("en-IN", {
+          day: "2-digit", month: "short", year: "numeric",
+        })
+      : "—"],
+  ];
 
-// Demo employees if none passed
-const DEMO_EMPLOYEES = [
-  { employeeId: "EMP001", name: "Seema Kokare",      department: "IGR",    designation: "Service Desk",    basic: 10275, hra: 4110, organisationAllowance: 2568, medicalAllowance: 1250, pfDeduction: 1233, pt: 200, tds: 0 },
-  { employeeId: "EMP002", name: "Nitin Rajput",       department: "IGR",    designation: "Support Analyst", basic: 1000,  hra: 400,  organisationAllowance: 250,  medicalAllowance: 500,  pfDeduction: 120,  pt: 0,   tds: 0 },
-  { employeeId: "EMP003", name: "Krushna Kapse",      department: "IGR",    designation: "Tech Lead",       basic: 10267, hra: 4107, organisationAllowance: 2566, medicalAllowance: 1250, pfDeduction: 1232, pt: 200, tds: 0 },
-  { employeeId: "EMP004", name: "Ashwini Wadurkar",   department: "Admin",  designation: "HR Executive",    basic: 10267, hra: 4107, organisationAllowance: 2566, medicalAllowance: 1250, pfDeduction: 1232, pt: 200, tds: 0 },
-];
+  const Card = ({ children }) => (
+    <div style={{
+      background: "#fff", borderRadius: 10,
+      border: "1px solid #e2e8f0", padding: "16px 18px",
+    }}>
+      {children}
+    </div>
+  );
 
-// ── Run Summary card ──────────────────────────────────────────────────────────
-const RunSummaryCard = ({ month, records }) => {
-  const total   = records.length;
-  const paid    = records.filter(r => r.status === "Paid").length;
-  const netSum  = records.reduce((s, r) => s + r.netSalary, 0);
-  const grossSum = records.reduce((s, r) => s + r.grossSalary, 0);
+  const SectionTitle = ({ label }) => (
+    <p style={{
+      margin: "0 0 12px", fontSize: 10, fontWeight: 700,
+      color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em",
+    }}>{label}</p>
+  );
+
+  const Row = ({ label, value, valueStyle }) => (
+    <div style={{
+      display: "flex", justifyContent: "space-between", alignItems: "center",
+      paddingBottom: 7, borderBottom: "1px solid #f8fafc",
+    }}>
+      <span style={{ fontSize: 12, color: "#64748b" }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "#334155", ...valueStyle }}>
+        {value}
+      </span>
+    </div>
+  );
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-[13px] font-bold text-slate-800">{month}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{total} employees · {paid} paid</p>
+    <div style={{
+      background: "#f8fafc",
+      borderTop: "1px solid #e2e8f0",
+      padding: "20px 24px 24px",
+      animation: "slideDown .2s ease",
+    }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+
+        {/* Earnings */}
+        <Card>
+          <SectionTitle label="Earnings" />
+          {earningsRows.map(([l, v]) => (
+            <Row
+              key={l}
+              label={l}
+              value={fmtINR(v)}
+              valueStyle={
+                l === "Gross Earned" ? { color: "#4f46e5" }
+                : l === "Gross Salary" ? { color: "#1e293b" }
+                : {}
+              }
+            />
+          ))}
+        </Card>
+
+        {/* Deductions */}
+        <Card>
+          <SectionTitle label="Deductions" />
+          {deductionRows.map(([l, v]) => (
+            <Row
+              key={l}
+              label={l}
+              value={`− ${fmtINR(v)}`}
+              valueStyle={
+                l === "Total Deductions"
+                  ? { color: "#dc2626", fontSize: 13 }
+                  : { color: "#ef4444" }
+              }
+            />
+          ))}
+          {Number(rec.advanceAddition) > 0 && (
+            <Row
+              label="Advance Addition"
+              value={`+ ${fmtINR(rec.advanceAddition)}`}
+              valueStyle={{ color: "#059669" }}
+            />
+          )}
+        </Card>
+
+        {/* Info + Net */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card>
+            <SectionTitle label="Employee Info" />
+            {metaRows.map(([l, v]) => (
+              <Row key={l} label={l} value={v || "—"} />
+            ))}
+          </Card>
+
+          {/* Net salary box */}
+          <div style={{
+            background: "linear-gradient(135deg,#1a3c6e,#1e56a0)",
+            borderRadius: 10, padding: "16px 18px",
+          }}>
+            <p style={{
+              margin: "0 0 2px", fontSize: 10,
+              color: "rgba(255,255,255,.55)", textTransform: "uppercase", letterSpacing: "0.08em",
+            }}>Net Salary</p>
+            <p style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800, color: "#fff" }}>
+              {fmtINR(rec.netSalary)}
+            </p>
+            <div style={{
+              borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 10,
+              display: "flex", justifyContent: "space-between", marginBottom: 6,
+            }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.55)" }}>Total Earning</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
+                {fmtINR(rec.totalEarning)}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.55)" }}>Status</span>
+              <StatusBadge status={rec.status} />
+            </div>
+          </div>
         </div>
-        <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-semibold">
-          Completed
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-400">Gross payout</p>
-          <p className="text-[15px] font-bold text-slate-700 mt-0.5">{fmtINR(grossSum)}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-400">Net disbursed</p>
-          <p className="text-[15px] font-bold text-emerald-600 mt-0.5">{fmtINR(netSum)}</p>
-        </div>
-      </div>
-      <div className="mt-3 bg-white rounded-lg overflow-hidden h-1.5">
-        <div
-          className="h-full rounded-lg bg-emerald-500 transition-all"
-          style={{ width: `${total > 0 ? (paid / total) * 100 : 0}%` }}
-        />
+
       </div>
     </div>
   );
 };
 
-// ── Detail Row Modal ──────────────────────────────────────────────────────────
-const RecordDetailModal = ({ record, onClose }) => (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4" style={{ background: "#1a3c6e" }}>
-        <div>
-          <p className="text-white font-bold text-[15px]">{record.name}</p>
-          <p className="text-blue-200 text-[12px] mt-0.5">{record.employeeId} · {record.forMonth}</p>
+// ─────────────────────────────────────────────
+// PayrollRow
+// ─────────────────────────────────────────────
+const PayrollRow = ({ rec, expanded, onToggle }) => {
+  const av = avatarColor(rec.name);
+
+  const timeAgo = rec.paidAt
+    ? (() => {
+        const days = Math.floor((Date.now() - new Date(rec.paidAt)) / 86400000);
+        if (days === 0)  return "Today";
+        if (days < 30)   return `${days}d ago`;
+        return `${Math.floor(days / 30)}mo ago`;
+      })()
+    : null;
+
+  return (
+    <div style={{ borderBottom: "1px solid #f1f5f9" }}>
+      {/* Row */}
+      <div
+        onClick={onToggle}
+        style={{
+          display: "flex", alignItems: "flex-start", gap: 14,
+          padding: "14px 24px", cursor: "pointer",
+          background: expanded ? "#f8fafc" : "transparent",
+          transition: "background .15s",
+        }}
+        onMouseEnter={(e) => { if (!expanded) e.currentTarget.style.background = "#fafbfc"; }}
+        onMouseLeave={(e) => { if (!expanded) e.currentTarget.style.background = "transparent"; }}
+      >
+        {/* Avatar */}
+        <div style={{
+          width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+          background: av.bg, color: av.color,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 13, fontWeight: 700,
+        }}>
+          {initials(rec.name)}
         </div>
-        <button onClick={onClose}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
-          style={{ background: "rgba(255,255,255,0.15)" }}>✕</button>
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Name + ID + dept */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 5 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{rec.name}</span>
+            <span style={{
+              background: "#f1f5f9", color: "#64748b",
+              fontSize: 11, padding: "1px 7px", borderRadius: 4, fontFamily: "monospace",
+            }}>{rec.employeeId}</span>
+            {rec.department && (
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>🏢 {rec.department}</span>
+            )}
+          </div>
+
+          {/* Pills */}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 6 }}>
+            <StatusBadge status={rec.status} />
+            <span style={{
+              background: "#eff6ff", color: "#1d4ed8",
+              fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 600,
+            }}>{rec.forMonth}</span>
+            {rec.pDays != null && (
+              <span style={{
+                background: "#f0fdf4", color: "#166534",
+                fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 600,
+              }}>{rec.pDays}/{rec.monthDays || 30} days</span>
+            )}
+          </div>
+
+          {/* Figures */}
+          <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+            Gross Earned:{" "}
+            <strong style={{ color: "#4f46e5" }}>{fmtINR(rec.grossEarned)}</strong>
+            {"  ·  "}
+            Deductions:{" "}
+            <strong style={{ color: "#ef4444" }}>−{fmtINR(rec.totalDeduction)}</strong>
+            {"  ·  "}
+            Net:{" "}
+            <strong style={{ color: "#059669" }}>{fmtINR(rec.netSalary)}</strong>
+          </p>
+        </div>
+
+        {/* Right meta */}
+        <div style={{
+          flexShrink: 0, textAlign: "right",
+          display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4,
+        }}>
+          {timeAgo && (
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>⏱ {timeAgo}</span>
+          )}
+          {rec.paidAt && (
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+              {new Date(rec.paidAt).toLocaleDateString("en-IN", {
+                day: "2-digit", month: "short", year: "numeric",
+              })}
+            </span>
+          )}
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginTop: 2 }}>
+            {fmtCompact(rec.totalEarning)}
+          </span>
+          <span style={{
+            fontSize: 11, color: "#94a3b8",
+            display: "inline-block",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform .2s",
+          }}>▾</span>
+        </div>
       </div>
 
-      <div className="p-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            ["Department",   record.department],
-            ["Designation",  record.designation],
-            ["Run ID",       record.runId],
-            ["Paid On",      record.paidOn],
-            ["Bank",         record.bankName],
-            ["A/C",          record.bankAccountNo],
-          ].map(([label, val]) => (
-            <div key={label}>
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">{label}</p>
-              <p className="text-[13px] text-slate-700 mt-0.5">{val || "—"}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t border-slate-100 pt-4 space-y-2">
-          {[
-            ["Gross Salary",     record.grossSalary,     "text-slate-700"],
-            ["Total Deductions", record.totalDeduction,  "text-red-500"],
-            ["Net Salary",       record.netSalary,       "text-emerald-600 font-bold text-[16px]"],
-          ].map(([label, val, cls]) => (
-            <div key={label} className="flex justify-between items-center">
-              <span className="text-[13px] text-slate-500">{label}</span>
-              <span className={`text-[13px] ${cls}`}>{fmtINR(val)}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex justify-center pt-2">
-          <StatusBadge status={record.status} />
-        </div>
-      </div>
+      {/* Inline detail panel */}
+      {expanded && <DetailPanel rec={rec} />}
     </div>
-  </div>
-);
+  );
+};
 
-// ── Main Modal ────────────────────────────────────────────────────────────────
-const PayrollHistoryModal = ({ employees = [], onClose }) => {
-  const allRecords = useMemo(() => generateSampleHistory(employees), [employees]);
-
+// ─────────────────────────────────────────────
+// Main Modal
+// ─────────────────────────────────────────────
+const PayrollHistoryModal = ({ onClose }) => {
+  const [allRecords,  setAllRecords]  = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
   const [search,      setSearch]      = useState("");
   const [monthFilter, setMonthFilter] = useState("All Months");
-  const [deptFilter,  setDeptFilter]  = useState("All");
-  const [statusFilt,  setStatusFilt]  = useState("All");
-  const [detailRec,   setDetailRec]   = useState(null);
+  const [deptFilter,  setDeptFilter]  = useState("All Departments");
+  const [statusFilt,  setStatusFilt]  = useState("All Statuses");
+  const [expandedKey, setExpandedKey] = useState(null);
   const [page,        setPage]        = useState(1);
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 15;
 
-  const departments = ["All", ...new Set(allRecords.map(r => r.department).filter(Boolean))];
+  const MONTHS = useMemo(buildMonths, []);
 
-  const filtered = useMemo(() => allRecords.filter(r => {
-    const matchSearch = (r.name || "").toLowerCase().includes(search.toLowerCase()) ||
-                        (r.employeeId || "").toLowerCase().includes(search.toLowerCase());
-    const matchMonth  = monthFilter === "All Months" || r.forMonth === monthFilter;
-    const matchDept   = deptFilter  === "All"        || r.department === deptFilter;
-    const matchStatus = statusFilt  === "All"        || r.status === statusFilt;
-    return matchSearch && matchMonth && matchDept && matchStatus;
-  }), [allRecords, search, monthFilter, deptFilter, statusFilt]);
+  // ── Fetch last 12 months ──
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const monthLabels = Array.from({ length: 12 }, (_, i) => {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          return d.toLocaleString("en-IN", { month: "long", year: "numeric" });
+        });
+
+        const results = await Promise.allSettled(
+          monthLabels.map((m) => payrollService.getPayrollData({ month: m, limit: 500 }))
+        );
+
+        const records = [];
+        results.forEach((res, idx) => {
+          if (res.status !== "fulfilled") return;
+          const month = monthLabels[idx];
+          (res.value?.data?.employees || []).forEach((emp) => {
+            if (!emp.payrollRecordId) return;
+            records.push({
+              id:                     emp.payrollRecordId,
+              employeeId:             emp.employeeId,
+              name:                   emp.name,
+              department:             emp.department,
+              designation:            emp.designation,
+              forMonth:               month,
+              basic:                  emp.basic,
+              hra:                    emp.hra,
+              organisationAllowance:  emp.organisationAllowance,
+              medicalAllowance:       emp.medicalAllowance,
+              performancePay:         emp.performancePay,
+              grossSalary:            emp.grossSalary,
+              grossEarned:            emp.grossEarned,
+              pfDeduction:            emp.pfDeduction,
+              employerPfContribution: emp.employerPfContribution,
+              totalPfContribution:    emp.totalPfContribution,
+              pt:                     emp.pt,
+              tds:                    emp.tds,
+              otherDeduction:         emp.otherDeduction,
+              advanceDeduction:       emp.advanceDeduction,
+              advanceAddition:        emp.advanceAddition,
+              totalDeduction:         emp.totalDeduction,
+              netSalary:              emp.netSalary,
+              totalEarning:           emp.totalEarning,
+              pDays:                  emp.pDays,
+              aDays:                  emp.aDays,
+              monthDays:              emp.monthDays,
+              status:                 emp.status,
+              paidAt:                 emp.paidAt,
+              bankName:               emp.bankName,
+              accountNumber:          emp.accountNumber,
+              ifscCode:               emp.ifscCode,
+              panNo:                  emp.panNo,
+            });
+          });
+        });
+
+        setAllRecords(records);
+      } catch (err) {
+        setError(err.message || "Failed to load history");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // ── Derived state ──
+  const departments = useMemo(() =>
+    ["All Departments", ...new Set(allRecords.map((r) => r.department).filter(Boolean))],
+    [allRecords]
+  );
+
+  const filtered = useMemo(() =>
+    allRecords.filter((r) => {
+      const q = search.toLowerCase();
+      return (
+        ((r.name || "").toLowerCase().includes(q) ||
+         (r.employeeId || "").toLowerCase().includes(q)) &&
+        (monthFilter === "All Months"      || r.forMonth   === monthFilter) &&
+        (deptFilter  === "All Departments" || r.department === deptFilter)  &&
+        (statusFilt  === "All Statuses"    || r.status     === statusFilt)
+      );
+    }),
+    [allRecords, search, monthFilter, deptFilter, statusFilt]
+  );
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Summary by month (only unique months from filtered)
-  const monthGroups = useMemo(() => {
-    const map = {};
-    allRecords.forEach(r => {
-      if (!map[r.forMonth]) map[r.forMonth] = [];
-      map[r.forMonth].push(r);
-    });
-    return Object.entries(map).slice(0, 4); // show latest 4 months
-  }, [allRecords]);
+  const totalNet   = filtered.reduce((s, r) => s + Number(r.netSalary      || 0), 0);
+  const totalGross = filtered.reduce((s, r) => s + Number(r.grossSalary    || 0), 0);
+  const totalDed   = filtered.reduce((s, r) => s + Number(r.totalDeduction || 0), 0);
 
-  // Totals for filtered records
-  const totalNet   = filtered.reduce((s, r) => s + r.netSalary, 0);
-  const totalGross = filtered.reduce((s, r) => s + r.grossSalary, 0);
-  const totalDed   = filtered.reduce((s, r) => s + r.totalDeduction, 0);
-
-  // Export filtered records to Excel
+  // ── Export ──
   const handleExport = async () => {
     try {
-      const { utils, writeFile } = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
-      const rows = filtered.map(r => ({
-        "Run ID":           r.runId,
-        "Employee ID":      r.employeeId,
-        "Name":             r.name,
-        "Department":       r.department,
-        "Designation":      r.designation,
-        "Month":            r.forMonth,
-        "Gross Salary":     r.grossSalary,
-        "Total Deductions": r.totalDeduction,
-        "Net Salary":       r.netSalary,
-        "Status":           r.status,
-        "Paid On":          r.paidOn,
-        "Bank":             r.bankName,
-        "A/C No":           r.bankAccountNo,
-      }));
-      const ws = utils.json_to_sheet(rows);
-      ws["!cols"] = [
-        { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 20 },
-        { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 10 },
-        { wch: 14 }, { wch: 20 }, { wch: 18 },
-      ];
-      const wb = utils.book_new();
-      utils.book_append_sheet(wb, ws, "Payroll History");
-      writeFile(wb, `Payroll_History_${monthFilter.replace(" ", "_")}.xlsx`);
+      const XLSX = await import("xlsx-js-style");
+      const ws = XLSX.utils.json_to_sheet(
+        filtered.map((r) => ({
+          "Employee ID":        r.employeeId,
+          "Name":               r.name,
+          "Department":         r.department,
+          "Designation":        r.designation,
+          "Month":              r.forMonth,
+          "P Days":             r.pDays,
+          "Month Days":         r.monthDays,
+          "Gross Salary (₹)":   Number(r.grossSalary          || 0),
+          "Gross Earned (₹)":   Number(r.grossEarned          || 0),
+          "Total PF 24% (₹)":   Number(r.totalPfContribution  || 0),
+          "PT (₹)":             Number(r.pt                   || 0),
+          "TDS (₹)":            Number(r.tds                  || 0),
+          "Adv. Deduction (₹)": Number(r.advanceDeduction     || 0),
+          "Adv. Addition (₹)":  Number(r.advanceAddition      || 0),
+          "Total Deduction (₹)":Number(r.totalDeduction       || 0),
+          "Net Salary (₹)":     Number(r.netSalary            || 0),
+          "Total Earning (₹)":  Number(r.totalEarning         || 0),
+          "Status":             r.status,
+          "Paid On":            r.paidAt
+            ? new Date(r.paidAt).toLocaleDateString("en-IN", {
+                day: "2-digit", month: "short", year: "numeric",
+              })
+            : "—",
+          "Bank":  r.bankName      || "—",
+          "A/C No": r.accountNumber || "—",
+        }))
+      );
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Payroll History");
+      XLSX.writeFile(wb, `Payroll_History_${monthFilter.replace(/ /g, "_")}.xlsx`);
     } catch (e) {
       console.error("Export failed", e);
     }
   };
 
+  // ── Render ──
   return (
     <>
-      {detailRec && (
-        <RecordDetailModal record={detailRec} onClose={() => setDetailRec(null)} />
-      )}
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div
-          className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col"
-          style={{ maxWidth: "1000px", maxHeight: "92vh" }}
-        >
-          {/* ── Header ── */}
-          <div className="flex items-center justify-between px-6 py-5 flex-shrink-0 border-b border-slate-100">
-            <div>
-              <h2 className="text-[17px] font-bold text-slate-800">Payroll History</h2>
-              <p className="text-[12px] text-slate-400 mt-0.5">
-                Complete payroll run records across all months
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-                Export Excel
-              </button>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors text-sm"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", padding: 16,
+      }}>
+        <div style={{
+          background: "#fff", borderRadius: 16,
+          boxShadow: "0 25px 60px rgba(0,0,0,.2)",
+          width: "100%", maxWidth: 820,
+          maxHeight: "92vh",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+        }}>
 
-          <div className="flex-1 overflow-y-auto">
-            {/* ── Month Run Summaries ── */}
-            <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-              <p className="text-[11px] uppercase tracking-widest text-slate-400 font-semibold mb-3">
-                Recent Payroll Runs
-              </p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {monthGroups.map(([month, recs]) => (
-                  <RunSummaryCard key={month} month={month} records={recs} />
+          {/* ══ HEADER ══════════════════════════════════════════════ */}
+          <div style={{
+            background: "linear-gradient(135deg,#1a3c6e,#1e56a0)",
+            padding: "20px 24px 0", flexShrink: 0,
+          }}>
+            {/* Title row */}
+            <div style={{
+              display: "flex", alignItems: "center",
+              justifyContent: "space-between", marginBottom: 20,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: "rgba(255,255,255,.15)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, color: "#fff", fontSize: 17, fontWeight: 700 }}>
+                    Payroll History
+                  </h2>
+                  <p style={{ margin: "2px 0 0", color: "rgba(255,255,255,.55)", fontSize: 12 }}>
+                    Combined salary run history · live view
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleExport}
+                  disabled={loading || filtered.length === 0}
+                  style={{
+                    background: "rgba(255,255,255,.15)", border: "none", cursor: "pointer",
+                    color: "#fff", borderRadius: 8, padding: "7px 14px",
+                    fontSize: 12, fontWeight: 600,
+                    display: "flex", alignItems: "center", gap: 6,
+                    opacity: loading || filtered.length === 0 ? 0.5 : 1,
+                  }}
+                >
+                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Export {!loading && filtered.length > 0 ? filtered.length : ""}
+                </button>
+                <button
+                  onClick={onClose}
+                  style={{
+                    background: "rgba(255,255,255,.15)", border: "none", cursor: "pointer",
+                    color: "#fff", width: 32, height: 32, borderRadius: 8, fontSize: 16,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >✕</button>
+              </div>
+            </div>
+
+            {/* Stat cards */}
+            {!loading && (
+              <div style={{
+                display: "grid", gridTemplateColumns: "repeat(4,1fr)",
+                gap: 10, paddingBottom: 20,
+              }}>
+                {[
+                  { label: "TOTAL",    value: allRecords.length,                                   accent: "#93c5fd" },
+                  { label: "PAID",     value: allRecords.filter((r) => r.status === "Paid").length,     accent: "#6ee7b7" },
+                  { label: "PENDING",  value: allRecords.filter((r) => r.status === "Pending").length,  accent: "#fcd34d" },
+                  { label: "REJECTED", value: allRecords.filter((r) => r.status === "Rejected").length, accent: "#fca5a5" },
+                ].map(({ label, value, accent }) => (
+                  <div key={label} style={{
+                    background: "rgba(255,255,255,.08)",
+                    border: "1px solid rgba(255,255,255,.1)",
+                    borderRadius: 10, padding: "12px 14px",
+                  }}>
+                    <p style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, color: accent }}>
+                      {value}
+                    </p>
+                    <p style={{
+                      margin: 0, fontSize: 10, fontWeight: 700,
+                      color: "rgba(255,255,255,.45)", letterSpacing: "0.08em",
+                    }}>{label}</p>
+                  </div>
                 ))}
               </div>
+            )}
+
+            {/* Totals strip */}
+            {!loading && filtered.length > 0 && (
+              <div style={{
+                display: "flex", margin: "0 -24px",
+                background: "rgba(0,0,0,.2)", padding: "10px 24px",
+              }}>
+                {[
+                  { label: "GROSS",      value: fmtCompact(totalGross), color: "rgba(255,255,255,.9)" },
+                  { label: "DEDUCTIONS", value: `− ${fmtCompact(totalDed)}`, color: "#fca5a5" },
+                  { label: "NET PAID",   value: fmtCompact(totalNet),   color: "#6ee7b7" },
+                ].map(({ label, value, color }, i) => (
+                  <div key={label} style={{
+                    flex: 1, textAlign: "center",
+                    borderRight: i < 2 ? "1px solid rgba(255,255,255,.1)" : "none",
+                  }}>
+                    <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,.4)", letterSpacing: "0.06em" }}>
+                      {label}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ══ FILTERS ══════════════════════════════════════════════ */}
+          <div style={{
+            padding: "12px 24px", borderBottom: "1px solid #f1f5f9",
+            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+            flexShrink: 0, background: "#fff",
+          }}>
+            {/* Search */}
+            <div style={{ position: "relative" }}>
+              <svg style={{
+                position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)",
+                color: "#94a3b8", pointerEvents: "none",
+              }} width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search name or ID…"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                style={{
+                  paddingLeft: 30, paddingRight: 10, height: 32,
+                  fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 8,
+                  background: "#f8fafc", color: "#374151", outline: "none", width: 170,
+                }}
+              />
             </div>
 
-            {/* ── Totals Bar ── */}
-            <div className="px-6 py-4 border-b border-slate-100 grid grid-cols-3 gap-4 bg-slate-50">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Total Gross</p>
-                <p className="text-[16px] font-bold text-slate-700 mt-0.5">{fmtINR(totalGross)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Total Deductions</p>
-                <p className="text-[16px] font-bold text-red-500 mt-0.5">- {fmtINR(totalDed)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Total Net Paid</p>
-                <p className="text-[16px] font-bold text-emerald-600 mt-0.5">{fmtINR(totalNet)}</p>
-              </div>
+            {/* Select filters */}
+            {[
+              { value: monthFilter, set: setMonthFilter, opts: MONTHS },
+              { value: deptFilter,  set: setDeptFilter,  opts: departments },
+              { value: statusFilt,  set: setStatusFilt,  opts: ["All Statuses", "Paid", "Pending", "Rejected"] },
+            ].map((sel, i) => (
+              <select
+                key={i}
+                value={sel.value}
+                onChange={(e) => { sel.set(e.target.value); setPage(1); }}
+                style={{
+                  height: 32, fontSize: 12, border: "1px solid #e2e8f0",
+                  borderRadius: 8, padding: "0 10px",
+                  background: "#f8fafc", color: "#374151", outline: "none",
+                }}
+              >
+                {sel.opts.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            ))}
+
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "#94a3b8" }}>
+              {loading ? "Loading…" : `${filtered.length} event${filtered.length !== 1 ? "s" : ""}`}
+            </span>
+          </div>
+
+          {/* ══ ERROR ════════════════════════════════════════════════ */}
+          {error && (
+            <div style={{
+              margin: "12px 24px", padding: "10px 14px", borderRadius: 8,
+              background: "#fee2e2", border: "1px solid #fca5a5",
+              fontSize: 12, color: "#991b1b",
+            }}>
+              ❌ {error}
             </div>
+          )}
 
-            {/* ── Filters ── */}
-            <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-2 flex-wrap">
-              {/* Search */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search name or ID…"
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(1); }}
-                  className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 w-44"
-                />
-                <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
+          {/* ══ FEED ════════════════════════════════════════════════ */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {loading ? (
+              [...Array(6)].map((_, i) => <Skeleton key={i} />)
+            ) : paginated.length === 0 ? (
+              <div style={{ padding: "48px 24px", textAlign: "center" }}>
+                <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                  {allRecords.length === 0
+                    ? "No saved payroll records found. Records appear here once salary is saved or paid."
+                    : "No records match your filters."}
+                </p>
               </div>
+            ) : (
+              paginated.map((rec) => {
+                const key = `${rec.id}-${rec.forMonth}`;
+                return (
+                  <PayrollRow
+                    key={key}
+                    rec={rec}
+                    expanded={expandedKey === key}
+                    onToggle={() =>
+                      setExpandedKey(expandedKey === key ? null : key)
+                    }
+                  />
+                );
+              })
+            )}
+          </div>
 
-              {/* Month filter */}
-              <select
-                value={monthFilter}
-                onChange={e => { setMonthFilter(e.target.value); setPage(1); }}
-                className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none text-slate-600"
-              >
-                {MONTH_OPTIONS.map(m => <option key={m}>{m}</option>)}
-              </select>
+          {/* ══ FOOTER ══════════════════════════════════════════════ */}
+          <div style={{
+            padding: "12px 24px", borderTop: "1px solid #f1f5f9",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            flexShrink: 0, background: "#fff",
+          }}>
+            <span style={{ fontSize: 12, color: "#94a3b8" }}>
+              Showing{" "}
+              <strong style={{ color: "#374151" }}>
+                {filtered.length === 0
+                  ? 0
+                  : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}
+              </strong>{" "}
+              of <strong style={{ color: "#374151" }}>{filtered.length}</strong> events
+            </span>
 
-              {/* Dept filter */}
-              <select
-                value={deptFilter}
-                onChange={e => { setDeptFilter(e.target.value); setPage(1); }}
-                className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none text-slate-600"
-              >
-                {departments.map(d => <option key={d}>{d}</option>)}
-              </select>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {totalPages > 1 && (
+                <>
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    style={{
+                      padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      border: "1px solid #e2e8f0", borderRadius: 6, background: "#fff",
+                      color: page === 1 ? "#d1d5db" : "#374151",
+                    }}
+                  >← Prev</button>
 
-              {/* Status filter */}
-              <select
-                value={statusFilt}
-                onChange={e => { setStatusFilt(e.target.value); setPage(1); }}
-                className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none text-slate-600"
-              >
-                {["All", "Paid", "Pending", "Rejected"].map(s => <option key={s}>{s}</option>)}
-              </select>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pg = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                    return (
+                      <button key={pg} onClick={() => setPage(pg)} style={{
+                        width: 28, height: 28, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                        border: pg === page ? "none" : "1px solid #e2e8f0",
+                        borderRadius: 6,
+                        background: pg === page ? "#1a3c6e" : "#fff",
+                        color: pg === page ? "#fff" : "#374151",
+                      }}>{pg}</button>
+                    );
+                  })}
 
-              <span className="text-[11px] text-slate-400 ml-auto">
-                {filtered.length} record{filtered.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-
-            {/* ── Table ── */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" style={{ minWidth: "760px" }}>
-                <thead>
-                  <tr className="border-b border-slate-100 text-left">
-                    {[
-                      "Employee", "Month", "Gross Salary", "Deductions",
-                      "Net Salary", "Status", "Paid On", ""
-                    ].map(col => (
-                      <th key={col} className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((rec) => (
-                    <tr key={rec.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                      {/* Employee */}
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-800 text-[13px] whitespace-nowrap">{rec.name}</p>
-                        <p className="text-[11px] text-slate-400">{rec.employeeId} · {rec.department}</p>
-                      </td>
-
-                      {/* Month */}
-                      <td className="px-4 py-3 whitespace-nowrap text-[13px] text-slate-600">
-                        {rec.forMonth}
-                        <p className="text-[11px] text-slate-400">{rec.runId}</p>
-                      </td>
-
-                      {/* Gross */}
-                      <td className="px-4 py-3 whitespace-nowrap text-[13px] font-semibold text-slate-700">
-                        {fmtINR(rec.grossSalary)}
-                      </td>
-
-                      {/* Deductions */}
-                      <td className="px-4 py-3 whitespace-nowrap text-[13px] text-red-500">
-                        - {fmtINR(rec.totalDeduction)}
-                      </td>
-
-                      {/* Net */}
-                      <td className="px-4 py-3 whitespace-nowrap text-[13px] font-extrabold text-emerald-600">
-                        {fmtINR(rec.netSalary)}
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-4 py-3">
-                        <StatusBadge status={rec.status} />
-                      </td>
-
-                      {/* Paid On */}
-                      <td className="px-4 py-3 whitespace-nowrap text-[12px] text-slate-500">
-                        {rec.paidOn || "—"}
-                      </td>
-
-                      {/* Detail */}
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => setDetailRec(rec)}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-500 transition-colors"
-                          title="View details"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {paginated.length === 0 && (
-                <div className="py-14 text-center">
-                  <p className="text-slate-400 text-sm">No history records match your filters.</p>
-                </div>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    style={{
+                      padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      border: "1px solid #e2e8f0", borderRadius: 6, background: "#fff",
+                      color: page === totalPages ? "#d1d5db" : "#374151",
+                    }}
+                  >Next →</button>
+                </>
               )}
+
+              <button onClick={onClose} style={{
+                padding: "6px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                border: "1px solid #e2e8f0", borderRadius: 8,
+                background: "#fff", color: "#374151", marginLeft: 4,
+              }}>✕ Close</button>
             </div>
           </div>
 
-          {/* ── Pagination ── */}
-          {totalPages > 1 && (
-            <div className="px-6 py-3 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
-              <p className="text-xs text-slate-400">
-                Page {page} of {totalPages} · {filtered.length} records
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  ← Prev
-                </button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const pg = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
-                  return (
-                    <button
-                      key={pg}
-                      onClick={() => setPage(pg)}
-                      className={`w-8 h-8 rounded-lg text-xs font-semibold border transition-colors ${
-                        pg === page
-                          ? "border-indigo-600 bg-indigo-600 text-white"
-                          : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                      }`}
-                    >
-                      {pg}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>

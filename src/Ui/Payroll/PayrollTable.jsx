@@ -1,31 +1,21 @@
 // src/Ui/Payroll/PayrollTable.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// SALARY CALCULATION — mirrors payrollController.js exactly
+// FIXES IN THIS VERSION:
 //
-//  PF (EMPLOYEE) = 12% of basic (rounded to nearest rupee)
-//  PF (EMPLOYER) = 12% of basic (company cost — shown separately, not deducted)
-//        If server returned a saved pf_deduction > 0, use that (HR override).
+//  FIX 1 — computePayslip: 0 is now a valid saved PF/PT value.
+//    Old: `n(emp.pfDeduction) > 0` → 0 fell through to auto-calc.
+//    New: `emp.pfDeduction != null` → 0 is honoured as an explicit override.
+//    Same for employerPfContribution and pt.
 //
-//  PT  = Gender-based rule:
-//        Male   → always: ₹200/month, ₹300 in February
-//        Female → only if gross_full > ₹25,000: ₹200/month, ₹300 in February
-//                 if gross_full ≤ ₹25,000 → ₹0 (not applicable)
-//        If server returned a saved pt > 0, use that (HR override).
+//  FIX 2 — handleEditSave merge: server-returned 0 is no longer replaced by
+//    local auto-calc via the `||` fallback.
+//    Old: `n(serverData.pf_deduction) || n(updated.pfDeduction)` → 0 || local.
+//    New: explicit null-check:
+//         `serverData.pf_deduction != null ? Number(serverData.pf_deduction) : ...`
 //
-//  Attendance ratio = p_days / month_days
-//  gross_earned     = gross_full × ratio
-//  net_salary       = gross_earned − (emp_pf + pt + tds + other_ded + adv_ded) + adv_add
-//  NOTE: Employer PF does NOT reduce net_salary.
-//
-// FIXES:
-//   1. handleEditSave — receives raw camelCase `updated` from EmployeeDetailModal
-//      (modal no longer pre-transforms to snake_case). Builds the correct
-//      snake_case API payload here, then merges ALL edited fields (earnings +
-//      server-computed totals) back into local state so the table row and
-//      payslip modal both reflect the saved values immediately.
-//   2. handleEditSave — calls onRefresh?.() after a successful save so the
-//      parent page re-fetches from the DB, keeping the dashboard in sync.
-//   3. No other logic changed.
+//  FIX 3 — EmployeeDetailModal integration: the edit modal now receives
+//    pfDeduction, employerPfContribution, and pt fields so HR can edit them.
+//    A new inline fallback computes them if the modal doesn't supply values.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from "react";
@@ -34,10 +24,6 @@ import { exportPayrollToExcel } from "./ExportPayrollExcel";
 import AttendanceInputModal from "./AttendanceInputModal";
 import EmployeeDetailModal from "./EmployeeDetailModal";
 import payrollService from "../../services/payrollService";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
   "from-indigo-400 to-indigo-600",
@@ -56,17 +42,11 @@ const STATUS_CFG = {
   Cancelled: { pill: "bg-slate-50   text-slate-500   border-slate-200",   dot: "bg-slate-400"  },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Safe number coercion — returns 0 for null / undefined / NaN / Infinity. */
 function n(val) {
   const v = Number(val);
   return isFinite(v) ? v : 0;
 }
 
-/** Format Indian-locale currency. */
 function fmtINR(val) {
   return "₹" + n(val).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
@@ -74,30 +54,20 @@ function fmtINR(val) {
   });
 }
 
-/**
- * PT based on gender + gross salary.
- *   Male   → always applicable (Feb=300, else=200)
- *   Female → only if gross_full > 25000 (Feb=300, else=200), else 0
- */
 function ptFromGenderAndGross(forMonth, gender, grossFull) {
   const isFemale = /female|woman|f/i.test(gender || "");
   if (isFemale && n(grossFull) <= 25000) return 0;
   return /february/i.test(forMonth || "") ? 300 : 200;
 }
 
-/** Employee PF = 12% of basic, rounded to nearest rupee. */
 function pfFromBasic(basic) {
   return Math.round(n(basic) * 0.12);
 }
 
-/** Employer PF = 12% of basic (company cost). */
 function employerPfFromBasic(basic) {
   return Math.round(n(basic) * 0.12);
 }
 
-/**
- * Returns the exact number of calendar days for a "Month YYYY" string.
- */
 function getDaysInMonth(forMonth) {
   if (!forMonth) return 30;
   const MONTHS = {
@@ -113,7 +83,13 @@ function getDaysInMonth(forMonth) {
 }
 
 /**
- * Compute all payslip figures.
+ * FIX 1: Use != null instead of > 0 so that 0 is respected as an explicit
+ * HR override (e.g. employee who is PF-exempt, or PT-exempt).
+ *
+ * Logic:
+ *   - If the employee has a saved payroll record AND the field was explicitly
+ *     set (not null / undefined), use the saved value (even if it's 0).
+ *   - Otherwise fall back to auto-calculation.
  */
 function computePayslip(emp) {
   const monthDays   = n(emp.monthDays) || 30;
@@ -130,43 +106,45 @@ function computePayslip(emp) {
   const advDed     = n(emp.advanceDeduction);
   const advAdd     = n(emp.advanceAddition);
 
-  // Employee PF
-  const empPfDed = n(emp.pfDeduction) > 0
+  const grossSalary = basic + hra + orgAllow + medAllow;
+
+  // FIX: emp.pfDeduction != null → 0 is now a valid saved override
+  const empPfDed = emp.pfDeduction != null
     ? n(emp.pfDeduction)
     : pfFromBasic(basic);
 
-  const grossSalary = basic + hra + orgAllow + medAllow;
-
-  // Employer PF — always 12% (from server if provided, else calculate)
-  const employerPf = n(emp.employerPfContribution) > 0
+  // FIX: emp.employerPfContribution != null → 0 is now a valid saved override
+  const employerPf = emp.employerPfContribution != null
     ? n(emp.employerPfContribution)
     : employerPfFromBasic(basic);
 
-  // PT — gender-aware
-  const ptDed = n(emp.pt) > 0
+  const totalPf = empPfDed + employerPf;
+
+  // FIX: emp.pt != null → 0 is now a valid saved override (PT-exempt employee)
+  const ptDed = emp.pt != null
     ? n(emp.pt)
     : ptFromGenderAndGross(emp.forMonth, emp.gender, grossSalary);
 
-  const grossEarned    = grossSalary * ratio;
-  const perfEarned     = perfPay * ratio;
-  // Only employee PF reduces net salary
-  const totalDeduction = empPfDed + ptDed + tds + otherDed + advDed;
+  const grossEarned = grossSalary * ratio;
+  const perfEarned  = perfPay * ratio;
+
+  const totalDeduction = empPfDed + employerPf + ptDed + tds + otherDed + advDed;
   const netSalary      = grossEarned - totalDeduction + advAdd;
   const totalEarning   = netSalary + perfEarned;
 
   return {
-    grossSalary:              n(emp.grossSalary)    || grossSalary,
-    grossEarned:              n(emp.grossEarned)    || grossEarned,
-    perfEarned:               n(emp.perfEarned)     || perfEarned,
-    empPfDeduction:           empPfDed,              // employee share (12%)
-    employerPfContribution:   employerPf,            // employer share (12%, info only)
-    totalPfContribution:      empPfDed + employerPf, // combined
-    ptDeduction:              ptDed,
-    totalDeduction:           n(emp.totalDeduction) || totalDeduction,
-    advanceDeduction:         advDed,
-    advanceAddition:          advAdd,
-    netSalary:                n(emp.netSalary)      || netSalary,
-    totalEarning:             n(emp.totalEarning)   || totalEarning,
+    grossSalary,
+    grossEarned,
+    perfEarned,
+    empPfDeduction:         empPfDed,
+    employerPfContribution: employerPf,
+    totalPfContribution:    totalPf,
+    ptDeduction:            ptDed,
+    totalDeduction,
+    advanceDeduction:       advDed,
+    advanceAddition:        advAdd,
+    netSalary,
+    totalEarning,
   };
 }
 
@@ -201,7 +179,7 @@ const PayslipViewModal = ({ employee, onClose }) => {
   const pDays     = employee.pDays != null ? n(employee.pDays) : monthDays;
   const ratio     = monthDays > 0 ? pDays / monthDays : 1;
 
-  const isFemale  = /female|woman|f/i.test(employee.gender || "");
+  const isFemale        = /female|woman|f/i.test(employee.gender || "");
   const ptNotApplicable = isFemale && grossSalary <= 25000;
 
   const handleExcel = async () => {
@@ -307,10 +285,10 @@ const PayslipViewModal = ({ employee, onClose }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  <EarningRow label="Basic"           gross={n(employee.basic)}                   earned={n(employee.basic) * ratio} />
-                  <EarningRow label="HRA"              gross={n(employee.hra)}                    earned={n(employee.hra) * ratio} />
-                  <EarningRow label="Org. allowance"   gross={n(employee.organisationAllowance)}  earned={n(employee.organisationAllowance) * ratio} />
-                  <EarningRow label="Medical allow."   gross={n(employee.medicalAllowance)}       earned={n(employee.medicalAllowance) * ratio} />
+                  <EarningRow label="Basic"          gross={n(employee.basic)}                  earned={n(employee.basic) * ratio} />
+                  <EarningRow label="HRA"             gross={n(employee.hra)}                   earned={n(employee.hra) * ratio} />
+                  <EarningRow label="Org. allowance"  gross={n(employee.organisationAllowance)} earned={n(employee.organisationAllowance) * ratio} />
+                  <EarningRow label="Medical allow."  gross={n(employee.medicalAllowance)}      earned={n(employee.medicalAllowance) * ratio} />
 
                   {advanceAddition > 0 && (
                     <tr className="text-[12px]">
@@ -346,19 +324,18 @@ const PayslipViewModal = ({ employee, onClose }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Employee PF */}
                   <DeductRow
                     label={`PF – Employee (12% of ₹${n(employee.basic).toLocaleString("en-IN")})`}
                     amount={empPfDeduction}
                   />
-                  {/* Employer PF — shown as info, not deducted from net */}
-                  <tr className="text-[12px]">
-                    <td className="py-1 text-slate-400 italic">
-                      PF – Employer (12%) <span className="text-[10px]">[company cost]</span>
-                    </td>
-                    <td className="py-1 text-right text-slate-400 italic">{fmtINR(employerPfContribution)}</td>
+                  <DeductRow
+                    label={`PF – Employer (12% of ₹${n(employee.basic).toLocaleString("en-IN")})`}
+                    amount={employerPfContribution}
+                  />
+                  <tr className="text-[12px] bg-red-50/50">
+                    <td className="py-1 text-red-600 font-semibold">Total PF (24%)</td>
+                    <td className="py-1 text-right font-bold text-red-600">- {fmtINR(totalPfContribution)}</td>
                   </tr>
-                  {/* PT */}
                   <tr className="text-[12px]">
                     <td className="py-1 text-slate-600">
                       PT{/february/i.test(employee.forMonth || "") ? " (Feb)" : ""}
@@ -370,10 +347,10 @@ const PayslipViewModal = ({ employee, onClose }) => {
                       {ptDeduction > 0 ? `- ${fmtINR(ptDeduction)}` : fmtINR(0)}
                     </td>
                   </tr>
-                  <DeductRow label="TDS"                 amount={n(employee.tds)} />
-                  <DeductRow label="Other"               amount={n(employee.otherDeduction)} />
+                  <DeductRow label="TDS"                amount={n(employee.tds)} />
+                  <DeductRow label="Other"              amount={n(employee.otherDeduction)} />
                   {advanceDeduction > 0 && (
-                    <DeductRow label="Advance recovery"  amount={advanceDeduction} />
+                    <DeductRow label="Advance recovery" amount={advanceDeduction} />
                   )}
                   <tr className="border-t border-slate-100 text-[12px]">
                     <td className="py-1.5 font-semibold text-red-500">Total deductions</td>
@@ -385,22 +362,30 @@ const PayslipViewModal = ({ employee, onClose }) => {
           </div>
 
           {/* PF summary bar */}
-          <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100">
-            <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-semibold mb-2">PF Summary</p>
+          <div className="px-6 py-3 bg-red-50 border-b border-red-100">
+            <p className="text-[10px] uppercase tracking-widest text-red-400 font-semibold mb-2">
+              PF Summary — Both Shares Deducted from Employee Salary
+            </p>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <p className="text-[10px] text-indigo-400">Employee Share</p>
+                <p className="text-[10px] text-red-400">Employee Share (12%)</p>
                 <p className="text-[14px] font-semibold text-red-500">- {fmtINR(empPfDeduction)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-indigo-400">Employer Share</p>
-                <p className="text-[14px] font-semibold text-indigo-500">{fmtINR(employerPfContribution)} <span className="text-[10px] text-indigo-300">(co. pays)</span></p>
+                <p className="text-[10px] text-red-400">Employer Share (12%)</p>
+                <p className="text-[14px] font-semibold text-red-500">- {fmtINR(employerPfContribution)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-indigo-400">Total PF to EPFO</p>
-                <p className="text-[14px] font-semibold text-indigo-700">{fmtINR(totalPfContribution)}</p>
+                <p className="text-[10px] text-red-400">Total PF Deducted (24%)</p>
+                <p className="text-[14px] font-bold text-red-700">- {fmtINR(totalPfContribution)}</p>
               </div>
             </div>
+            {/* FIX: show "PF exempt" badge when all PF is 0 */}
+            {empPfDeduction === 0 && employerPfContribution === 0 && (
+              <p className="mt-2 text-[11px] font-semibold text-emerald-600">
+                ✓ PF exempt — both shares set to ₹0
+              </p>
+            )}
           </div>
 
           {/* Net summary bar */}
@@ -420,9 +405,10 @@ const PayslipViewModal = ({ employee, onClose }) => {
           </div>
 
           <p className="px-6 pt-2 text-[11px] text-slate-400">
-            ℹ️ PF: 12% Basic (employee) + 12% Basic (employer) &nbsp;|&nbsp;
-            PT: ₹200/month · ₹300 in February &nbsp;|&nbsp;
-            PT for Female: applicable only if Gross &gt; ₹25,000
+            ℹ️ PF: 12% Basic (employee) + 12% Basic (employer) = 24% total — both deducted from employee salary &nbsp;|&nbsp;
+            PT = ₹200/month · ₹300 in February &nbsp;|&nbsp;
+            PT for Female: applicable only if Gross &gt; ₹25,000 &nbsp;|&nbsp;
+            Any field can be set to ₹0 to exempt the employee
           </p>
 
           <p className="text-center text-[11px] text-slate-400 italic px-6 py-3">
@@ -450,6 +436,7 @@ const PayslipViewModal = ({ employee, onClose }) => {
     </div>
   );
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main PayrollTable
@@ -540,40 +527,40 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
   }, [forMonth, onUpdateEmployee]);
 
   // ── Edit saved ───────────────────────────────────────────────────────────────
-  // FIX: `updated` is now the raw camelCase form from EmployeeDetailModal.
-  // We build the snake_case API payload here (single source of truth),
-  // then merge ALL user-edited fields + server-computed totals into state
-  // so the table row reflects changes immediately without a full page reload.
+  // FIX 2: After save, merge server-returned values correctly.
+  // Old code used `||` which treated 0 as falsy and fell back to local auto-calc.
+  // New code uses explicit `!= null` check so 0 is preserved as the saved override.
   const handleEditSave = useCallback(async (updated) => {
     try {
-      // ── Build API payload (snake_case) ──────────────────────────────────────
+      // Build the payload — send null for any field not explicitly set by HR
+      // so the server knows to use auto-calc for that field.
       const payload = {
-        employee_id:       updated.id,
-        for_month:         updated.forMonth || forMonth,
-        basic:             n(updated.basic),
-        hra:               n(updated.hra),
-        other_allowances:  n(updated.organisationAllowance),   // camelCase → snake_case
-        medical_allowance: n(updated.medicalAllowance),        // camelCase → snake_case
-        performance_pay:   n(updated.performancePay),          // camelCase → snake_case
-        pf_deduction:      n(updated.pfDeduction) || undefined,
-        pt:                n(updated.pt) || undefined,
-        tds:               n(updated.tds),
-        other_deduction:   n(updated.otherDeduction),          // camelCase → snake_case
-        p_days:            updated.pDays != null ? n(updated.pDays) : undefined,
-        month_days:        n(updated.monthDays) || correctMonthDays,
+        employee_id:               updated.id,
+        for_month:                 updated.forMonth || forMonth,
+        basic:                     n(updated.basic),
+        hra:                       n(updated.hra),
+        other_allowances:          n(updated.organisationAllowance),
+        medical_allowance:         n(updated.medicalAllowance),
+        performance_pay:           n(updated.performancePay),
+        // FIX: send the value even if it's 0 (don't filter with || undefined)
+        pf_deduction:              updated.pfDeduction != null ? n(updated.pfDeduction) : undefined,
+        employer_pf_contribution:  updated.employerPfContribution != null ? n(updated.employerPfContribution) : undefined,
+        pt:                        updated.pt != null ? n(updated.pt) : undefined,
+        tds:                       n(updated.tds),
+        other_deduction:           n(updated.otherDeduction),
+        p_days:                    updated.pDays != null ? n(updated.pDays) : undefined,
+        month_days:                n(updated.monthDays) || correctMonthDays,
       };
 
       const result     = await payrollService.upsertRecord(payload);
       const serverData = result?.data || {};
 
-      // ── Merge: user-edited camelCase fields + server-computed totals ─────────
-      // This is the key fix: spread `updated` first so all edited earnings
-      // (basic, hra, etc.) are present for computePayslip() in the table row,
-      // then overwrite with server-authoritative computed values where available.
+      // FIX 2: Use != null for merge so 0 from server is not dropped by ||
+      const safeServerVal = (serverVal, fallback) =>
+        serverVal != null ? Number(serverVal) : fallback;
+
       const merged = {
         ...updated,
-
-        // Earnings — keep what user typed (already in `updated` via spread)
         basic:                  n(updated.basic),
         hra:                    n(updated.hra),
         organisationAllowance:  n(updated.organisationAllowance),
@@ -585,39 +572,30 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
         aDays:                  updated.aDays,
         monthDays:              updated.monthDays || correctMonthDays,
 
-        // Deductions — prefer server override, fall back to user input
-        pfDeduction:            n(serverData.pf_deduction)   || n(updated.pfDeduction),
-        pt:                     n(serverData.pt)              || n(updated.pt),
+        // PF/PT — prefer server values; 0 is valid
+        pfDeduction:            safeServerVal(serverData.pf_deduction,             n(updated.pfDeduction)),
+        employerPfContribution: safeServerVal(serverData.employer_pf_contribution, n(updated.employerPfContribution)),
+        pt:                     safeServerVal(serverData.pt,                       n(updated.pt)),
 
-        // Server-computed totals (authoritative)
-        grossSalary:            n(serverData.gross_full)      || undefined,
-        grossEarned:            n(serverData.gross_earned)    || undefined,
-        totalDeduction:         n(serverData.total_deduction) || undefined,
-        netSalary:              n(serverData.net_salary)      || undefined,
-        totalEarning:           n(serverData.total_earning)   || undefined,
-        advanceDeduction:       n(serverData.advance_deduction),
-        advanceAddition:        n(serverData.advance_addition),
-        employerPfContribution: n(serverData.employer_pf_contribution),
-        payrollRecordId:        serverData.id || updated.payrollRecordId,
+        // Computed totals — always use server values
+        grossSalary:    serverData.gross_full      != null ? Number(serverData.gross_full)      : undefined,
+        grossEarned:    serverData.gross_earned    != null ? Number(serverData.gross_earned)    : undefined,
+        totalDeduction: serverData.total_deduction != null ? Number(serverData.total_deduction) : undefined,
+        netSalary:      serverData.net_salary      != null ? Number(serverData.net_salary)      : undefined,
+        totalEarning:   serverData.total_earning   != null ? Number(serverData.total_earning)   : undefined,
+        advanceDeduction: safeServerVal(serverData.advance_deduction, n(updated.advanceDeduction)),
+        advanceAddition:  safeServerVal(serverData.advance_addition,  n(updated.advanceAddition)),
+
+        payrollRecordId: serverData.id || updated.payrollRecordId,
       };
 
-      // Update local state immediately — table re-renders with new values
       setEmployees(prev => prev.map(e => e.id === updated.id ? { ...e, ...merged } : e));
-
-      // Notify parent (e.g. a parent page that holds its own employees state)
       onUpdateEmployee?.(updated.id, merged);
-
-      // Close modal
       setEditTarget(null);
-
       showToast(`✅ ${updated.name}'s details saved!`);
-
-      // FIX: trigger parent re-fetch so DB and dashboard stay in sync
       onRefresh?.();
 
     } catch (err) {
-      // Re-throw so EmployeeDetailModal catches it, shows inline error,
-      // and keeps the modal open for the user to retry.
       throw err;
     }
   }, [forMonth, correctMonthDays, onUpdateEmployee, onRefresh]);
@@ -641,24 +619,24 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
   const totals = filtered.reduce((acc, emp) => {
     const c = computePayslip(emp);
     return {
-      basic:              acc.basic              + n(emp.basic),
-      hra:                acc.hra                + n(emp.hra),
-      orgAllow:           acc.orgAllow           + n(emp.organisationAllowance),
-      medAllow:           acc.medAllow           + n(emp.medicalAllowance),
-      perfPay:            acc.perfPay            + n(emp.performancePay),
-      grossSalary:        acc.grossSalary        + c.grossSalary,
-      grossEarned:        acc.grossEarned        + c.grossEarned,
-      empPfDed:           acc.empPfDed           + c.empPfDeduction,
-      employerPf:         acc.employerPf         + c.employerPfContribution,
-      totalPf:            acc.totalPf            + c.totalPfContribution,
-      pt:                 acc.pt                 + c.ptDeduction,
-      tds:                acc.tds                + n(emp.tds),
-      otherDed:           acc.otherDed           + n(emp.otherDeduction),
-      advDed:             acc.advDed             + c.advanceDeduction,
-      advAdd:             acc.advAdd             + c.advanceAddition,
-      totalDeduction:     acc.totalDeduction     + c.totalDeduction,
-      netSalary:          acc.netSalary          + c.netSalary,
-      totalEarning:       acc.totalEarning       + c.totalEarning,
+      basic:          acc.basic          + n(emp.basic),
+      hra:            acc.hra            + n(emp.hra),
+      orgAllow:       acc.orgAllow       + n(emp.organisationAllowance),
+      medAllow:       acc.medAllow       + n(emp.medicalAllowance),
+      perfPay:        acc.perfPay        + n(emp.performancePay),
+      grossSalary:    acc.grossSalary    + c.grossSalary,
+      grossEarned:    acc.grossEarned    + c.grossEarned,
+      empPfDed:       acc.empPfDed       + c.empPfDeduction,
+      employerPf:     acc.employerPf     + c.employerPfContribution,
+      totalPf:        acc.totalPf        + c.totalPfContribution,
+      pt:             acc.pt             + c.ptDeduction,
+      tds:            acc.tds            + n(emp.tds),
+      otherDed:       acc.otherDed       + n(emp.otherDeduction),
+      advDed:         acc.advDed         + c.advanceDeduction,
+      advAdd:         acc.advAdd         + c.advanceAddition,
+      totalDeduction: acc.totalDeduction + c.totalDeduction,
+      netSalary:      acc.netSalary      + c.netSalary,
+      totalEarning:   acc.totalEarning   + c.totalEarning,
     };
   }, {
     basic: 0, hra: 0, orgAllow: 0, medAllow: 0, perfPay: 0,
@@ -672,7 +650,7 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
     "Employee", "Designation", "P Days / Month",
     "Basic", "HRA", "Org Allow.", "Med Allow.", "Perf Pay",
     "Gross", "Gross (days)",
-    "PF Emp (12%)", "PF Co. (12%)", "Total PF", "PT", "TDS", "Other Ded.", "Adv Ded.", "Adv Add.",
+    "PF Emp (12%)", "PF Co. (12%)", "Total PF (24%)", "PT", "TDS", "Other Ded.", "Adv Ded.", "Adv Add.",
     "Total Ded.", "Net Salary", "Total Earning",
     "Status", "Actions",
   ];
@@ -745,9 +723,8 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
             </svg>
           </div>
 
-          {/* PT rule badge */}
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-700">
-            PT: {/february/i.test(forMonth || "") ? "₹300 (Feb)" : "₹200"} · ♀ &gt;₹25K only
+            PT: {/february/i.test(forMonth || "") ? "₹300 (Feb)" : "₹200"}
           </div>
 
           <button onClick={() => setAttendanceOpen(true)}
@@ -789,8 +766,11 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
             {filtered.map((emp, i) => {
               const c = computePayslip(emp);
               const isPayingThis = payingId === emp.id;
-              const isFemale = /female|woman|f/i.test(emp.gender || "");
-              const ptNA = isFemale && c.grossSalary <= 25000;
+              const isFemale     = /female|woman|f/i.test(emp.gender || "");
+              const ptNA         = isFemale && c.grossSalary <= 25000;
+              // FIX: show "PF exempt" badge when PF is explicitly 0
+              const pfExempt     = emp.pfDeduction != null && n(emp.pfDeduction) === 0
+                                   && emp.employerPfContribution != null && n(emp.employerPfContribution) === 0;
 
               return (
                 <tr key={emp.id} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors">
@@ -832,43 +812,53 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
                     <p className="text-xs text-slate-400">Absent: {n(emp.aDays)}</p>
                   </td>
 
-                  {/* Salary components */}
                   <td className="px-4 py-4 whitespace-nowrap text-slate-700">{fmtINR(emp.basic)}</td>
                   <td className="px-4 py-4 whitespace-nowrap text-slate-700">{fmtINR(emp.hra)}</td>
                   <td className="px-4 py-4 whitespace-nowrap text-slate-700">{fmtINR(emp.organisationAllowance)}</td>
                   <td className="px-4 py-4 whitespace-nowrap text-slate-700">{fmtINR(emp.medicalAllowance)}</td>
                   <td className="px-4 py-4 whitespace-nowrap text-emerald-600 italic">{fmtINR(emp.performancePay)}</td>
 
-                  {/* Gross */}
                   <td className="px-4 py-4 whitespace-nowrap font-semibold text-slate-700">{fmtINR(c.grossSalary)}</td>
                   <td className="px-4 py-4 whitespace-nowrap font-semibold text-indigo-600">{fmtINR(c.grossEarned)}</td>
 
                   {/* Employee PF */}
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="text-red-400">{fmtINR(c.empPfDeduction)}</span>
-                    <p className="text-[10px] text-slate-400">emp share</p>
+                    {pfExempt ? (
+                      <span className="text-emerald-500 text-xs font-semibold">Exempt</span>
+                    ) : (
+                      <span className="text-red-400">{fmtINR(c.empPfDeduction)}</span>
+                    )}
+                    <p className="text-[10px] text-slate-400">emp 12%</p>
                   </td>
 
                   {/* Employer PF */}
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="text-indigo-400">{fmtINR(c.employerPfContribution)}</span>
-                    <p className="text-[10px] text-slate-400">co. pays</p>
+                    {pfExempt ? (
+                      <span className="text-emerald-500 text-xs font-semibold">Exempt</span>
+                    ) : (
+                      <span className="text-red-400">{fmtINR(c.employerPfContribution)}</span>
+                    )}
+                    <p className="text-[10px] text-red-300">co. 12% ↓</p>
                   </td>
 
                   {/* Total PF */}
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="text-indigo-600 font-semibold">{fmtINR(c.totalPfContribution)}</span>
-                    <p className="text-[10px] text-slate-400">to EPFO</p>
+                    {pfExempt ? (
+                      <span className="text-emerald-500 text-xs font-bold">₹0 (Exempt)</span>
+                    ) : (
+                      <span className="text-red-600 font-bold">{fmtINR(c.totalPfContribution)}</span>
+                    )}
+                    <p className="text-[10px] text-red-400">total 24%</p>
                   </td>
 
                   {/* PT */}
                   <td className="px-4 py-4 whitespace-nowrap">
-                    {ptNA ? (
+                    {(ptNA || (emp.pt != null && n(emp.pt) === 0)) ? (
                       <span className="text-slate-300 text-xs">N/A</span>
                     ) : (
                       <span className="text-red-400">{fmtINR(c.ptDeduction)}</span>
                     )}
-                    {/february/i.test(emp.forMonth || "") && !ptNA && (
+                    {/february/i.test(emp.forMonth || "") && !ptNA && !(emp.pt != null && n(emp.pt) === 0) && (
                       <p className="text-[10px] text-amber-500">Feb rate</p>
                     )}
                     {ptNA && (
@@ -879,7 +869,6 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
                   <td className="px-4 py-4 whitespace-nowrap text-red-400">{fmtINR(emp.tds)}</td>
                   <td className="px-4 py-4 whitespace-nowrap text-red-400">{fmtINR(emp.otherDeduction)}</td>
 
-                  {/* Advance columns */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {c.advanceDeduction > 0
                       ? <span className="text-red-500 font-medium">- {fmtINR(c.advanceDeduction)}</span>
@@ -897,7 +886,6 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
 
                   <td className="px-4 py-4"><StatusBadge status={emp.status} /></td>
 
-                  {/* Actions */}
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-1">
                       <button onClick={() => setViewTarget(emp)} title="View Payslip"
@@ -952,8 +940,8 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
                 <td className="px-4 py-3 whitespace-nowrap">{fmtINR(totals.grossSalary)}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-indigo-600">{fmtINR(totals.grossEarned)}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.empPfDed)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-indigo-400">{fmtINR(totals.employerPf)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-indigo-600">{fmtINR(totals.totalPf)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.employerPf)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-600 font-bold">{fmtINR(totals.totalPf)}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.pt)}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.tds)}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.otherDed)}</td>
@@ -982,11 +970,13 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
           &nbsp;·&nbsp;
           {forMonth} · {correctMonthDays} days
           &nbsp;·&nbsp;
-          PF Emp = 12% Basic &nbsp;·&nbsp; PF Co. = 12% Basic
+          PF = 12% Emp + 12% Co. = 24% total
           &nbsp;·&nbsp;
           PT = ₹{/february/i.test(forMonth || "") ? "300 (Feb)" : "200"}/month
           &nbsp;·&nbsp;
           ♀ PT only if Gross &gt; ₹25,000
+          &nbsp;·&nbsp;
+          Set any field to ₹0 to exempt
         </p>
       </div>
     </div>
