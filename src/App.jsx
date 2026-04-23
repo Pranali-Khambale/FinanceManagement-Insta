@@ -9,16 +9,17 @@ import {
   Navigate,
 } from "react-router-dom";
 
-import Sidebar           from "./components/layout/Sidebar";
-import Header            from "./components/layout/Header";
-import Dashboard         from "./pages/Dashboard";
-import AdminLogin        from "./pages/AdminLogin";
+import Sidebar from "./components/layout/Sidebar";
+import Header from "./components/layout/Header";
+import Dashboard from "./pages/Dashboard";
+import AdminLogin from "./pages/AdminLogin";
 import AdminRegistration from "./pages/AdminRegistration";
-import ForgotPassword    from "./pages/forgotpass";
-import EmployeeRoutes    from "./pages/EmployeeMngement";
-import useAutoLogout     from "./Authontication/logauth";
-import AdvancePayment    from "./pages/AdvancePayment";
-import PayrollPage       from "./pages/PayrollPage";
+import ForgotPassword from "./pages/forgotpass";
+import EmployeeRoutes from "./pages/EmployeeMngement";
+import useAutoLogout from "./Authontication/logauth";
+import AdvancePayment from "./pages/AdvancePayment";
+import PayrollPage from "./pages/PayrollPage";
+import Reports from "./pages/Reports"; // ← added
 import AdvanceRequestForm from "./Ui/AdvancePayment/AdvanceRequestLinkForm";
 
 const RegistrationForm = lazy(
@@ -41,9 +42,9 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const MainLayout = ({ children }) => {
-  const [collapsed,  setCollapsed]  = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile,   setIsMobile]   = useState(window.innerWidth < 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   const user = {
     name: localStorage.getItem("fullName") || "Admin User",
@@ -159,10 +160,9 @@ function App() {
   return (
     <Router>
       <Routes>
-
         {/* ── Public routes ────────────────────────────────────────────── */}
-        <Route path="/login"                 element={<AdminLogin />} />
-        <Route path="/register"              element={<AdminRegistration />} />
+        <Route path="/login" element={<AdminLogin />} />
+        <Route path="/register" element={<AdminRegistration />} />
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
         <Route
@@ -217,7 +217,24 @@ function App() {
         />
         <Route
           path="/employee/payroll"
-          element={<ProtectedRoute><MainLayout><PayrollPage /></MainLayout></ProtectedRoute>}
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PayrollPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/employee/reports"
+          element={
+            /* ← added */
+            <ProtectedRoute>
+              <MainLayout>
+                <Reports />
+              </MainLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/employee/*"
@@ -229,10 +246,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Fallback */}
-        <Route path="/"  element={<Navigate to="/login" replace />} />
-        <Route path="*"  element={<Navigate to="/login" replace />} />
 
         {/* Fallback */}
         <Route path="/" element={<Navigate to="/login" replace />} />
