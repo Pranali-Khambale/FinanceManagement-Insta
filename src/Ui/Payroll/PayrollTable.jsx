@@ -477,24 +477,55 @@ const PayrollTable = ({ employees: employeesProp, forMonth, onUpdateStatus, onUp
   const paidCount    = employees.filter(e => e.status === "Paid").length;
 
   // ── Pay ─────────────────────────────────────────────────────────────────────
-  const handlePay = async (emp) => {
-    if (!emp.payrollRecordId) {
-      showToast("⚠️ No payroll record found. Please save attendance/salary first.", "error");
-      return;
-    }
-    setPayingId(emp.id);
-    try {
-      await payrollService.markAsPaid(emp.payrollRecordId);
-      setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, status: "Paid" } : e));
-      onUpdateStatus?.(emp.id, "Paid");
-      showToast(`💸 Salary disbursed for ${emp.name}!`);
-    } catch (err) {
-      showToast(`❌ ${err.message}`, "error");
-    } finally {
-      setPayingId(null);
-    }
-  };
+ // ── Pay ─────────────────────────────────────────────────────────────────────
+const handlePay = async (emp) => {
+  setPayingId(emp.id);
+  try {
+    let recordId = emp.payrollRecordId;
 
+    // If no saved record yet, upsert one first (no changes needed from HR)
+    if (!recordId) {
+      const payload = {
+        employee_id:  emp.id,
+        for_month:    emp.forMonth || forMonth,
+        basic:        n(emp.basic),
+        hra:          n(emp.hra),
+        other_allowances:     n(emp.organisationAllowance),
+        medical_allowance:    n(emp.medicalAllowance),
+        performance_pay:      n(emp.performancePay),
+        pf_deduction:         emp.pfDeduction != null ? n(emp.pfDeduction) : undefined,
+        employer_pf_contribution: emp.employerPfContribution != null ? n(emp.employerPfContribution) : undefined,
+        pt:           emp.pt != null ? n(emp.pt) : undefined,
+        tds:          n(emp.tds),
+        other_deduction: n(emp.otherDeduction),
+        p_days:       emp.pDays != null ? n(emp.pDays) : undefined,
+        month_days:   n(emp.monthDays) || correctMonthDays,
+      };
+
+      const result = await payrollService.upsertRecord(payload);
+      recordId = result?.data?.id;
+
+      if (!recordId) {
+        showToast("❌ Could not create payroll record before paying.", "error");
+        return;
+      }
+
+      // Update local state with the new record id
+      setEmployees(prev =>
+        prev.map(e => e.id === emp.id ? { ...e, payrollRecordId: recordId } : e)
+      );
+    }
+
+    await payrollService.markAsPaid(recordId);
+    setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, status: "Paid" } : e));
+    onUpdateStatus?.(emp.id, "Paid");
+    showToast(`💸 Salary disbursed for ${emp.name}!`);
+  } catch (err) {
+    showToast(`❌ ${err.message}`, "error");
+  } finally {
+    setPayingId(null);
+  }
+};
   // ── Attendance saved ────────────────────────────────────────────────────────
   const handleAttendanceSave = useCallback(async (updatedRows) => {
     setEmployees(prev =>

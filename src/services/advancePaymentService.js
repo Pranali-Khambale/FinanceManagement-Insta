@@ -1,6 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE: src/services/advancePaymentService.js
-// All API calls for the Advance Payment module.
+//
+// CHANGES vs previous version:
+//   ORG_TO_VENDOR: createRequest and createPublicRequest now send
+//     to_vendor_name, to_vendor_gst, to_vendor_ref, to_vendor_amount,
+//     to_vendor_reason, approver_name, approver_id, approver_designation
+//     so the backend _insertRequest receives all fields it needs.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BASE_URL =
@@ -12,7 +17,9 @@ function getAuthToken() {
   try {
     return (
       localStorage.getItem('authToken') ||
+      localStorage.getItem('token') ||
       sessionStorage.getItem('authToken') ||
+      sessionStorage.getItem('token') ||
       ''
     );
   } catch {
@@ -62,14 +69,13 @@ async function apiFetch(endpoint, options = {}) {
   }
 }
 
-// ── Public fetch wrapper (NO auth token — used for link-based form submission) ─
+// ── Public fetch wrapper (NO auth token) ──────────────────────────────────────
 async function publicFetch(endpoint, options = {}) {
   const isFormData = options.body instanceof FormData;
 
   const headers = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers || {}),
-    // deliberately no Authorization header
   };
 
   try {
@@ -118,7 +124,7 @@ export async function getStats() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REQUESTS — list
+// REQUESTS — list (with filters)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function listRequests(params = {}) {
   const qs = new URLSearchParams(
@@ -142,6 +148,43 @@ export async function getRequest(id) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// getAdvanceHistory — all requests for history modal display
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getAdvanceHistory(filters = {}) {
+  const params = { limit: 1000, sort: 'created_at', order: 'DESC', ...filters };
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  ).toString();
+  return apiFetch(`/advance-payment/requests${qs ? `?${qs}` : ''}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── ALL FORM FIELDS sent to the backend ───────────────────────────────────────
+// This is the complete field list covering all 4 payment types:
+//   org_to_emp   : emp_id, emp_name, emp_dept, amount, reason
+//   emp_to_emp   : above + to_emp_id, to_emp_name, to_emp_dept
+//   other        : emp fields + vendor_name, vendor_ref
+//   org_to_vendor: to_vendor_name, to_vendor_gst, to_vendor_ref,
+//                  to_vendor_amount, to_vendor_reason
+//   all types    : approver_name, approver_id, approver_designation
+// ─────────────────────────────────────────────────────────────────────────────
+const ALL_REQUEST_FIELDS = [
+  // employee fields
+  'payment_type_key',
+  'emp_id', 'emp_name', 'emp_dept', 'emp_email',
+  'amount', 'reason',
+  // emp_to_emp recipient
+  'to_emp_id', 'to_emp_name', 'to_emp_dept',
+  // other: external vendor
+  'vendor_name', 'vendor_ref',
+  // org_to_vendor: vendor is primary entity
+  'to_vendor_name', 'to_vendor_gst', 'to_vendor_ref',
+  'to_vendor_amount', 'to_vendor_reason',
+  // approver — all 4 types
+  'approver_name', 'approver_id', 'approver_designation',
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // REQUESTS — create (authenticated, from admin panel)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function createRequest(
@@ -153,15 +196,7 @@ export async function createRequest(
 ) {
   const body = new FormData();
 
-  const fields = [
-    'payment_type_key',
-    'emp_id', 'emp_name', 'emp_dept', 'emp_email',
-    'amount', 'reason',
-    'to_emp_id', 'to_emp_name', 'to_emp_dept',
-    'vendor_name', 'vendor_ref',
-  ];
-
-  fields.forEach(key => {
+  ALL_REQUEST_FIELDS.forEach(key => {
     if (formData[key] !== undefined && formData[key] !== null && formData[key] !== '') {
       body.append(key, formData[key]);
     }
@@ -178,47 +213,33 @@ export async function createRequest(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // REQUESTS — create via public link (NO auth token)
-//
-// Used by AdvanceRequestForm.jsx when the employee opens the emailed link.
-// The backend must allow this endpoint without a JWT when submitted_via_link
-// is present and valid.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function createPublicRequest(
-  formData,       // plain object
-  screenshotFile, // File
-  proofFile,      // File | null
-  receiptFile,    // File | null
-  linkToken,      // string — required for public submission
+  formData,
+  screenshotFile,
+  proofFile,
+  receiptFile,
+  linkToken,
 ) {
   const body = new FormData();
 
-  const fields = [
-    'payment_type_key',
-    'emp_id', 'emp_name', 'emp_dept', 'emp_email',
-    'amount', 'reason',
-    'to_emp_id', 'to_emp_name', 'to_emp_dept',
-    'vendor_name', 'vendor_ref',
-  ];
-
-  fields.forEach(key => {
+  ALL_REQUEST_FIELDS.forEach(key => {
     if (formData[key] !== undefined && formData[key] !== null && formData[key] !== '') {
       body.append(key, formData[key]);
     }
   });
 
-  // Always attach the link token — backend uses it to authorise the public POST
   if (linkToken) body.append('submitted_via_link', linkToken);
 
   body.append('screenshot', screenshotFile);
   if (proofFile)   body.append('proof',   proofFile);
   if (receiptFile) body.append('receipt', receiptFile);
 
-  // Uses publicFetch — no Authorization header sent
   return publicFetch('/advance-payment/requests/public', { method: 'POST', body });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REQUESTS — approve / reject
+// REQUESTS — approve
 // ─────────────────────────────────────────────────────────────────────────────
 export async function approveRequest(id, options = {}) {
   return apiFetch(`/advance-payment/requests/${id}/approve`, {
@@ -227,6 +248,9 @@ export async function approveRequest(id, options = {}) {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// REQUESTS — reject
+// ─────────────────────────────────────────────────────────────────────────────
 export async function rejectRequest(id, rejection_reason = '') {
   return apiFetch(`/advance-payment/requests/${id}/reject`, {
     method: 'POST',
@@ -251,7 +275,6 @@ export async function updateDeduction(deductionId, status, note = '') {
 // ─────────────────────────────────────────────────────────────────────────────
 // LINKS
 // ─────────────────────────────────────────────────────────────────────────────
-
 export async function createLink(params) {
   return apiFetch('/advance-payment/links', {
     method: 'POST',
@@ -290,13 +313,74 @@ export async function validateLink(token) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// validateResubmitToken
+// ─────────────────────────────────────────────────────────────────────────────
+export async function validateResubmitToken(token) {
+  const url      = `${BASE_URL}/advance-payment/resubmit/${token}/validate`;
+  const response = await fetch(url);
+  const data     = await response.json().catch(() => ({
+    success: false,
+    message: 'Invalid JSON response',
+  }));
+  if (!response.ok) {
+    const err   = new Error(data.message || `HTTP ${response.status}`);
+    err.status  = response.status;
+    err.expired = data.expired || false;
+    err.data    = data;
+    throw err;
+  }
+  return data;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SALARY HISTORY
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getSalaryHistory(filters = {}) {
   const qs = new URLSearchParams(
     Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null))
   ).toString();
-  return apiFetch(`/advance-payment/salary-history${qs ? `?${qs}` : ''}`);
+
+  try {
+    const result = await apiFetch(`/advance-payment/salary-history${qs ? `?${qs}` : ''}`);
+    if (result?.data?.length > 0) return result;
+  } catch (_) {}
+
+  try {
+    const approvedParams = { status: 'approved', limit: 1000, ...filters };
+    delete approvedParams.month;
+    const approvedQs = new URLSearchParams(
+      Object.fromEntries(Object.entries(approvedParams).filter(([, v]) => v !== '' && v != null))
+    ).toString();
+    const fallback = await apiFetch(`/advance-payment/requests${approvedQs ? `?${approvedQs}` : ''}`);
+
+    const shaped = (fallback?.data || []).map(r => ({
+      deduction_id:        null,
+      month_label:         r.adjusted_in || filters.month || 'Pending EMI',
+      deduction_amount:    r.amount,
+      deduction_status:    'upcoming',
+      processed_at:        null,
+      request_id:          r.id,
+      request_code:        r.request_code,
+      emp_id:              r.emp_id,
+      emp_name:            r.emp_name,
+      emp_dept:            r.emp_dept,
+      advance_amount:      r.amount,
+      payment_type_key:    r.payment_type_key,
+      payment_type_label:  r.payment_type_label || r.payment_type_key,
+      reason:              r.reason,
+      adjusted_in:         r.adjusted_in,
+      status:              r.status,
+      created_at:          r.created_at,
+      reviewed_by_name:    r.reviewed_by_name,
+      reviewed_at:         r.reviewed_at,
+      to_vendor_name:      r.to_vendor_name || null,
+      approver_name:       r.approver_name  || null,
+    }));
+
+    return { success: true, data: shaped, _fallback: true };
+  } catch (err) {
+    throw err;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,8 +392,9 @@ const advancePaymentService = {
   listRequests,
   getAllRequests,
   getRequest,
+  getAdvanceHistory,
   createRequest,
-  createPublicRequest,  // ← NEW: for unauthenticated link-based submissions
+  createPublicRequest,
   approveRequest,
   rejectRequest,
   getDeductions,
@@ -318,6 +403,7 @@ const advancePaymentService = {
   listLinks,
   sendLinkEmail,
   validateLink,
+  validateResubmitToken,
   getSalaryHistory,
 };
 
