@@ -19,15 +19,15 @@ import EmployeeRoutes     from "./pages/EmployeeMngement";
 import useAutoLogout      from "./Authontication/logauth";
 import AdvancePayment     from "./pages/AdvancePayment";
 import PayrollPage        from "./pages/PayrollPage";
+import Reports            from "./pages/Reports";
 import AdvanceRequestForm from "./Ui/AdvancePayment/AdvanceRequestLinkForm";
-
-// ✅ FIX 1: Import the resubmit form — adjust path if your file lives elsewhere
 import AdvanceResubmitForm from "./pages/AdvanceResubmitForm";
 
 const RegistrationForm = lazy(
   () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
 );
 
+// ─── Loading Spinner ──────────────────────────────────────────────────────────
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
     <div className="text-center">
@@ -37,20 +37,22 @@ const LoadingSpinner = () => (
   </div>
 );
 
+// ─── Protected Route ──────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 };
 
+// ─── Main Layout ──────────────────────────────────────────────────────────────
 const MainLayout = ({ children }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed,  setCollapsed]  = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [isMobile,   setIsMobile]   = useState(window.innerWidth < 1024);
 
   const user = {
-    name: localStorage.getItem("fullName") || "Admin User",
-    email: localStorage.getItem("email") || "admin@company.com",
+    name:     localStorage.getItem("fullName") || "Admin User",
+    email:    localStorage.getItem("email")    || "admin@company.com",
     initials: (localStorage.getItem("fullName") || "A").charAt(0).toUpperCase(),
   };
 
@@ -65,7 +67,7 @@ const MainLayout = ({ children }) => {
 
   const handleToggle = () => {
     if (isMobile) setMobileOpen((p) => !p);
-    else setCollapsed((p) => !p);
+    else          setCollapsed((p) => !p);
   };
 
   return (
@@ -80,13 +82,14 @@ const MainLayout = ({ children }) => {
       }}
     >
       <Header user={user} onToggle={handleToggle} />
-      <div
-        style={{ display: "flex", flex: 1, overflow: "hidden", minWidth: 0 }}
-      >
+
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", minWidth: 0 }}>
+
+        {/* ── Desktop Sidebar ── */}
         {!isMobile && (
           <div
             style={{
-              width: collapsed ? 72 : 260,
+              width:    collapsed ? 72 : 260,
               minWidth: collapsed ? 72 : 260,
               height: "100%",
               flexShrink: 0,
@@ -103,6 +106,8 @@ const MainLayout = ({ children }) => {
             />
           </div>
         )}
+
+        {/* ── Mobile Sidebar ── */}
         {isMobile && (
           <>
             {mobileOpen && (
@@ -110,10 +115,7 @@ const MainLayout = ({ children }) => {
                 onClick={() => setMobileOpen(false)}
                 style={{
                   position: "fixed",
-                  top: 64,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
+                  top: 64, left: 0, right: 0, bottom: 0,
                   background: "rgba(0,0,0,.5)",
                   zIndex: 40,
                 }}
@@ -122,8 +124,7 @@ const MainLayout = ({ children }) => {
             <div
               style={{
                 position: "fixed",
-                top: 64,
-                left: 0,
+                top: 64, left: 0,
                 width: 260,
                 height: "calc(100vh - 64px)",
                 zIndex: 50,
@@ -141,6 +142,8 @@ const MainLayout = ({ children }) => {
             </div>
           </>
         )}
+
+        {/* ── Page Content ── */}
         <main
           style={{
             flex: 1,
@@ -158,15 +161,23 @@ const MainLayout = ({ children }) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// APP
+// ─────────────────────────────────────────────────────────────────────────────
 function App() {
   return (
     <Router>
       <Routes>
-        {/* ── Public routes ────────────────────────────────────────────── */}
-        <Route path="/login" element={<AdminLogin />} />
-        <Route path="/register" element={<AdminRegistration />} />
-        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
+        {/* ══════════════════════════════════════════════════════════════
+            PUBLIC ROUTES — no auth, no layout
+        ══════════════════════════════════════════════════════════════ */}
+
+        <Route path="/login"                  element={<AdminLogin />} />
+        <Route path="/register"               element={<AdminRegistration />} />
+        <Route path="/admin/forgot-password"  element={<ForgotPassword />} />
+
+        {/* Employee registration via invite link */}
         <Route
           path="/registration/:linkId"
           element={
@@ -185,10 +196,9 @@ function App() {
         />
 
         {/*
-          ✅ ADVANCE PAYMENT FORM — fully public, no auth, no layout.
-          Backend & GenerateLink must produce links like:
+          Advance payment request form — sent via generated link.
+          Backend must produce links like:
             https://yourdomain.com/advance-request/emp_to_emp/TOKEN
-          NOT  https://yourdomain.com/#/advance-request/...
         */}
         <Route
           path="/advance-request/:paymentTypeKey/:token"
@@ -196,73 +206,72 @@ function App() {
         />
 
         {/*
-          ✅ FIX 1: ADVANCE PAYMENT RESUBMIT FORM — fully public, no auth, no layout.
-          This was the missing route causing the redirect to /login.
-          The rejection email sends links like:
+          Advance payment resubmit form — sent via rejection email.
+          Backend must produce links like:
             https://yourdomain.com/advance-resubmit/TOKEN
-          Without this route the React Router * catch-all redirected to /login.
+          Without this route the React Router * catch-all redirects to /login.
         */}
         <Route
           path="/advance-resubmit/:token"
           element={<AdvanceResubmitForm />}
         />
 
-        {/* ── Protected routes ─────────────────────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════════════
+            PROTECTED ROUTES — require auth + MainLayout
+        ══════════════════════════════════════════════════════════════ */}
+
         <Route
           path="/employee/dashboard"
           element={
             <ProtectedRoute>
-              <MainLayout>
-                <Dashboard />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee/payments"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <AdvancePayment />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee/payroll"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <PayrollPage />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee/reports"
-          element={
-            /* ← added */
-            <ProtectedRoute>
-              <MainLayout>
-                <Reports />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee/*"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <EmployeeRoutes />
-              </MainLayout>
+              <MainLayout><Dashboard /></MainLayout>
             </ProtectedRoute>
           }
         />
 
-        {/* Fallback */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/employee/payments"
+          element={
+            <ProtectedRoute>
+              <MainLayout><AdvancePayment /></MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/employee/payroll"
+          element={
+            <ProtectedRoute>
+              <MainLayout><PayrollPage /></MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/employee/reports"
+          element={
+            <ProtectedRoute>
+              <MainLayout><Reports /></MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch-all for remaining /employee/* sub-routes */}
+        <Route
+          path="/employee/*"
+          element={
+            <ProtectedRoute>
+              <MainLayout><EmployeeRoutes /></MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ══════════════════════════════════════════════════════════════
+            FALLBACK
+        ══════════════════════════════════════════════════════════════ */}
+        <Route path="/"  element={<Navigate to="/login" replace />} />
+        <Route path="*"  element={<Navigate to="/login" replace />} />
+
       </Routes>
     </Router>
   );
