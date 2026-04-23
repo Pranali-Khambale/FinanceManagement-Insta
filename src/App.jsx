@@ -9,18 +9,20 @@ import {
   Navigate,
 } from "react-router-dom";
 
-import Sidebar from "./components/layout/Sidebar";
-import Header from "./components/layout/Header";
-import Dashboard from "./pages/Dashboard";
-import AdminLogin from "./pages/AdminLogin";
-import AdminRegistration from "./pages/AdminRegistration";
-import ForgotPassword from "./pages/forgotpass";
-import EmployeeRoutes from "./pages/EmployeeMngement";
-import useAutoLogout from "./Authontication/logauth";
-import AdvancePayment from "./pages/AdvancePayment";
-import PayrollPage from "./pages/PayrollPage";
-import Reports from "./pages/Reports"; // ← added
+import Sidebar            from "./components/layout/Sidebar";
+import Header             from "./components/layout/Header";
+import Dashboard          from "./pages/Dashboard";
+import AdminLogin         from "./pages/AdminLogin";
+import AdminRegistration  from "./pages/AdminRegistration";
+import ForgotPassword     from "./pages/forgotpass";
+import EmployeeRoutes     from "./pages/EmployeeMngement";
+import useAutoLogout      from "./Authontication/logauth";
+import AdvancePayment     from "./pages/AdvancePayment";
+import PayrollPage        from "./pages/PayrollPage";
 import AdvanceRequestForm from "./Ui/AdvancePayment/AdvanceRequestLinkForm";
+
+// ✅ FIX 1: Import the resubmit form — adjust path if your file lives elsewhere
+import AdvanceResubmitForm from "./pages/AdvanceResubmitForm";
 
 const RegistrationForm = lazy(
   () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
@@ -184,14 +186,25 @@ function App() {
 
         {/*
           ✅ ADVANCE PAYMENT FORM — fully public, no auth, no layout.
-          Uses BrowserRouter path (no hash).
-          The backend & GenerateLink must produce links like:
+          Backend & GenerateLink must produce links like:
             https://yourdomain.com/advance-request/emp_to_emp/TOKEN
           NOT  https://yourdomain.com/#/advance-request/...
         */}
         <Route
           path="/advance-request/:paymentTypeKey/:token"
           element={<AdvanceRequestForm />}
+        />
+
+        {/*
+          ✅ FIX 1: ADVANCE PAYMENT RESUBMIT FORM — fully public, no auth, no layout.
+          This was the missing route causing the redirect to /login.
+          The rejection email sends links like:
+            https://yourdomain.com/advance-resubmit/TOKEN
+          Without this route the React Router * catch-all redirected to /login.
+        */}
+        <Route
+          path="/advance-resubmit/:token"
+          element={<AdvanceResubmitForm />}
         />
 
         {/* ── Protected routes ─────────────────────────────────────────── */}
