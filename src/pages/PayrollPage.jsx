@@ -110,7 +110,6 @@ export default function PayrollPage() {
     }
   };
 
-  // ── Bulk pay all pending ────────────────────────────────────────────────────
   const handleBulkPay = async () => {
     const pending = (data.employees || []).filter(
       (e) => e.status === "Pending",
@@ -125,9 +124,46 @@ export default function PayrollPage() {
       return;
     setBulkBusy(true);
     try {
-      const ids = pending.map((e) => e.payrollRecordId).filter(Boolean);
+      // First, upsert records for any employee that doesn't have one yet
+      const withoutRecord = pending.filter(e => !e.payrollRecordId);
+      if (withoutRecord.length) {
+        await Promise.all(
+          withoutRecord.map(emp =>
+            payrollService.upsertRecord({
+              employee_id:              emp.id,
+              for_month:                month,
+              basic:                    Number(emp.basic || 0),
+              hra:                      Number(emp.hra || 0),
+              other_allowances:         Number(emp.organisationAllowance || 0),
+              medical_allowance:        Number(emp.medicalAllowance || 0),
+              performance_pay:          Number(emp.performancePay || 0),
+              pf_deduction:             emp.pfDeduction != null ? Number(emp.pfDeduction) : undefined,
+              employer_pf_contribution: emp.employerPfContribution != null ? Number(emp.employerPfContribution) : undefined,
+              pt:                       emp.pt != null ? Number(emp.pt) : undefined,
+              tds:                      Number(emp.tds || 0),
+              other_deduction:          Number(emp.otherDeduction || 0),
+              p_days:                   emp.pDays != null ? Number(emp.pDays) : undefined,
+              month_days:               Number(emp.monthDays) || 30,
+            })
+          )
+        );
+      }
+
+      // Re-fetch to get all fresh payrollRecordIds, then bulk pay
+      await fetchPayroll();
+
+      // After refresh, data.employees is stale in this closure — re-read from service
+      const fresh = await payrollService.getPayrollData({ month, limit: 500 });
+      const freshPending = (fresh.data?.employees || []).filter(e => e.status === "Pending");
+      const ids = freshPending.map(e => e.payrollRecordId).filter(Boolean);
+
+      if (!ids.length) {
+        showToast("No valid payroll records found to pay.", "error");
+        return;
+      }
+
       await payrollService.markBulkPaid(ids, month);
-      showToast(`💸 ${pending.length} salaries marked as paid!`);
+      showToast(`💸 ${ids.length} salaries marked as paid!`);
       await fetchPayroll();
     } catch (err) {
       showToast(`❌ ${err.message}`, "error");
@@ -138,10 +174,18 @@ export default function PayrollPage() {
 
   const summary = data.summary || {};
 
-  // ── Month options (current + last 11) ───────────────────────────────────────
-  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+  // ── Month options ─────────────────────────────────────────────────────────────
+  // FIX: Generate 12 months BACK + current month + 12 months FORWARD
+  // This ensures future months (e.g. May 2026, June 2026...) are always visible
+  // so HR can check advance deductions that were auto-rolled to next month after
+  // payroll was marked Paid.
+  //
+  // Range: 12 months ago → today → 12 months ahead  (total 25 options)
+  // Most recent month first in the dropdown (index 0 = furthest future).
+  const monthOptions = Array.from({ length: 25 }, (_, i) => {
     const d = new Date();
-    d.setMonth(d.getMonth() - i);
+    // i=0 → 12 months ahead, i=12 → current month, i=24 → 12 months ago
+    d.setMonth(d.getMonth() + (12 - i));
     return d.toLocaleString("en-IN", { month: "long", year: "numeric" });
   });
 
@@ -345,6 +389,44 @@ export default function PayrollPage() {
           sub="emp recipient + vendor"
           subColor="#16A34A"
         />
+      </div>
+
+      {/* ── Advance rules legend ── */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          marginBottom: 20,
+          padding: "12px 16px",
+          borderRadius: 10,
+          background: "#F8FAFC",
+          border: "1px solid #E2E8F0",
+        }}
+      >
+        {[
+          { type: "Org → Employee",      dir: "Deduction",                             color: "#DC2626", note: "Org gave advance → salary cut to recover" },
+          { type: "Employee → Employee", dir: "Payer: Deduction / Recipient: Addition", color: "#7C3AED", note: "Payer lent money → cut; recipient reimbursed → boost" },
+          { type: "External / Vendor",   dir: "Addition",                              color: "#16A34A", note: "Org paid vendor for employee → salary boost" },
+        ].map((rule) => (
+          <div key={rule.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "3px 10px",
+                borderRadius: 99,
+                background: rule.color + "15",
+                color: rule.color,
+              }}
+            >
+              {rule.type}
+            </span>
+            <span style={{ fontSize: 11, color: "#64748B" }}>→</span>
+            <span style={{ fontSize: 11, color: "#374151" }}>{rule.dir}</span>
+            <span style={{ fontSize: 10, color: "#9CA3AF" }}>({rule.note})</span>
+          </div>
+        ))}
       </div>
 
       {/* ── Error ── */}
