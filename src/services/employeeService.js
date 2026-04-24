@@ -9,7 +9,7 @@ const BASE_URL =
   "http://localhost:5000/api";
 
 // ── Auth token ──────────────────────────────────────────────
-function getAuthToken() {
+function getAuthToken()  {
   try {
     return (
       localStorage.getItem("token") || sessionStorage.getItem("token") || ""
