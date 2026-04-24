@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from "react";
 import payrollService from "../services/payrollService";
-import PayrollTable        from "../Ui/Payroll/PayrollTable";
+import PayrollTable from "../Ui/Payroll/PayrollTable";
 import AdvanceEffectsPanel from "../Ui/Payroll/AdvanceEffectsPanel";
 import PayrollHistoryModal from "../Ui/Payroll/PayrollHistoryModal";
 
@@ -30,14 +30,30 @@ function SummaryCard({ label, value, color = "#1E293B", sub, subColor }) {
         boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
       }}
     >
-      <p style={{ margin: 0, fontSize: 11, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 11,
+          color: "#94A3B8",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
         {label}
       </p>
       <p style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 700, color }}>
         {value}
       </p>
       {sub && (
-        <p style={{ margin: "4px 0 0", fontSize: 11, color: subColor || "#94A3B8" }}>{sub}</p>
+        <p
+          style={{
+            margin: "4px 0 0",
+            fontSize: 11,
+            color: subColor || "#94A3B8",
+          }}
+        >
+          {sub}
+        </p>
       )}
     </div>
   );
@@ -45,13 +61,13 @@ function SummaryCard({ label, value, color = "#1E293B", sub, subColor }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PayrollPage() {
-  const [month,       setMonth]       = useState(currentMonth());
-  const [data,        setData]        = useState({ employees: [], summary: {} });
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState(null);
-  const [initBusy,    setInitBusy]    = useState(false);
-  const [bulkBusy,    setBulkBusy]    = useState(false);
-  const [toast,       setToast]       = useState(null);
+  const [month, setMonth] = useState(currentMonth());
+  const [data, setData] = useState({ employees: [], summary: {} });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [initBusy, setInitBusy] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [toast, setToast] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
 
   // Advance effects panel state
@@ -76,7 +92,9 @@ export default function PayrollPage() {
     }
   }, [month]);
 
-  useEffect(() => { fetchPayroll(); }, [fetchPayroll]);
+  useEffect(() => {
+    fetchPayroll();
+  }, [fetchPayroll]);
 
   // ── Init month ──────────────────────────────────────────────────────────────
   const handleInitMonth = async () => {
@@ -94,9 +112,17 @@ export default function PayrollPage() {
 
   // ── Bulk pay all pending ────────────────────────────────────────────────────
   const handleBulkPay = async () => {
-    const pending = (data.employees || []).filter((e) => e.status === "Pending");
-    if (!pending.length) { showToast("No pending records to pay.", "error"); return; }
-    if (!window.confirm(`Mark ${pending.length} employees as Paid for ${month}?`)) return;
+    const pending = (data.employees || []).filter(
+      (e) => e.status === "Pending",
+    );
+    if (!pending.length) {
+      showToast("No pending records to pay.", "error");
+      return;
+    }
+    if (
+      !window.confirm(`Mark ${pending.length} employees as Paid for ${month}?`)
+    )
+      return;
     setBulkBusy(true);
     try {
       const ids = pending.map((e) => e.payrollRecordId).filter(Boolean);
@@ -121,7 +147,6 @@ export default function PayrollPage() {
 
   return (
     <div style={{ padding: "24px", maxWidth: 1600, margin: "0 auto" }}>
-
       {/* ── Toast ── */}
       {toast && (
         <div
@@ -156,7 +181,14 @@ export default function PayrollPage() {
         }}
       >
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#0F172A" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 24,
+              fontWeight: 700,
+              color: "#0F172A",
+            }}
+          >
             Payroll
           </h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8" }}>
@@ -165,8 +197,14 @@ export default function PayrollPage() {
         </div>
 
         {/* ── Controls ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
           {/* History button */}
           <button
             onClick={() => setShowHistory(true)}
@@ -184,17 +222,28 @@ export default function PayrollPage() {
               cursor: "pointer",
               boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
             }}
-            onMouseEnter={e => {
+            onMouseEnter={(e) => {
               e.currentTarget.style.background = "#F8FAFC";
               e.currentTarget.style.borderColor = "#CBD5E1";
             }}
-            onMouseLeave={e => {
+            onMouseLeave={(e) => {
               e.currentTarget.style.background = "#FFFFFF";
               e.currentTarget.style.borderColor = "#E2E8F0";
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             History
           </button>
@@ -215,7 +264,9 @@ export default function PayrollPage() {
             }}
           >
             {monthOptions.map((m) => (
-              <option key={m} value={m}>{m}</option>
+              <option key={m} value={m}>
+                {m}
+              </option>
             ))}
           </select>
 
@@ -238,12 +289,18 @@ export default function PayrollPage() {
               opacity: bulkBusy ? 0.7 : 1,
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
             </svg>
             {bulkBusy ? "Paying…" : "Pay All Pending"}
           </button>
-
         </div>
       </div>
 
@@ -268,11 +325,7 @@ export default function PayrollPage() {
           sub="Awaiting payment"
           subColor="#D97706"
         />
-        <SummaryCard
-          label="Paid"
-          value={summary.paid ?? 0}
-          color="#16A34A"
-        />
+        <SummaryCard label="Paid" value={summary.paid ?? 0} color="#16A34A" />
         <SummaryCard
           label="Total payroll"
           value={fmtINR(summary.totalPayroll)}
@@ -294,44 +347,6 @@ export default function PayrollPage() {
         />
       </div>
 
-      {/* ── Advance rules legend ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-          marginBottom: 20,
-          padding: "12px 16px",
-          borderRadius: 10,
-          background: "#F8FAFC",
-          border: "1px solid #E2E8F0",
-        }}
-      >
-        {[
-          { type: "Org → Employee",      dir: "Deduction",                            color: "#DC2626", note: "Org gave advance → salary cut to recover" },
-          { type: "Employee → Employee", dir: "Payer: Deduction / Recipient: Addition", color: "#7C3AED", note: "Payer lent money → cut; recipient reimbursed → boost" },
-          { type: "External / Vendor",   dir: "Addition",                             color: "#16A34A", note: "Org paid vendor for employee → salary boost" },
-        ].map((rule) => (
-          <div key={rule.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "3px 10px",
-                borderRadius: 99,
-                background: rule.color + "15",
-                color: rule.color,
-              }}
-            >
-              {rule.type}
-            </span>
-            <span style={{ fontSize: 11, color: "#64748B" }}>→</span>
-            <span style={{ fontSize: 11, color: "#374151" }}>{rule.dir}</span>
-            <span style={{ fontSize: 10, color: "#9CA3AF" }}>({rule.note})</span>
-          </div>
-        ))}
-      </div>
-
       {/* ── Error ── */}
       {error && (
         <div
@@ -351,7 +366,14 @@ export default function PayrollPage() {
 
       {/* ── Loading ── */}
       {loading && (
-        <div style={{ textAlign: "center", padding: "60px 0", color: "#94A3B8", fontSize: 14 }}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "60px 0",
+            color: "#94A3B8",
+            fontSize: 14,
+          }}
+        >
           Loading payroll for {month}…
         </div>
       )}
@@ -365,7 +387,7 @@ export default function PayrollPage() {
             setData((prev) => ({
               ...prev,
               employees: (prev.employees || []).map((e) =>
-                e.id === id ? { ...e, status } : e
+                e.id === id ? { ...e, status } : e,
               ),
             }));
           }}
@@ -373,7 +395,7 @@ export default function PayrollPage() {
             setData((prev) => ({
               ...prev,
               employees: (prev.employees || []).map((e) =>
-                e.id === id ? { ...e, ...updates } : e
+                e.id === id ? { ...e, ...updates } : e,
               ),
             }));
           }}
