@@ -271,7 +271,14 @@ const PayslipViewModal = ({ employee, onClose }) => {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{
+        background: "rgba(0,0,0,.5)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+      }}
+    >
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
         style={{ maxHeight: "92vh", display: "flex", flexDirection: "column" }}

@@ -1,13 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE: src/Ui/Payroll/AdvanceEffectsPanel.jsx
-//
-// Shows the advance payment breakdown for a single employee in the payroll table.
-//
-// RULES (mirrors payrollController.js logic exactly):
-//   org_to_emp  → DEDUCTION  for primary employee (org gave money → recover via salary)
-//   emp_to_emp  → ADDITION   for payer   (they gave their own money → compensate via salary)
-//               → DEDUCTION  for recipient (they received money → recover via salary)
-//   other       → ADDITION   for primary employee (org paid vendor on their behalf → reimbursement)
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
 import payrollService from "../../services/payrollService";
@@ -16,41 +8,54 @@ import payrollService from "../../services/payrollService";
 function fmtINR(val) {
   const v = Number(val);
   if (!isFinite(v)) return "₹0.00";
-  return "₹" + v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    "₹" +
+    v.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
 }
 
 const EFFECT_LABEL = {
-  deduction: { text: "Deduction", bg: "#FEF2F2", color: "#DC2626", border: "#FECACA" },
-  addition:  { text: "Addition",  bg: "#F0FDF4", color: "#16A34A", border: "#BBF7D0" },
+  deduction: {
+    text: "Deduction",
+    bg: "#FEF2F2",
+    color: "#DC2626",
+    border: "#FECACA",
+  },
+  addition: {
+    text: "Addition",
+    bg: "#F0FDF4",
+    color: "#16A34A",
+    border: "#BBF7D0",
+  },
 };
 
 const TYPE_META = {
   org_to_emp: {
     label: "Org → Employee",
-    desc:  "Organisation gave advance — recovering via salary deduction",
-    bg:    "#EFF6FF",
+    bg: "#EFF6FF",
     color: "#1D4ED8",
   },
   emp_to_emp: {
     label: "Employee → Employee",
-    desc:  "Payer's salary increases; recipient's salary decreases",
-    bg:    "#F5F3FF",
+    bg: "#F5F3FF",
     color: "#6D28D9",
   },
   other: {
     label: "External / Vendor",
-    desc:  "Org paid vendor on behalf of employee — reimbursement added to salary",
-    bg:    "#FFFBEB",
+    bg: "#FFFBEB",
     color: "#B45309",
   },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AdvanceEffectRow — one advance request's effect on this employee
+// AdvanceEffectRow
 // ─────────────────────────────────────────────────────────────────────────────
 function AdvanceEffectRow({ effect }) {
   const effectCfg = EFFECT_LABEL[effect.effect_type] || EFFECT_LABEL.deduction;
-  const typeMeta  = TYPE_META[effect.payment_type_key] || TYPE_META.org_to_emp;
+  const typeMeta = TYPE_META[effect.payment_type_key] || TYPE_META.org_to_emp;
 
   return (
     <div
@@ -68,7 +73,14 @@ function AdvanceEffectRow({ effect }) {
     >
       {/* Left — type + reason */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 3,
+          }}
+        >
           {/* Type pill */}
           <span
             style={{
@@ -86,7 +98,9 @@ function AdvanceEffectRow({ effect }) {
             {typeMeta.label}
           </span>
           {/* Request code */}
-          <span style={{ fontSize: 11, color: "#64748B", fontFamily: "monospace" }}>
+          <span
+            style={{ fontSize: 11, color: "#64748B", fontFamily: "monospace" }}
+          >
             {effect.request_code}
           </span>
         </div>
@@ -103,9 +117,7 @@ function AdvanceEffectRow({ effect }) {
         >
           {effect.reason || "—"}
         </p>
-        <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
-          {typeMeta.desc}
-        </p>
+        {/* ── desc line removed ── */}
       </div>
 
       {/* Right — effect badge + amount */}
@@ -142,12 +154,12 @@ function AdvanceEffectRow({ effect }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AdvanceEffectsPanel — full breakdown panel for one employee
+// AdvanceEffectsPanel
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
-  const [data,    setData]    = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!employeeId || !forMonth) return;
@@ -165,8 +177,8 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
       });
   }, [employeeId, forMonth]);
 
-  const effects   = data?.advanceEffects  || [];
-  const summary   = data?.advanceSummary  || {};
+  const effects = data?.advanceEffects || [];
+  const summary = data?.advanceSummary || {};
   const netEffect = Number(summary.netEffect || 0);
 
   return (
@@ -209,7 +221,14 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
           }}
         >
           <div>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#1E293B" }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 15,
+                fontWeight: 700,
+                color: "#1E293B",
+              }}
+            >
               Advance effects
             </p>
             <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94A3B8" }}>
@@ -239,7 +258,14 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
         {/* Body */}
         <div style={{ overflowY: "auto", flex: 1, padding: "16px 20px" }}>
           {loading && (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#94A3B8", fontSize: 14 }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 0",
+                color: "#94A3B8",
+                fontSize: 14,
+              }}
+            >
               Loading…
             </div>
           )}
@@ -257,7 +283,14 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
             </div>
           )}
           {!loading && !error && effects.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#94A3B8", fontSize: 14 }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 0",
+                color: "#94A3B8",
+                fontSize: 14,
+              }}
+            >
               No advance effects for this month.
             </div>
           )}
@@ -287,7 +320,9 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
                   },
                   {
                     label: "Net effect",
-                    value: (netEffect >= 0 ? "+ " : "− ") + fmtINR(Math.abs(netEffect)),
+                    value:
+                      (netEffect >= 0 ? "+ " : "− ") +
+                      fmtINR(Math.abs(netEffect)),
                     color: netEffect >= 0 ? "#16A34A" : "#DC2626",
                     bg: netEffect >= 0 ? "#F0FDF4" : "#FEF2F2",
                   },
@@ -300,10 +335,25 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
                       background: s.bg,
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 10,
+                        color: "#6B7280",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
                       {s.label}
                     </p>
-                    <p style={{ margin: "4px 0 0", fontSize: 14, fontWeight: 700, color: s.color }}>
+                    <p
+                      style={{
+                        margin: "4px 0 0",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: s.color,
+                      }}
+                    >
                       {s.value}
                     </p>
                   </div>

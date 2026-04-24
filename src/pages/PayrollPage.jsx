@@ -125,27 +125,31 @@ export default function PayrollPage() {
     setBulkBusy(true);
     try {
       // First, upsert records for any employee that doesn't have one yet
-      const withoutRecord = pending.filter(e => !e.payrollRecordId);
+      const withoutRecord = pending.filter((e) => !e.payrollRecordId);
       if (withoutRecord.length) {
         await Promise.all(
-          withoutRecord.map(emp =>
+          withoutRecord.map((emp) =>
             payrollService.upsertRecord({
-              employee_id:              emp.id,
-              for_month:                month,
-              basic:                    Number(emp.basic || 0),
-              hra:                      Number(emp.hra || 0),
-              other_allowances:         Number(emp.organisationAllowance || 0),
-              medical_allowance:        Number(emp.medicalAllowance || 0),
-              performance_pay:          Number(emp.performancePay || 0),
-              pf_deduction:             emp.pfDeduction != null ? Number(emp.pfDeduction) : undefined,
-              employer_pf_contribution: emp.employerPfContribution != null ? Number(emp.employerPfContribution) : undefined,
-              pt:                       emp.pt != null ? Number(emp.pt) : undefined,
-              tds:                      Number(emp.tds || 0),
-              other_deduction:          Number(emp.otherDeduction || 0),
-              p_days:                   emp.pDays != null ? Number(emp.pDays) : undefined,
-              month_days:               Number(emp.monthDays) || 30,
-            })
-          )
+              employee_id: emp.id,
+              for_month: month,
+              basic: Number(emp.basic || 0),
+              hra: Number(emp.hra || 0),
+              other_allowances: Number(emp.organisationAllowance || 0),
+              medical_allowance: Number(emp.medicalAllowance || 0),
+              performance_pay: Number(emp.performancePay || 0),
+              pf_deduction:
+                emp.pfDeduction != null ? Number(emp.pfDeduction) : undefined,
+              employer_pf_contribution:
+                emp.employerPfContribution != null
+                  ? Number(emp.employerPfContribution)
+                  : undefined,
+              pt: emp.pt != null ? Number(emp.pt) : undefined,
+              tds: Number(emp.tds || 0),
+              other_deduction: Number(emp.otherDeduction || 0),
+              p_days: emp.pDays != null ? Number(emp.pDays) : undefined,
+              month_days: Number(emp.monthDays) || 30,
+            }),
+          ),
         );
       }
 
@@ -154,8 +158,10 @@ export default function PayrollPage() {
 
       // After refresh, data.employees is stale in this closure — re-read from service
       const fresh = await payrollService.getPayrollData({ month, limit: 500 });
-      const freshPending = (fresh.data?.employees || []).filter(e => e.status === "Pending");
-      const ids = freshPending.map(e => e.payrollRecordId).filter(Boolean);
+      const freshPending = (fresh.data?.employees || []).filter(
+        (e) => e.status === "Pending",
+      );
+      const ids = freshPending.map((e) => e.payrollRecordId).filter(Boolean);
 
       if (!ids.length) {
         showToast("No valid payroll records found to pay.", "error");
@@ -389,44 +395,6 @@ export default function PayrollPage() {
           sub="emp recipient + vendor"
           subColor="#16A34A"
         />
-      </div>
-
-      {/* ── Advance rules legend ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-          marginBottom: 20,
-          padding: "12px 16px",
-          borderRadius: 10,
-          background: "#F8FAFC",
-          border: "1px solid #E2E8F0",
-        }}
-      >
-        {[
-          { type: "Org → Employee",      dir: "Deduction",                             color: "#DC2626", note: "Org gave advance → salary cut to recover" },
-          { type: "Employee → Employee", dir: "Payer: Deduction / Recipient: Addition", color: "#7C3AED", note: "Payer lent money → cut; recipient reimbursed → boost" },
-          { type: "External / Vendor",   dir: "Addition",                              color: "#16A34A", note: "Org paid vendor for employee → salary boost" },
-        ].map((rule) => (
-          <div key={rule.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "3px 10px",
-                borderRadius: 99,
-                background: rule.color + "15",
-                color: rule.color,
-              }}
-            >
-              {rule.type}
-            </span>
-            <span style={{ fontSize: 11, color: "#64748B" }}>→</span>
-            <span style={{ fontSize: 11, color: "#374151" }}>{rule.dir}</span>
-            <span style={{ fontSize: 10, color: "#9CA3AF" }}>({rule.note})</span>
-          </div>
-        ))}
       </div>
 
       {/* ── Error ── */}
