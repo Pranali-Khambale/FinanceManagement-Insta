@@ -2603,33 +2603,6 @@ export default function PaymentHistory({ onClose }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button
                 className="ph-btn"
-                onClick={load}
-                disabled={loading}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "7px 16px",
-                  borderRadius: 7,
-                  border: "1px solid #CECEC9",
-                  background: "#F7F7F6",
-                  color: "#4A4845",
-                  fontSize: 12,
-                  fontWeight: 500,
-                }}
-              >
-                {loading ? (
-                  <Loader2
-                    size={12}
-                    style={{ animation: "spin 1s linear infinite" }}
-                  />
-                ) : (
-                  <RefreshCw size={12} />
-                )}
-                Refresh
-              </button>
-              <button
-                className="ph-btn"
                 onClick={onClose}
                 style={{
                   padding: "7px 24px",
