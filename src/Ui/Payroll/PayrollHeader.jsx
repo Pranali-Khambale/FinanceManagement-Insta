@@ -158,7 +158,7 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
       .then((res) => {
         setData(res.data);
         setLoading(false);
-      })
+      }) 
       .catch((err) => {
         setError(err.message || "Failed to load advance details");
         setLoading(false);
