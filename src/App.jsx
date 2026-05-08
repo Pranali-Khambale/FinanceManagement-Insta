@@ -23,6 +23,9 @@ import Reports            from "./pages/Reports";
 import AdvanceRequestForm from "./Ui/AdvancePayment/AdvanceRequestLinkForm";
 import AdvanceResubmitForm from "./pages/AdvanceResubmitForm";
 
+// ── NEW IMPORT ────────────────────────────────────────────────────────────────
+import EmployeeDocUpload from "./pages/EmployeeDocUpload";
+
 const RegistrationForm = lazy(
   () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
 );
@@ -195,22 +198,22 @@ function App() {
           }
         />
 
-        {/*
-          Advance payment request form — sent via generated link.
-          Backend must produce links like:
-            https://yourdomain.com/advance-request/emp_to_emp/TOKEN
-        */}
+        {/* ── NEW: Employee document upload page (post-approval) ────────────
+            Employee receives email with link: /upload-documents/TOKEN
+            No auth required — token acts as the credential
+        ──────────────────────────────────────────────────────────────── */}
+        <Route
+          path="/upload-documents/:token"
+          element={<EmployeeDocUpload />}
+        />
+
+        {/* Advance payment request form */}
         <Route
           path="/advance-request/:paymentTypeKey/:token"
           element={<AdvanceRequestForm />}
         />
 
-        {/*
-          Advance payment resubmit form — sent via rejection email.
-          Backend must produce links like:
-            https://yourdomain.com/advance-resubmit/TOKEN
-          Without this route the React Router * catch-all redirects to /login.
-        */}
+        {/* Advance payment resubmit form */}
         <Route
           path="/advance-resubmit/:token"
           element={<AdvanceResubmitForm />}

@@ -534,17 +534,7 @@ export const printKYEForm = (employee) => {
 
   <div class="sec-heading">7. DECLARATION –</div>
   <div class="declaration">
-    <p>
-      I<span style="display:inline-block;min-width:115mm;border-bottom:1px solid #000;">
-        <!-- ✅ FIX: Declaration uses First + Father/Husband + Last -->
-        &nbsp;${employeeFullName}&nbsp;
-      </span>,
-      Hereby declare that the information furnished above is true, complete and correct to the best of my knowledge and belief.
-      I understand that in the event of my information being found false or incorrect at any stage, my candidature / appointment
-      shall be liable to cancellation / termination without notice or any compensation in lieu thereof. Information taken is purely
-      for employment verification process and I have given my consent to Insta ICT Pvt Ltd for verification of it for employment
-      related activity.
-    </p>
+  
     <div class="declaration-hindi">
       <strong>घोषणा –</strong><br>
       मैं<span style="display:inline-block;min-width:108mm;border-bottom:1px solid #999;">&nbsp;</span>,
