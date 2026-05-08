@@ -16,7 +16,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from "react";
-import { downloadPayslipExcel } from "./PayslipGenerator.jsx";
+import {
+  downloadPayslipExcel,
+  downloadPayslipPDF,
+} from "./PayslipGenerator.jsx";
 import { exportPayrollToExcel } from "./ExportPayrollExcel";
 import AttendanceInputModal from "./AttendanceInputModal";
 import EmployeeDetailModal from "./EmployeeDetailModal";
@@ -71,26 +74,46 @@ const CIRCLES = [
 // ─── Employment type buckets ───────────────────────────────────────────────
 const EMP_TYPE_BUCKETS = {
   IT: [
-    "it", "information technology", "software", "developer", "tech",
-    "engineering", "data", "devops", "qa", "testing", "cloud",
+    "it",
+    "information technology",
+    "software",
+    "developer",
+    "tech",
+    "engineering",
+    "data",
+    "devops",
+    "qa",
+    "testing",
+    "cloud",
   ],
   Telecom: [
-    "telecom", "telecommunications", "network", "noc", "bss", "oss",
-    "rf", "transmission", "fiber", "broadband", "isp", "circle",
+    "telecom",
+    "telecommunications",
+    "network",
+    "noc",
+    "bss",
+    "oss",
+    "rf",
+    "transmission",
+    "fiber",
+    "broadband",
+    "isp",
+    "circle",
   ],
 };
 
 function getEmpTypeBucket(emp) {
   const haystack = [
     emp.employmentType || "",
-    emp.department      || "",
-    emp.designation     || "",
+    emp.department || "",
+    emp.designation || "",
   ]
     .join(" ")
     .toLowerCase();
 
-  if (EMP_TYPE_BUCKETS.IT.some((kw) => haystack.includes(kw)))      return "IT";
-  if (EMP_TYPE_BUCKETS.Telecom.some((kw) => haystack.includes(kw))) return "Telecom";
+  if (EMP_TYPE_BUCKETS.IT.some((kw) => haystack.includes(kw))) return "IT";
+  if (EMP_TYPE_BUCKETS.Telecom.some((kw) => haystack.includes(kw)))
+    return "Telecom";
   return "Other";
 }
 
@@ -130,30 +153,39 @@ function gratuityFromBasic(basic) {
 function getDaysInMonth(forMonth) {
   if (!forMonth) return 30;
   const MONTHS = {
-    january: 1, february: 2,  march: 3,      april: 4,
-    may: 5,     june: 6,      july: 7,        august: 8,
-    september: 9, october: 10, november: 11,  december: 12,
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12,
   };
-  const parts    = forMonth.trim().toLowerCase().split(/\s+/);
+  const parts = forMonth.trim().toLowerCase().split(/\s+/);
   const monthNum = MONTHS[parts[0]];
-  const year     = parseInt(parts[1], 10);
+  const year = parseInt(parts[1], 10);
   if (!monthNum || isNaN(year)) return 30;
   return new Date(year, monthNum, 0).getDate();
 }
 
 function computePayslip(emp) {
   const monthDays = n(emp.monthDays) || 30;
-  const pDays     = emp.pDays != null ? n(emp.pDays) : monthDays;
-  const ratio     = monthDays > 0 ? pDays / monthDays : 1;
+  const pDays = emp.pDays != null ? n(emp.pDays) : monthDays;
+  const ratio = monthDays > 0 ? pDays / monthDays : 1;
 
-  const basic      = n(emp.basic);
-  const hra        = n(emp.hra);
-  const orgAllow   = n(emp.organisationAllowance);
-  const perfPay    = n(emp.performancePay);
-  const tds        = n(emp.tds);
-  const otherDed   = n(emp.otherDeduction);
-  const advDed     = n(emp.advanceDeduction);
-  const advAdd     = n(emp.advanceAddition);
+  const basic = n(emp.basic);
+  const hra = n(emp.hra);
+  const orgAllow = n(emp.organisationAllowance);
+  const perfPay = n(emp.performancePay);
+  const tds = n(emp.tds);
+  const otherDed = n(emp.otherDeduction);
+  const advDed = n(emp.advanceDeduction);
+  const advAdd = n(emp.advanceAddition);
 
   const grossSalary = basic + hra + orgAllow;
 
@@ -175,12 +207,12 @@ function computePayslip(emp) {
   const gratuityAmt =
     emp.gratuity != null ? n(emp.gratuity) : gratuityFromBasic(basic);
 
-  const grossEarned   = grossSalary * ratio;
-  const perfEarned    = perfPay * ratio;
+  const grossEarned = grossSalary * ratio;
+  const perfEarned = perfPay * ratio;
 
   const totalDeduction =
     empPfDed + employerPf + ptDed + tds + otherDed + advDed + gratuityAmt;
-  const netSalary   = grossEarned - totalDeduction + advAdd;
+  const netSalary = grossEarned - totalDeduction + advAdd;
   const totalEarning = netSalary + perfEarned;
 
   return {
@@ -233,6 +265,7 @@ const ChevronDown = () => (
 // ─────────────────────────────────────────────────────────────────────────────
 const PayslipViewModal = ({ employee, onClose }) => {
   const [excelLoading, setExcelLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const {
     grossSalary,
@@ -251,10 +284,10 @@ const PayslipViewModal = ({ employee, onClose }) => {
   } = computePayslip(employee);
 
   const monthDays = n(employee.monthDays) || 30;
-  const pDays     = employee.pDays != null ? n(employee.pDays) : monthDays;
-  const ratio     = monthDays > 0 ? pDays / monthDays : 1;
+  const pDays = employee.pDays != null ? n(employee.pDays) : monthDays;
+  const ratio = monthDays > 0 ? pDays / monthDays : 1;
 
-  const isFemale       = /female|woman|f/i.test(employee.gender || "");
+  const isFemale = /female|woman|f/i.test(employee.gender || "");
   const ptNotApplicable = isFemale && grossSalary <= 25000;
 
   const handleExcel = async () => {
@@ -263,6 +296,15 @@ const PayslipViewModal = ({ employee, onClose }) => {
       await downloadPayslipExcel(employee);
     } finally {
       setExcelLoading(false);
+    }
+  };
+
+  const handlePdf = async () => {
+    setPdfLoading(true);
+    try {
+      await downloadPayslipPDF(employee);
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -398,9 +440,15 @@ const PayslipViewModal = ({ employee, onClose }) => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className="text-left pb-1.5 text-[10px] text-slate-400 font-normal">Head</th>
-                    <th className="text-right pb-1.5 text-[10px] text-slate-400 font-normal">Gross</th>
-                    <th className="text-right pb-1.5 text-[10px] text-slate-400 font-normal">Earned</th>
+                    <th className="text-left pb-1.5 text-[10px] text-slate-400 font-normal">
+                      Head
+                    </th>
+                    <th className="text-right pb-1.5 text-[10px] text-slate-400 font-normal">
+                      Gross
+                    </th>
+                    <th className="text-right pb-1.5 text-[10px] text-slate-400 font-normal">
+                      Earned
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -409,20 +457,43 @@ const PayslipViewModal = ({ employee, onClose }) => {
                   <EarningRow label="Org. allowance" gross={n(employee.organisationAllowance)} earned={n(employee.organisationAllowance) * ratio} />
                   {advanceAddition > 0 && (
                     <tr className="text-[12px]">
-                      <td className="py-1 text-emerald-600 font-medium">Advance (addition)</td>
+                      <td className="py-1 text-emerald-600 font-medium">
+                        Advance (addition)
+                      </td>
                       <td className="py-1 text-right text-emerald-600">—</td>
-                      <td className="py-1 text-right text-emerald-600">+ {fmtINR(advanceAddition)}</td>
+                      <td className="py-1 text-right text-emerald-600">
+                        + {fmtINR(advanceAddition)}
+                      </td>
                     </tr>
                   )}
                   <tr className="border-t border-slate-100 text-[12px]">
-                    <td className="py-1.5 font-semibold" style={{ color: "#1a3c6e" }}>Subtotal</td>
-                    <td className="py-1.5 text-right font-semibold" style={{ color: "#1a3c6e" }}>{fmtINR(grossSalary)}</td>
-                    <td className="py-1.5 text-right font-semibold" style={{ color: "#1a3c6e" }}>{fmtINR(grossEarned + advanceAddition)}</td>
+                    <td
+                      className="py-1.5 font-semibold"
+                      style={{ color: "#1a3c6e" }}
+                    >
+                      Subtotal
+                    </td>
+                    <td
+                      className="py-1.5 text-right font-semibold"
+                      style={{ color: "#1a3c6e" }}
+                    >
+                      {fmtINR(grossSalary)}
+                    </td>
+                    <td
+                      className="py-1.5 text-right font-semibold"
+                      style={{ color: "#1a3c6e" }}
+                    >
+                      {fmtINR(grossEarned + advanceAddition)}
+                    </td>
                   </tr>
                   <tr className="text-[12px]">
                     <td className="py-1 text-slate-400 italic">Perf. pay</td>
-                    <td className="py-1 text-right text-slate-400 italic">{fmtINR(n(employee.performancePay))}</td>
-                    <td className="py-1 text-right text-slate-400 italic">{fmtINR(perfEarned)}</td>
+                    <td className="py-1 text-right text-slate-400 italic">
+                      {fmtINR(n(employee.performancePay))}
+                    </td>
+                    <td className="py-1 text-right text-slate-400 italic">
+                      {fmtINR(perfEarned)}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -436,37 +507,71 @@ const PayslipViewModal = ({ employee, onClose }) => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className="text-left pb-1.5 text-[10px] text-slate-400 font-normal">Head</th>
-                    <th className="text-right pb-1.5 text-[10px] text-slate-400 font-normal">Amount</th>
+                    <th className="text-left pb-1.5 text-[10px] text-slate-400 font-normal">
+                      Head
+                    </th>
+                    <th className="text-right pb-1.5 text-[10px] text-slate-400 font-normal">
+                      Amount
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <DeductRow label={`PF – Employee (12% of ₹${n(employee.basic).toLocaleString("en-IN")})`} amount={empPfDeduction} />
-                  <DeductRow label={`PF – Employer (13% of ₹${n(employee.basic).toLocaleString("en-IN")})`} amount={employerPfContribution} />
+                  <DeductRow
+                    label={`PF – Employee (12% of ₹${n(employee.basic).toLocaleString("en-IN")})`}
+                    amount={empPfDeduction}
+                  />
+                  <DeductRow
+                    label={`PF – Employer (13% of ₹${n(employee.basic).toLocaleString("en-IN")})`}
+                    amount={employerPfContribution}
+                  />
                   <tr className="text-[12px] bg-red-50/50">
-                    <td className="py-1 text-red-600 font-semibold">Total PF (25%)</td>
-                    <td className="py-1 text-right font-bold text-red-600">- {fmtINR(totalPfContribution)}</td>
+                    <td className="py-1 text-red-600 font-semibold">
+                      Total PF (25%)
+                    </td>
+                    <td className="py-1 text-right font-bold text-red-600">
+                      - {fmtINR(totalPfContribution)}
+                    </td>
                   </tr>
                   <tr className="text-[12px]">
                     <td className="py-1 text-slate-600">
-                      PT{/february/i.test(employee.forMonth || "") ? " (Feb)" : ""}
+                      PT
+                      {/february/i.test(employee.forMonth || "")
+                        ? " (Feb)"
+                        : ""}
                       {ptNotApplicable && (
-                        <span className="ml-1 text-[10px] text-emerald-600 font-semibold">N/A (gross ≤ ₹25K)</span>
+                        <span className="ml-1 text-[10px] text-emerald-600 font-semibold">
+                          N/A (gross ≤ ₹25K)
+                        </span>
                       )}
                     </td>
-                    <td className={`py-1 text-right font-medium ${ptDeduction > 0 ? "text-red-500" : "text-slate-400"}`}>
+                    <td
+                      className={`py-1 text-right font-medium ${ptDeduction > 0 ? "text-red-500" : "text-slate-400"}`}
+                    >
                       {ptDeduction > 0 ? `- ${fmtINR(ptDeduction)}` : fmtINR(0)}
                     </td>
                   </tr>
-                  <DeductRow label={`Gratuity (4.81% of ₹${n(employee.basic).toLocaleString("en-IN")})`} amount={gratuity} />
-                  <DeductRow label="TDS"   amount={n(employee.tds)} />
-                  <DeductRow label="Other" amount={n(employee.otherDeduction)} />
+                  <DeductRow
+                    label={`Gratuity (4.81% of ₹${n(employee.basic).toLocaleString("en-IN")})`}
+                    amount={gratuity}
+                  />
+                  <DeductRow label="TDS" amount={n(employee.tds)} />
+                  <DeductRow
+                    label="Other"
+                    amount={n(employee.otherDeduction)}
+                  />
                   {advanceDeduction > 0 && (
-                    <DeductRow label="Advance recovery" amount={advanceDeduction} />
+                    <DeductRow
+                      label="Advance recovery"
+                      amount={advanceDeduction}
+                    />
                   )}
                   <tr className="border-t border-slate-100 text-[12px]">
-                    <td className="py-1.5 font-semibold text-red-500">Total deductions</td>
-                    <td className="py-1.5 text-right font-semibold text-red-500">- {fmtINR(totalDeduction)}</td>
+                    <td className="py-1.5 font-semibold text-red-500">
+                      Total deductions
+                    </td>
+                    <td className="py-1.5 text-right font-semibold text-red-500">
+                      - {fmtINR(totalDeduction)}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -481,15 +586,23 @@ const PayslipViewModal = ({ employee, onClose }) => {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <p className="text-[10px] text-red-400">Employee Share (12%)</p>
-                <p className="text-[14px] font-semibold text-red-500">- {fmtINR(empPfDeduction)}</p>
+                <p className="text-[14px] font-semibold text-red-500">
+                  - {fmtINR(empPfDeduction)}
+                </p>
               </div>
               <div>
                 <p className="text-[10px] text-red-400">Employer Share (13%)</p>
-                <p className="text-[14px] font-semibold text-red-500">- {fmtINR(employerPfContribution)}</p>
+                <p className="text-[14px] font-semibold text-red-500">
+                  - {fmtINR(employerPfContribution)}
+                </p>
               </div>
               <div>
-                <p className="text-[10px] text-red-400">Total PF Deducted (25%)</p>
-                <p className="text-[14px] font-bold text-red-700">- {fmtINR(totalPfContribution)}</p>
+                <p className="text-[10px] text-red-400">
+                  Total PF Deducted (25%)
+                </p>
+                <p className="text-[14px] font-bold text-red-700">
+                  - {fmtINR(totalPfContribution)}
+                </p>
               </div>
             </div>
             {empPfDeduction === 0 && employerPfContribution === 0 && (
@@ -507,11 +620,15 @@ const PayslipViewModal = ({ employee, onClose }) => {
             <div className="flex items-center gap-6">
               <div>
                 <p className="text-[10px] text-amber-400">Rate</p>
-                <p className="text-[14px] font-semibold text-amber-600">4.81% of Basic</p>
+                <p className="text-[14px] font-semibold text-amber-600">
+                  4.81% of Basic
+                </p>
               </div>
               <div>
                 <p className="text-[10px] text-amber-400">This Month</p>
-                <p className="text-[14px] font-bold text-amber-700">- {fmtINR(gratuity)}</p>
+                <p className="text-[14px] font-bold text-amber-700">
+                  - {fmtINR(gratuity)}
+                </p>
               </div>
               {gratuity === 0 && (
                 <p className="text-[11px] font-semibold text-emerald-600">
@@ -524,24 +641,40 @@ const PayslipViewModal = ({ employee, onClose }) => {
           {/* Net summary bar */}
           <div className="px-6 py-4 grid grid-cols-3 gap-6 bg-slate-50 border-b border-slate-100">
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-slate-400">Gross earned</span>
-              <span className="text-[18px] font-semibold" style={{ color: "#1a3c6e" }}>{fmtINR(grossEarned)}</span>
+              <span className="text-[10px] uppercase tracking-widest text-slate-400">
+                Gross earned
+              </span>
+              <span
+                className="text-[18px] font-semibold"
+                style={{ color: "#1a3c6e" }}
+              >
+                {fmtINR(grossEarned)}
+              </span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-slate-400">Total deductions</span>
-              <span className="text-[18px] font-semibold text-red-500">- {fmtINR(totalDeduction)}</span>
+              <span className="text-[10px] uppercase tracking-widest text-slate-400">
+                Total deductions
+              </span>
+              <span className="text-[18px] font-semibold text-red-500">
+                - {fmtINR(totalDeduction)}
+              </span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-slate-400">Net salary</span>
-              <span className="text-[22px] font-bold text-emerald-600">{fmtINR(netSalary)}</span>
+              <span className="text-[10px] uppercase tracking-widest text-slate-400">
+                Net salary
+              </span>
+              <span className="text-[22px] font-bold text-emerald-600">
+                {fmtINR(netSalary)}
+              </span>
             </div>
           </div>
 
           <p className="px-6 pt-2 text-[11px] text-slate-400">
-            ℹ️ PF: 12% Basic (employee) + 13% Basic (employer) = 25% total — both deducted from
-            employee salary &nbsp;|&nbsp; Gratuity: 4.81% of Basic &nbsp;|&nbsp;
-            PT = ₹200/month · ₹300 in February &nbsp;|&nbsp; PT for Female: applicable only if
-            Gross &gt; ₹25,000 &nbsp;|&nbsp; Any field can be set to ₹0 to exempt the employee
+            ℹ️ PF: 12% Basic (employee) + 13% Basic (employer) = 25% total —
+            both deducted from employee salary &nbsp;|&nbsp; Gratuity: 4.81% of
+            Basic &nbsp;|&nbsp; PT = ₹200/month · ₹300 in February &nbsp;|&nbsp;
+            PT for Female: applicable only if Gross &gt; ₹25,000 &nbsp;|&nbsp;
+            Any field can be set to ₹0 to exempt the employee
           </p>
 
           <p className="text-center text-[11px] text-slate-400 italic px-6 py-3">
@@ -549,8 +682,66 @@ const PayslipViewModal = ({ employee, onClose }) => {
           </p>
         </div>
 
-        {/* Actions */}
+        {/* ── Actions ── */}
         <div className="px-6 py-4 border-t border-slate-100 flex gap-3 flex-shrink-0">
+          {/* Download PDF */}
+          <button
+            onClick={handlePdf}
+            disabled={pdfLoading}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: "#c0392b" }}
+          >
+            {pdfLoading ? (
+              <>
+                <svg
+                  className="w-4 h-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
+                </svg>
+                Generating…
+              </>
+            ) : (
+              <>
+                {/* PDF icon */}
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 13h6M9 17h4"
+                  />
+                </svg>
+                Download PDF
+              </>
+            )}
+          </button>
+
+          {/* Download Excel */}
           <button
             onClick={handleExcel}
             disabled={excelLoading}
@@ -559,16 +750,41 @@ const PayslipViewModal = ({ employee, onClose }) => {
           >
             {excelLoading ? (
               <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                <svg
+                  className="w-4 h-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
                 </svg>
                 Generating…
               </>
             ) : (
               <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
                 Download Excel
               </>
@@ -590,18 +806,18 @@ const PayrollTable = ({
   onUpdateEmployee,
   onRefresh,
 }) => {
-  const [employees,      setEmployees]      = useState(employeesProp);
-  const [activeTab,      setActiveTab]      = useState("pending");
-  const [search,         setSearch]         = useState("");
-  const [deptFilter,     setDeptFilter]     = useState("All");
-  const [circleFilter,   setCircleFilter]   = useState("All");
-  const [empTypeFilter,  setEmpTypeFilter]  = useState("All");
-  const [viewTarget,     setViewTarget]     = useState(null);
-  const [editTarget,     setEditTarget]     = useState(null);
-  const [toast,          setToast]          = useState(null);
-  const [exporting,      setExporting]      = useState(false);
+  const [employees, setEmployees] = useState(employeesProp);
+  const [activeTab, setActiveTab] = useState("pending");
+  const [search, setSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState("All");
+  const [circleFilter, setCircleFilter] = useState("All");
+  const [empTypeFilter, setEmpTypeFilter] = useState("All");
+  const [viewTarget, setViewTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const [attendanceOpen, setAttendanceOpen] = useState(false);
-  const [payingId,       setPayingId]       = useState(null);
+  const [payingId, setPayingId] = useState(null);
 
   const correctMonthDays = getDaysInMonth(forMonth);
 
@@ -629,12 +845,12 @@ const PayrollTable = ({
     const q = search.toLowerCase();
     const matchSrch =
       !q ||
-      (e.name            || "").toLowerCase().includes(q) ||
-      (e.employeeId      || "").toLowerCase().includes(q) ||
+      (e.name || "").toLowerCase().includes(q) ||
+      (e.employeeId || "").toLowerCase().includes(q) ||
       (e.currentLocation || "").toLowerCase().includes(q) ||
-      (e.circle          || "").toLowerCase().includes(q) ||
-      (e.designation     || "").toLowerCase().includes(q) ||
-      (e.department      || "").toLowerCase().includes(q);
+      (e.circle || "").toLowerCase().includes(q) ||
+      (e.designation || "").toLowerCase().includes(q) ||
+      (e.department || "").toLowerCase().includes(q);
 
     const matchDept = deptFilter === "All" || e.department === deptFilter;
 
@@ -648,7 +864,7 @@ const PayrollTable = ({
   });
 
   const pendingCount = employees.filter((e) => e.status === "Pending").length;
-  const paidCount    = employees.filter((e) => e.status === "Paid").length;
+  const paidCount = employees.filter((e) => e.status === "Paid").length;
 
   // ── Active filter count ───────────────────────────────────────────────────
   const activeFiltersCount = [
@@ -673,38 +889,47 @@ const PayrollTable = ({
 
       if (!recordId) {
         const payload = {
-          employee_id:              emp.id,
-          for_month:                emp.forMonth || forMonth,
-          basic:                    n(emp.basic),
-          hra:                      n(emp.hra),
-          other_allowances:         n(emp.organisationAllowance),
-          performance_pay:          n(emp.performancePay),
-          pf_deduction:             emp.pfDeduction != null ? n(emp.pfDeduction) : undefined,
-          employer_pf_contribution: emp.employerPfContribution != null ? n(emp.employerPfContribution) : undefined,
-          pt:                       emp.pt != null ? n(emp.pt) : undefined,
-          gratuity:                 emp.gratuity != null ? n(emp.gratuity) : undefined,
-          tds:                      n(emp.tds),
-          other_deduction:          n(emp.otherDeduction),
-          p_days:                   emp.pDays != null ? n(emp.pDays) : undefined,
-          month_days:               n(emp.monthDays) || correctMonthDays,
+          employee_id: emp.id,
+          for_month: emp.forMonth || forMonth,
+          basic: n(emp.basic),
+          hra: n(emp.hra),
+          other_allowances: n(emp.organisationAllowance),
+          performance_pay: n(emp.performancePay),
+          pf_deduction:
+            emp.pfDeduction != null ? n(emp.pfDeduction) : undefined,
+          employer_pf_contribution:
+            emp.employerPfContribution != null
+              ? n(emp.employerPfContribution)
+              : undefined,
+          pt: emp.pt != null ? n(emp.pt) : undefined,
+          gratuity: emp.gratuity != null ? n(emp.gratuity) : undefined,
+          tds: n(emp.tds),
+          other_deduction: n(emp.otherDeduction),
+          p_days: emp.pDays != null ? n(emp.pDays) : undefined,
+          month_days: n(emp.monthDays) || correctMonthDays,
         };
 
         const result = await payrollService.upsertRecord(payload);
         recordId = result?.data?.id;
 
         if (!recordId) {
-          showToast("❌ Could not create payroll record before paying.", "error");
+          showToast(
+            "❌ Could not create payroll record before paying.",
+            "error",
+          );
           return;
         }
 
         setEmployees((prev) =>
-          prev.map((e) => (e.id === emp.id ? { ...e, payrollRecordId: recordId } : e))
+          prev.map((e) =>
+            e.id === emp.id ? { ...e, payrollRecordId: recordId } : e,
+          ),
         );
       }
 
       await payrollService.markAsPaid(recordId);
       setEmployees((prev) =>
-        prev.map((e) => (e.id === emp.id ? { ...e, status: "Paid" } : e))
+        prev.map((e) => (e.id === emp.id ? { ...e, status: "Paid" } : e)),
       );
       onUpdateStatus?.(emp.id, "Paid");
       showToast(`💸 Salary disbursed for ${emp.name}!`);
@@ -722,7 +947,7 @@ const PayrollTable = ({
         prev.map((e) => {
           const found = updatedRows.find((r) => r.id === e.id);
           return found ? { ...e, ...found } : e;
-        })
+        }),
       );
 
       updatedRows.forEach(({ id, pDays, aDays, monthDays }) => {
@@ -731,12 +956,12 @@ const PayrollTable = ({
 
       try {
         const result = await payrollService.saveAttendance(
-          updatedRows.map((r) => ({ ...r, forMonth }))
+          updatedRows.map((r) => ({ ...r, forMonth })),
         );
         if (result.failed > 0) {
           showToast(
             `📅 Attendance updated (${result.saved} saved, ${result.failed} failed)`,
-            "error"
+            "error",
           );
         } else {
           showToast(`📅 Attendance updated for ${result.saved} employees!`);
@@ -745,7 +970,7 @@ const PayrollTable = ({
         showToast(`❌ Attendance save error: ${err.message}`, "error");
       }
     },
-    [forMonth, onUpdateEmployee]
+    [forMonth, onUpdateEmployee],
   );
 
   // ── Edit saved ────────────────────────────────────────────────────────────
@@ -753,23 +978,27 @@ const PayrollTable = ({
     async (updated) => {
       try {
         const payload = {
-          employee_id:              updated.id,
-          for_month:                updated.forMonth || forMonth,
-          basic:                    n(updated.basic),
-          hra:                      n(updated.hra),
-          other_allowances:         n(updated.organisationAllowance),
-          performance_pay:          n(updated.performancePay),
-          pf_deduction:             updated.pfDeduction != null ? n(updated.pfDeduction) : undefined,
-          employer_pf_contribution: updated.employerPfContribution != null ? n(updated.employerPfContribution) : undefined,
-          pt:                       updated.pt != null ? n(updated.pt) : undefined,
-          gratuity:                 updated.gratuity != null ? n(updated.gratuity) : undefined,
-          tds:                      n(updated.tds),
-          other_deduction:          n(updated.otherDeduction),
-          p_days:                   updated.pDays != null ? n(updated.pDays) : undefined,
-          month_days:               n(updated.monthDays) || correctMonthDays,
+          employee_id: updated.id,
+          for_month: updated.forMonth || forMonth,
+          basic: n(updated.basic),
+          hra: n(updated.hra),
+          other_allowances: n(updated.organisationAllowance),
+          performance_pay: n(updated.performancePay),
+          pf_deduction:
+            updated.pfDeduction != null ? n(updated.pfDeduction) : undefined,
+          employer_pf_contribution:
+            updated.employerPfContribution != null
+              ? n(updated.employerPfContribution)
+              : undefined,
+          pt: updated.pt != null ? n(updated.pt) : undefined,
+          gratuity: updated.gratuity != null ? n(updated.gratuity) : undefined,
+          tds: n(updated.tds),
+          other_deduction: n(updated.otherDeduction),
+          p_days: updated.pDays != null ? n(updated.pDays) : undefined,
+          month_days: n(updated.monthDays) || correctMonthDays,
         };
 
-        const result     = await payrollService.upsertRecord(payload);
+        const result = await payrollService.upsertRecord(payload);
         const serverData = result?.data || {};
 
         const safeServerVal = (serverVal, fallback) =>
@@ -801,7 +1030,7 @@ const PayrollTable = ({
         };
 
         setEmployees((prev) =>
-          prev.map((e) => (e.id === updated.id ? { ...e, ...merged } : e))
+          prev.map((e) => (e.id === updated.id ? { ...e, ...merged } : e)),
         );
         onUpdateEmployee?.(updated.id, merged);
         setEditTarget(null);
@@ -811,7 +1040,7 @@ const PayrollTable = ({
         throw err;
       }
     },
-    [forMonth, correctMonthDays, onUpdateEmployee, onRefresh]
+    [forMonth, correctMonthDays, onUpdateEmployee, onRefresh],
   );
 
   // ── Export ────────────────────────────────────────────────────────────────
@@ -836,34 +1065,46 @@ const PayrollTable = ({
     (acc, emp) => {
       const c = computePayslip(emp);
       return {
-        basic:          acc.basic          + n(emp.basic),
-        hra:            acc.hra            + n(emp.hra),
-        orgAllow:       acc.orgAllow       + n(emp.organisationAllowance),
-        perfPay:        acc.perfPay        + n(emp.performancePay),
-        grossSalary:    acc.grossSalary    + c.grossSalary,
-        grossEarned:    acc.grossEarned    + c.grossEarned,
-        empPfDed:       acc.empPfDed       + c.empPfDeduction,
-        employerPf:     acc.employerPf     + c.employerPfContribution,
-        totalPf:        acc.totalPf        + c.totalPfContribution,
-        pt:             acc.pt             + c.ptDeduction,
-        gratuity:       acc.gratuity       + c.gratuity,
-        tds:            acc.tds            + n(emp.tds),
-        otherDed:       acc.otherDed       + n(emp.otherDeduction),
-        advDed:         acc.advDed         + c.advanceDeduction,
-        advAdd:         acc.advAdd         + c.advanceAddition,
+        basic: acc.basic + n(emp.basic),
+        hra: acc.hra + n(emp.hra),
+        orgAllow: acc.orgAllow + n(emp.organisationAllowance),
+        perfPay: acc.perfPay + n(emp.performancePay),
+        grossSalary: acc.grossSalary + c.grossSalary,
+        grossEarned: acc.grossEarned + c.grossEarned,
+        empPfDed: acc.empPfDed + c.empPfDeduction,
+        employerPf: acc.employerPf + c.employerPfContribution,
+        totalPf: acc.totalPf + c.totalPfContribution,
+        pt: acc.pt + c.ptDeduction,
+        gratuity: acc.gratuity + c.gratuity,
+        tds: acc.tds + n(emp.tds),
+        otherDed: acc.otherDed + n(emp.otherDeduction),
+        advDed: acc.advDed + c.advanceDeduction,
+        advAdd: acc.advAdd + c.advanceAddition,
         totalDeduction: acc.totalDeduction + c.totalDeduction,
-        netSalary:      acc.netSalary      + c.netSalary,
-        totalEarning:   acc.totalEarning   + c.totalEarning,
+        netSalary: acc.netSalary + c.netSalary,
+        totalEarning: acc.totalEarning + c.totalEarning,
       };
     },
     {
-      basic: 0, hra: 0, orgAllow: 0, perfPay: 0,
-      grossSalary: 0, grossEarned: 0,
-      empPfDed: 0, employerPf: 0, totalPf: 0,
-      pt: 0, gratuity: 0, tds: 0, otherDed: 0,
-      advDed: 0, advAdd: 0,
-      totalDeduction: 0, netSalary: 0, totalEarning: 0,
-    }
+      basic: 0,
+      hra: 0,
+      orgAllow: 0,
+      perfPay: 0,
+      grossSalary: 0,
+      grossEarned: 0,
+      empPfDed: 0,
+      employerPf: 0,
+      totalPf: 0,
+      pt: 0,
+      gratuity: 0,
+      tds: 0,
+      otherDed: 0,
+      advDed: 0,
+      advAdd: 0,
+      totalDeduction: 0,
+      netSalary: 0,
+      totalEarning: 0,
+    },
   );
 
   const TABLE_COLS = [
@@ -910,7 +1151,10 @@ const PayrollTable = ({
 
       {/* Modals */}
       {viewTarget && (
-        <PayslipViewModal employee={viewTarget} onClose={() => setViewTarget(null)} />
+        <PayslipViewModal
+          employee={viewTarget}
+          onClose={() => setViewTarget(null)}
+        />
       )}
       {editTarget && (
         <EmployeeDetailModal
@@ -940,7 +1184,7 @@ const PayrollTable = ({
           <div className="flex items-center bg-slate-100 rounded-[9px] p-[3px] gap-[2px]">
             {[
               { key: "pending", label: "Pending", count: pendingCount },
-              { key: "paid",    label: "Paid",    count: paidCount    },
+              { key: "paid", label: "Paid", count: paidCount },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -1017,8 +1261,12 @@ const PayrollTable = ({
               className="w-[13px] h-[13px] text-slate-400 absolute left-[9px] top-1/2 -translate-y-1/2 pointer-events-none"
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             <input
               type="text"
@@ -1237,7 +1485,6 @@ const PayrollTable = ({
                     <p className="text-xs text-slate-400">{emp.department}</p>
                   </td>
 
-                  {/* Circle / Location */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     <span className="text-slate-600 text-sm">{circleVal}</span>
                   </td>
@@ -1246,92 +1493,142 @@ const PayrollTable = ({
                     <span className="font-semibold">
                       {n(emp.pDays) || n(emp.monthDays) || correctMonthDays}
                     </span>
-                    <span className="text-slate-400"> / {n(emp.monthDays) || correctMonthDays}</span>
-                    <p className="text-xs text-slate-400">Absent: {n(emp.aDays)}</p>
+                    <span className="text-slate-400">
+                      {" "}
+                      / {n(emp.monthDays) || correctMonthDays}
+                    </span>
+                    <p className="text-xs text-slate-400">
+                      Absent: {n(emp.aDays)}
+                    </p>
                   </td>
 
-                  <td className="px-4 py-4 whitespace-nowrap text-slate-700">{fmtINR(emp.basic)}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-slate-700">{fmtINR(emp.hra)}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-slate-700">{fmtINR(emp.organisationAllowance)}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-emerald-600 italic">{fmtINR(emp.performancePay)}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-slate-700">
+                    {fmtINR(emp.basic)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-slate-700">
+                    {fmtINR(emp.hra)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-slate-700">
+                    {fmtINR(emp.organisationAllowance)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-emerald-600 italic">
+                    {fmtINR(emp.performancePay)}
+                  </td>
 
-                  <td className="px-4 py-4 whitespace-nowrap font-semibold text-slate-700">{fmtINR(c.grossSalary)}</td>
-                  <td className="px-4 py-4 whitespace-nowrap font-semibold text-indigo-600">{fmtINR(c.grossEarned)}</td>
+                  <td className="px-4 py-4 whitespace-nowrap font-semibold text-slate-700">
+                    {fmtINR(c.grossSalary)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap font-semibold text-indigo-600">
+                    {fmtINR(c.grossEarned)}
+                  </td>
 
-                  {/* Employee PF */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {pfExempt ? (
-                      <span className="text-emerald-500 text-xs font-semibold">Exempt</span>
+                      <span className="text-emerald-500 text-xs font-semibold">
+                        Exempt
+                      </span>
                     ) : (
-                      <span className="text-red-400">{fmtINR(c.empPfDeduction)}</span>
+                      <span className="text-red-400">
+                        {fmtINR(c.empPfDeduction)}
+                      </span>
                     )}
                     <p className="text-[10px] text-slate-400">emp 12%</p>
                   </td>
 
-                  {/* Employer PF */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {pfExempt ? (
-                      <span className="text-emerald-500 text-xs font-semibold">Exempt</span>
+                      <span className="text-emerald-500 text-xs font-semibold">
+                        Exempt
+                      </span>
                     ) : (
-                      <span className="text-red-400">{fmtINR(c.employerPfContribution)}</span>
+                      <span className="text-red-400">
+                        {fmtINR(c.employerPfContribution)}
+                      </span>
                     )}
                     <p className="text-[10px] text-red-300">co. 13%</p>
                   </td>
 
-                  {/* Total PF */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {pfExempt ? (
-                      <span className="text-emerald-500 text-xs font-bold">₹0 (Exempt)</span>
+                      <span className="text-emerald-500 text-xs font-bold">
+                        ₹0 (Exempt)
+                      </span>
                     ) : (
-                      <span className="text-red-600 font-bold">{fmtINR(c.totalPfContribution)}</span>
+                      <span className="text-red-600 font-bold">
+                        {fmtINR(c.totalPfContribution)}
+                      </span>
                     )}
                     <p className="text-[10px] text-red-400">total 25%</p>
                   </td>
 
-                  {/* PT */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {ptNA || (emp.pt != null && n(emp.pt) === 0) ? (
                       <span className="text-slate-300 text-xs">N/A</span>
                     ) : (
-                      <span className="text-red-400">{fmtINR(c.ptDeduction)}</span>
+                      <span className="text-red-400">
+                        {fmtINR(c.ptDeduction)}
+                      </span>
                     )}
-                    {/february/i.test(emp.forMonth || "") && !ptNA && !(emp.pt != null && n(emp.pt) === 0) && (
-                      <p className="text-[10px] text-amber-500">Feb rate</p>
+                    {/february/i.test(emp.forMonth || "") &&
+                      !ptNA &&
+                      !(emp.pt != null && n(emp.pt) === 0) && (
+                        <p className="text-[10px] text-amber-500">Feb rate</p>
+                      )}
+                    {ptNA && (
+                      <p className="text-[10px] text-emerald-500">
+                        gross ≤₹25K
+                      </p>
                     )}
-                    {ptNA && <p className="text-[10px] text-emerald-500">gross ≤₹25K</p>}
                   </td>
 
-                  {/* Gratuity */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {emp.gratuity != null && n(emp.gratuity) === 0 ? (
-                      <span className="text-emerald-500 text-xs font-semibold">Exempt</span>
+                      <span className="text-emerald-500 text-xs font-semibold">
+                        Exempt
+                      </span>
                     ) : (
-                      <span className="text-amber-600">{fmtINR(c.gratuity)}</span>
+                      <span className="text-amber-600">
+                        {fmtINR(c.gratuity)}
+                      </span>
                     )}
                     <p className="text-[10px] text-amber-400">4.81% basic</p>
                   </td>
 
-                  <td className="px-4 py-4 whitespace-nowrap text-red-400">{fmtINR(emp.tds)}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-red-400">{fmtINR(emp.otherDeduction)}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-red-400">
+                    {fmtINR(emp.tds)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-red-400">
+                    {fmtINR(emp.otherDeduction)}
+                  </td>
 
                   <td className="px-4 py-4 whitespace-nowrap">
                     {c.advanceDeduction > 0 ? (
-                      <span className="text-red-500 font-medium">- {fmtINR(c.advanceDeduction)}</span>
+                      <span className="text-red-500 font-medium">
+                        - {fmtINR(c.advanceDeduction)}
+                      </span>
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     {c.advanceAddition > 0 ? (
-                      <span className="text-emerald-600 font-medium">+ {fmtINR(c.advanceAddition)}</span>
+                      <span className="text-emerald-600 font-medium">
+                        + {fmtINR(c.advanceAddition)}
+                      </span>
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
                   </td>
 
-                  <td className="px-4 py-4 whitespace-nowrap font-semibold text-red-500">{fmtINR(c.totalDeduction)}</td>
-                  <td className="px-4 py-4 whitespace-nowrap font-extrabold text-emerald-600">{fmtINR(c.netSalary)}</td>
-                  <td className="px-4 py-4 whitespace-nowrap font-extrabold text-slate-800">{fmtINR(c.totalEarning)}</td>
+                  <td className="px-4 py-4 whitespace-nowrap font-semibold text-red-500">
+                    {fmtINR(c.totalDeduction)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap font-extrabold text-emerald-600">
+                    {fmtINR(c.netSalary)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap font-extrabold text-slate-800">
+                    {fmtINR(c.totalEarning)}
+                  </td>
 
                   <td className="px-4 py-4">
                     <StatusBadge status={emp.status} />
@@ -1344,9 +1641,24 @@ const PayrollTable = ({
                         title="View Payslip"
                         className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          />
                         </svg>
                       </button>
 
@@ -1355,8 +1667,18 @@ const PayrollTable = ({
                         title="Edit"
                         className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
                         </svg>
                       </button>
 
@@ -1368,13 +1690,38 @@ const PayrollTable = ({
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-xs font-semibold transition-colors border border-emerald-100 disabled:opacity-60"
                         >
                           {isPayingThis ? (
-                            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                            <svg
+                              className="w-3.5 h-3.5 animate-spin"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v8z"
+                              />
                             </svg>
                           ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             </svg>
                           )}
                           Pay
@@ -1389,31 +1736,66 @@ const PayrollTable = ({
             {/* Totals row */}
             {filtered.length > 0 && (
               <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-700">
-                <td className="px-4 py-3 text-xs uppercase tracking-wide text-slate-500" colSpan={4}>
+                <td
+                  className="px-4 py-3 text-xs uppercase tracking-wide text-slate-500"
+                  colSpan={4}
+                >
                   Totals ({filtered.length} employees)
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">{fmtINR(totals.basic)}</td>
-                <td className="px-4 py-3 whitespace-nowrap">{fmtINR(totals.hra)}</td>
-                <td className="px-4 py-3 whitespace-nowrap">{fmtINR(totals.orgAllow)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-emerald-600">{fmtINR(totals.perfPay)}</td>
-                <td className="px-4 py-3 whitespace-nowrap">{fmtINR(totals.grossSalary)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-indigo-600">{fmtINR(totals.grossEarned)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.empPfDed)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.employerPf)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-red-600 font-bold">{fmtINR(totals.totalPf)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.pt)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-amber-600">{fmtINR(totals.gratuity)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.tds)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-red-400">{fmtINR(totals.otherDed)}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {fmtINR(totals.basic)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {fmtINR(totals.hra)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {fmtINR(totals.orgAllow)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-emerald-600">
+                  {fmtINR(totals.perfPay)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {fmtINR(totals.grossSalary)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-indigo-600">
+                  {fmtINR(totals.grossEarned)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-400">
+                  {fmtINR(totals.empPfDed)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-400">
+                  {fmtINR(totals.employerPf)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-600 font-bold">
+                  {fmtINR(totals.totalPf)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-400">
+                  {fmtINR(totals.pt)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-amber-600">
+                  {fmtINR(totals.gratuity)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-400">
+                  {fmtINR(totals.tds)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-400">
+                  {fmtINR(totals.otherDed)}
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap text-red-500">
                   {totals.advDed > 0 ? `- ${fmtINR(totals.advDed)}` : "—"}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-emerald-600">
                   {totals.advAdd > 0 ? `+ ${fmtINR(totals.advAdd)}` : "—"}
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap text-red-500">{fmtINR(totals.totalDeduction)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-emerald-600 text-base">{fmtINR(totals.netSalary)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-slate-800 text-base">{fmtINR(totals.totalEarning)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-red-500">
+                  {fmtINR(totals.totalDeduction)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-emerald-600 text-base">
+                  {fmtINR(totals.netSalary)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-slate-800 text-base">
+                  {fmtINR(totals.totalEarning)}
+                </td>
                 <td colSpan={2} />
               </tr>
             )}
