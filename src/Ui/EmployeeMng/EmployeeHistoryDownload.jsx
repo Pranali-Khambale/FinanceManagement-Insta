@@ -7,6 +7,9 @@
 // ✅ FIX: Employee ID shown in exports now follows the same rule as the UI:
 //   Active/Approved  → current live ID from DB (event.employee_id)
 //   Inactive/Rejected/Blacklisted/Pending → old ID from metadata snapshot
+// ✅ FIX: Dropdown now renders via ReactDOM.createPortal — shows above modals,
+//        no longer clipped by overflow:hidden parents. Position calculated via
+//        getBoundingClientRect() so it always anchors to the button correctly.
 // ✅ NEW: DownloadToast — clean green success toast, non-blocking, bottom-right
 //        Auto-dismisses with live progress bar. Hover to pause.
 //
@@ -14,12 +17,12 @@
 //   npm install jspdf jspdf-autotable xlsx-js-style lucide-react
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import {
   Download,
   FileText,
   FileSpreadsheet,
-  CheckCircle2,
   X,
   ArrowDownToLine,
 } from "lucide-react";
@@ -86,8 +89,7 @@ function resolveDisplayEmpId(event) {
 // ── Full name helper: First + Father/Husband + Last ───────────────────────────
 function resolveFullName(event) {
   const firstName = event.emp_first_name || event.first_name || "";
-  const fatherName =
-    event.emp_father_name || event.father_husband_name || "";
+  const fatherName = event.emp_father_name || event.father_husband_name || "";
   const lastName = event.emp_last_name || event.last_name || "";
   return [firstName, fatherName, lastName]
     .map((s) => String(s || "").trim())
@@ -121,7 +123,6 @@ export function downloadPDFReport(events, meta = {}) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
-  // Header background
   doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, pageW, 70, "F");
 
@@ -154,12 +155,9 @@ export function downloadPDFReport(events, meta = {}) {
   doc.setTextColor(148, 163, 184);
   doc.text(`Generated: ${generatedAt}`, pageW - 30, 28, { align: "right" });
   if (joiningDate) {
-    doc.text(`Joined: ${fmtDate(joiningDate)}`, pageW - 30, 40, {
-      align: "right",
-    });
+    doc.text(`Joined: ${fmtDate(joiningDate)}`, pageW - 30, 40, { align: "right" });
   }
 
-  // Stats bar
   const stats = events.reduce(
     (acc, ev) => {
       const s = ev.to_status?.toLowerCase() || "";
@@ -185,17 +183,14 @@ export function downloadPDFReport(events, meta = {}) {
     doc.rect(x, 70, statW, 36, "F");
     doc.setDrawColor(226, 232, 240);
     if (i < 3) doc.line(x + statW, 70, x + statW, 106);
-
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(s.r, s.g, s.b);
     doc.text(String(s.n), x + 14, 90);
-
     doc.setFontSize(7);
     doc.text(`-> ${s.label}`, x + 14, 101);
   });
 
-  // Table
   const rows = events.map((ev) => {
     const name = resolveFullName(ev);
     const dept = ev.emp_department || ev.department || "";
@@ -251,7 +246,6 @@ export function downloadPDFReport(events, meta = {}) {
     },
   });
 
-  // Footer
   const finalY = doc.lastAutoTable?.finalY || pageH - 30;
   doc.setDrawColor(241, 245, 249);
   doc.line(20, finalY + 14, pageW - 20, finalY + 14);
@@ -259,9 +253,7 @@ export function downloadPDFReport(events, meta = {}) {
   doc.setFontSize(7);
   doc.setTextColor(148, 163, 184);
   doc.text(`Confidential HR Document  |  ${title}`, 20, finalY + 24);
-  doc.text(`Generated on ${generatedAt}`, pageW - 20, finalY + 24, {
-    align: "right",
-  });
+  doc.text(`Generated on ${generatedAt}`, pageW - 20, finalY + 24, { align: "right" });
 
   doc.save(filename);
   return { filename, rows: events.length, format: "pdf" };
@@ -299,12 +291,7 @@ const XL = {
 function cell(value, style = {}) {
   return { v: value, s: style };
 }
-function makeFont(
-  bold = false,
-  size = 10,
-  color = { rgb: "000000" },
-  name = "Calibri"
-) {
+function makeFont(bold = false, size = 10, color = { rgb: "000000" }, name = "Calibri") {
   return { bold, sz: size, color, name };
 }
 function makeFill(fgColor) {
@@ -314,11 +301,7 @@ function makeBorder(color = XL.border) {
   const s = { style: "thin", color };
   return { top: s, bottom: s, left: s, right: s };
 }
-function makeAlignment(
-  horizontal = "left",
-  vertical = "center",
-  wrapText = true
-) {
+function makeAlignment(horizontal = "left", vertical = "center", wrapText = true) {
   return { horizontal, vertical, wrapText };
 }
 
@@ -363,7 +346,6 @@ export function downloadExcelReport(events, meta = {}) {
     { active: 0, inactive: 0, blacklist: 0, pending: 0 }
   );
 
-  // ── ACTIVITY LOG SHEET ──
   const ws = {};
   let r = 0;
 
@@ -374,10 +356,7 @@ export function downloadExcelReport(events, meta = {}) {
     r++;
   }
   function emptyRow() {
-    ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
-      v: "",
-      s: { fill: makeFill({ rgb: "FFFFFF" }) },
-    };
+    ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: "", s: { fill: makeFill({ rgb: "FFFFFF" }) } };
     r++;
   }
 
@@ -413,6 +392,7 @@ export function downloadExcelReport(events, meta = {}) {
   ]
     .filter(Boolean)
     .join("   |   ");
+
   writeRow([
     cell(empInfo, {
       font: makeFont(true, 9, XL.hdrFg),
@@ -425,93 +405,33 @@ export function downloadExcelReport(events, meta = {}) {
   emptyRow();
 
   const statDefs = [
-    {
-      label: "Active",
-      n: stats.active,
-      bg: XL.statActive,
-      fg: XL.active,
-    },
-    {
-      label: "Inactive",
-      n: stats.inactive,
-      bg: XL.statInactive,
-      fg: XL.inactive,
-    },
-    {
-      label: "Blacklisted",
-      n: stats.blacklist,
-      bg: XL.statBlack,
-      fg: XL.blacklist,
-    },
-    {
-      label: "Pending",
-      n: stats.pending,
-      bg: XL.statPending,
-      fg: XL.pending,
-    },
-    {
-      label: "Total Events",
-      n: events.length,
-      bg: { rgb: "F1F5F9" },
-      fg: { rgb: "0F172A" },
-    },
+    { label: "Active", n: stats.active, bg: XL.statActive, fg: XL.active },
+    { label: "Inactive", n: stats.inactive, bg: XL.statInactive, fg: XL.inactive },
+    { label: "Blacklisted", n: stats.blacklist, bg: XL.statBlack, fg: XL.blacklist },
+    { label: "Pending", n: stats.pending, bg: XL.statPending, fg: XL.pending },
+    { label: "Total Events", n: events.length, bg: { rgb: "F1F5F9" }, fg: { rgb: "0F172A" } },
   ];
 
   writeRow(
-    statDefs
-      .flatMap((s) => [
-        cell(s.n, {
-          font: makeFont(true, 20, s.fg),
-          fill: makeFill(s.bg),
-          alignment: makeAlignment("center", "center", false),
-          border: makeBorder({ rgb: "E2E8F0" }),
-        }),
-        cell("", {
-          fill: makeFill(s.bg),
-          border: makeBorder({ rgb: "E2E8F0" }),
-        }),
-      ])
-      .slice(0, 9)
+    statDefs.flatMap((s) => [
+      cell(s.n, { font: makeFont(true, 20, s.fg), fill: makeFill(s.bg), alignment: makeAlignment("center", "center", false), border: makeBorder({ rgb: "E2E8F0" }) }),
+      cell("", { fill: makeFill(s.bg), border: makeBorder({ rgb: "E2E8F0" }) }),
+    ]).slice(0, 9)
   );
 
   writeRow(
-    statDefs
-      .flatMap((s) => [
-        cell(`-> ${s.label.toUpperCase()}`, {
-          font: makeFont(true, 8, s.fg),
-          fill: makeFill(s.bg),
-          alignment: makeAlignment("center", "center", false),
-          border: makeBorder({ rgb: "E2E8F0" }),
-        }),
-        cell("", {
-          fill: makeFill(s.bg),
-          border: makeBorder({ rgb: "E2E8F0" }),
-        }),
-      ])
-      .slice(0, 9)
+    statDefs.flatMap((s) => [
+      cell(`-> ${s.label.toUpperCase()}`, { font: makeFont(true, 8, s.fg), fill: makeFill(s.bg), alignment: makeAlignment("center", "center", false), border: makeBorder({ rgb: "E2E8F0" }) }),
+      cell("", { fill: makeFill(s.bg), border: makeBorder({ rgb: "E2E8F0" }) }),
+    ]).slice(0, 9)
   );
 
   emptyRow();
 
-  const COL_HEADERS = [
-    "Employee Name",
-    "Employee ID",
-    "Department",
-    "Transition",
-    "From Status",
-    "To Status",
-    "Reason",
-    "Changed By",
-    "Date & Time",
-  ];
+  const COL_HEADERS = ["Employee Name", "Employee ID", "Department", "Transition", "From Status", "To Status", "Reason", "Changed By", "Date & Time"];
   writeRow(
     COL_HEADERS.map((h) =>
-      cell(h, {
-        font: makeFont(true, 9, XL.colFg),
-        fill: makeFill(XL.colBg),
-        alignment: makeAlignment("center", "center", false),
-        border: makeBorder({ rgb: "475569" }),
-      })
+      cell(h, { font: makeFont(true, 9, XL.colFg), fill: makeFill(XL.colBg), alignment: makeAlignment("center", "center", false), border: makeBorder({ rgb: "475569" }) })
     )
   );
 
@@ -523,7 +443,6 @@ export function downloadExcelReport(events, meta = {}) {
     const to = ev.to_status;
     const trans = transitionLabel(from, to);
     const isReg = !from;
-
     const name = resolveFullName(ev);
     const displayEmpId = resolveDisplayEmpId(ev);
 
@@ -535,49 +454,19 @@ export function downloadExcelReport(events, meta = {}) {
     });
 
     writeRow([
-      cell(name, {
-        ...baseStyle(true),
-        alignment: makeAlignment("left", "center", false),
-      }),
-      cell(displayEmpId || "-", {
-        ...baseStyle(false, { rgb: "64748B" }),
-        alignment: makeAlignment("center", "center", false),
-      }),
+      cell(name, { ...baseStyle(true), alignment: makeAlignment("left", "center", false) }),
+      cell(displayEmpId || "-", { ...baseStyle(false, { rgb: "64748B" }), alignment: makeAlignment("center", "center", false) }),
       cell(ev.emp_department || ev.department || "-", baseStyle()),
-      cell(trans, {
-        font: makeFont(true, 9, isReg ? XL.registered : XL.transition),
-        fill: isReg ? makeFill({ rgb: "EFF6FF" }) : makeFill({ rgb: "EEF2FF" }),
-        alignment: makeAlignment("center", "center", false),
-        border: bdr,
-      }),
-      cell(from ? statusLabel(from) : "-", {
-        font: makeFont(false, 9, from ? statusColor(from) : { rgb: "94A3B8" }),
-        fill: rowBg,
-        alignment: makeAlignment("center", "center", false),
-        border: bdr,
-      }),
-      cell(statusLabel(to), {
-        font: makeFont(true, 9, statusColor(to)),
-        fill: rowBg,
-        alignment: makeAlignment("center", "center", false),
-        border: bdr,
-      }),
+      cell(trans, { font: makeFont(true, 9, isReg ? XL.registered : XL.transition), fill: isReg ? makeFill({ rgb: "EFF6FF" }) : makeFill({ rgb: "EEF2FF" }), alignment: makeAlignment("center", "center", false), border: bdr }),
+      cell(from ? statusLabel(from) : "-", { font: makeFont(false, 9, from ? statusColor(from) : { rgb: "94A3B8" }), fill: rowBg, alignment: makeAlignment("center", "center", false), border: bdr }),
+      cell(statusLabel(to), { font: makeFont(true, 9, statusColor(to)), fill: rowBg, alignment: makeAlignment("center", "center", false), border: bdr }),
       cell(ev.reason || "-", baseStyle()),
-      cell(ev.changed_by_name || "-", {
-        ...baseStyle(false, { rgb: "475569" }),
-        alignment: makeAlignment("center", "center", false),
-      }),
-      cell(fmtDateTime(ev.created_at), {
-        ...baseStyle(false, { rgb: "64748B" }),
-        alignment: makeAlignment("center", "center", false),
-      }),
+      cell(ev.changed_by_name || "-", { ...baseStyle(false, { rgb: "475569" }), alignment: makeAlignment("center", "center", false) }),
+      cell(fmtDateTime(ev.created_at), { ...baseStyle(false, { rgb: "64748B" }), alignment: makeAlignment("center", "center", false) }),
     ]);
   });
 
-  ws["!ref"] = XLSX.utils.encode_range(
-    { r: 0, c: 0 },
-    { r: r - 1, c: 8 }
-  );
+  ws["!ref"] = XLSX.utils.encode_range({ r: 0, c: 0 }, { r: r - 1, c: 8 });
   ws["!merges"] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
     { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
@@ -592,28 +481,8 @@ export function downloadExcelReport(events, meta = {}) {
     { s: { r: 5, c: 4 }, e: { r: 5, c: 5 } },
     { s: { r: 5, c: 6 }, e: { r: 5, c: 7 } },
   ];
-  ws["!cols"] = [
-    { wch: 28 },
-    { wch: 13 },
-    { wch: 16 },
-    { wch: 26 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 32 },
-    { wch: 18 },
-    { wch: 22 },
-  ];
-  ws["!rows"] = [
-    { hpt: 36 },
-    { hpt: 20 },
-    { hpt: 22 },
-    { hpt: 8 },
-    { hpt: 40 },
-    { hpt: 18 },
-    { hpt: 8 },
-    { hpt: 24 },
-    ...events.map(() => ({ hpt: 22 })),
-  ];
+  ws["!cols"] = [{ wch: 28 }, { wch: 13 }, { wch: 16 }, { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 32 }, { wch: 18 }, { wch: 22 }];
+  ws["!rows"] = [{ hpt: 36 }, { hpt: 20 }, { hpt: 22 }, { hpt: 8 }, { hpt: 40 }, { hpt: 18 }, { hpt: 8 }, { hpt: 24 }, ...events.map(() => ({ hpt: 22 }))];
 
   // ── SUMMARY SHEET ──
   const wsSummary = {};
@@ -627,120 +496,46 @@ export function downloadExcelReport(events, meta = {}) {
   }
 
   writeSummaryRow([
-    cell("Summary", {
-      font: makeFont(true, 14, XL.hdrFg),
-      fill: makeFill(XL.hdrBg),
-      alignment: makeAlignment("left", "center", false),
-    }),
+    cell("Summary", { font: makeFont(true, 14, XL.hdrFg), fill: makeFill(XL.hdrBg), alignment: makeAlignment("left", "center", false) }),
     cell("", { fill: makeFill(XL.hdrBg) }),
     cell("", { fill: makeFill(XL.hdrBg) }),
   ]);
   writeSummaryRow([
-    cell("Status Transition Summary", {
-      font: makeFont(false, 9, { rgb: "94A3B8" }),
-      fill: makeFill(XL.subBg),
-      alignment: makeAlignment("left", "center", false),
-    }),
+    cell("Status Transition Summary", { font: makeFont(false, 9, { rgb: "94A3B8" }), fill: makeFill(XL.subBg), alignment: makeAlignment("left", "center", false) }),
     cell("", { fill: makeFill(XL.subBg) }),
     cell("", { fill: makeFill(XL.subBg) }),
   ]);
   writeSummaryRow([cell("", {}), cell("", {}), cell("", {})]);
   writeSummaryRow([
-    cell("Status", {
-      font: makeFont(true, 10, XL.colFg),
-      fill: makeFill(XL.colBg),
-      alignment: makeAlignment("center", "center", false),
-      border: makeBorder(),
-    }),
-    cell("Count", {
-      font: makeFont(true, 10, XL.colFg),
-      fill: makeFill(XL.colBg),
-      alignment: makeAlignment("center", "center", false),
-      border: makeBorder(),
-    }),
-    cell("Visual", {
-      font: makeFont(true, 10, XL.colFg),
-      fill: makeFill(XL.colBg),
-      alignment: makeAlignment("center", "center", false),
-      border: makeBorder(),
-    }),
+    cell("Status", { font: makeFont(true, 10, XL.colFg), fill: makeFill(XL.colBg), alignment: makeAlignment("center", "center", false), border: makeBorder() }),
+    cell("Count", { font: makeFont(true, 10, XL.colFg), fill: makeFill(XL.colBg), alignment: makeAlignment("center", "center", false), border: makeBorder() }),
+    cell("Visual", { font: makeFont(true, 10, XL.colFg), fill: makeFill(XL.colBg), alignment: makeAlignment("center", "center", false), border: makeBorder() }),
   ]);
 
   const summaryRows = [
-    {
-      label: "Active",
-      n: stats.active,
-      bg: XL.statActive,
-      fg: XL.active,
-    },
-    {
-      label: "Inactive",
-      n: stats.inactive,
-      bg: XL.statInactive,
-      fg: XL.inactive,
-    },
-    {
-      label: "Blacklisted",
-      n: stats.blacklist,
-      bg: XL.statBlack,
-      fg: XL.blacklist,
-    },
-    {
-      label: "Pending",
-      n: stats.pending,
-      bg: XL.statPending,
-      fg: XL.pending,
-    },
-    {
-      label: "Total Events",
-      n: events.length,
-      bg: { rgb: "F1F5F9" },
-      fg: { rgb: "0F172A" },
-    },
+    { label: "Active", n: stats.active, bg: XL.statActive, fg: XL.active },
+    { label: "Inactive", n: stats.inactive, bg: XL.statInactive, fg: XL.inactive },
+    { label: "Blacklisted", n: stats.blacklist, bg: XL.statBlack, fg: XL.blacklist },
+    { label: "Pending", n: stats.pending, bg: XL.statPending, fg: XL.pending },
+    { label: "Total Events", n: events.length, bg: { rgb: "F1F5F9" }, fg: { rgb: "0F172A" } },
   ];
 
   summaryRows.forEach((row) => {
-    const bar = "#".repeat(
-      Math.min(Math.round((row.n / Math.max(events.length, 1)) * 20), 20)
-    );
+    const bar = "#".repeat(Math.min(Math.round((row.n / Math.max(events.length, 1)) * 20), 20));
     writeSummaryRow([
-      cell(`-> ${row.label}`, {
-        font: makeFont(true, 11, row.fg),
-        fill: makeFill(row.bg),
-        alignment: makeAlignment("left", "center", false),
-        border: makeBorder(),
-      }),
-      cell(row.n, {
-        font: makeFont(true, 14, row.fg),
-        fill: makeFill(row.bg),
-        alignment: makeAlignment("center", "center", false),
-        border: makeBorder(),
-      }),
-      cell(bar || "-", {
-        font: makeFont(false, 10, row.fg),
-        fill: makeFill(row.bg),
-        alignment: makeAlignment("left", "center", false),
-        border: makeBorder(),
-      }),
+      cell(`-> ${row.label}`, { font: makeFont(true, 11, row.fg), fill: makeFill(row.bg), alignment: makeAlignment("left", "center", false), border: makeBorder() }),
+      cell(row.n, { font: makeFont(true, 14, row.fg), fill: makeFill(row.bg), alignment: makeAlignment("center", "center", false), border: makeBorder() }),
+      cell(bar || "-", { font: makeFont(false, 10, row.fg), fill: makeFill(row.bg), alignment: makeAlignment("left", "center", false), border: makeBorder() }),
     ]);
   });
 
-  wsSummary["!ref"] = XLSX.utils.encode_range(
-    { r: 0, c: 0 },
-    { r: sr - 1, c: 2 }
-  );
+  wsSummary["!ref"] = XLSX.utils.encode_range({ r: 0, c: 0 }, { r: sr - 1, c: 2 });
   wsSummary["!merges"] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
     { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
   ];
   wsSummary["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 24 }];
-  wsSummary["!rows"] = [
-    { hpt: 34 },
-    { hpt: 18 },
-    { hpt: 8 },
-    { hpt: 22 },
-    ...summaryRows.map(() => ({ hpt: 30 })),
-  ];
+  wsSummary["!rows"] = [{ hpt: 34 }, { hpt: 18 }, { hpt: 8 }, { hpt: 22 }, ...summaryRows.map(() => ({ hpt: 30 }))];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Activity Log");
@@ -750,14 +545,9 @@ export function downloadExcelReport(events, meta = {}) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DownloadToast
-// Clean green success toast — slides in from bottom-right, auto-dismisses.
-// Hover over the toast to pause the countdown timer.
-// Props:
-//   result   — { filename, rows, format: 'pdf' | 'excel' }
-//   onClose  — called when toast should be removed from the tree
+// DownloadToast — renders into document.body via portal
 // ══════════════════════════════════════════════════════════════════════════════
-const TOAST_DURATION = 6000; // ms before auto-dismiss
+const TOAST_DURATION = 6000;
 
 export function DownloadToast({ result, onClose }) {
   const [progress, setProgress] = useState(100);
@@ -768,7 +558,6 @@ export function DownloadToast({ result, onClose }) {
   const startedAt = useRef(Date.now());
   const remaining = useRef(TOAST_DURATION);
 
-  // ── helpers ──
   function triggerExit() {
     setExiting(true);
     setTimeout(onClose, 350);
@@ -789,20 +578,15 @@ export function DownloadToast({ result, onClose }) {
 
   function pauseCountdown() {
     clearInterval(intervalRef.current);
-    remaining.current = Math.max(
-      0,
-      remaining.current - (Date.now() - startedAt.current)
-    );
+    remaining.current = Math.max(0, remaining.current - (Date.now() - startedAt.current));
   }
 
-  // start on mount
   useEffect(() => {
     if (!result) return;
     startCountdown();
     return () => clearInterval(intervalRef.current);
   }, [result]);
 
-  // pause / resume on hover
   useEffect(() => {
     if (!result) return;
     if (hovered) {
@@ -816,142 +600,10 @@ export function DownloadToast({ result, onClose }) {
   if (!result) return null;
 
   const isPDF = result.format === "pdf";
+  const message = isPDF ? "Employee history exported successfully" : "Employee history downloaded as Excel";
+  const subMessage = `${result.filename} · ${result.rows} record${result.rows !== 1 ? "s" : ""} · saved to Downloads`;
 
-  // ── inline styles ──
-  const toastStyle = {
-    position: "fixed",
-    bottom: 24,
-    right: 24,
-    zIndex: 999999,
-    width: 400,
-    fontFamily:
-      "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-    animation: exiting
-      ? "dlToastOut 0.35s cubic-bezier(0.4,0,1,1) both"
-      : "dlToastIn 0.45s cubic-bezier(0.22,1,0.36,1) both",
-  };
-
-  const cardStyle = {
-    background: "#ffffff",
-    border: "0.5px solid #bbf7d0",
-    borderLeft: "3.5px solid #16a34a",
-    borderRadius: 12,
-    overflow: "hidden",
-    boxShadow:
-      "0 8px 32px -4px rgba(22,163,74,0.12), 0 2px 8px -2px rgba(0,0,0,0.06)",
-  };
-
-  const innerStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "13px 14px 15px 14px",
-  };
-
-  const iconWrapStyle = {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    background: "#f0fdf4",
-    border: "0.5px solid #bbf7d0",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  };
-
-  const bodyStyle = { flex: 1, minWidth: 0 };
-
-  const msgStyle = {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#0f172a",
-    lineHeight: 1.35,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  };
-
-  const subStyle = {
-    fontSize: 11,
-    color: "#64748b",
-    marginTop: 2,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  };
-
-  const rightStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    flexShrink: 0,
-  };
-
-  const badgeStyle = {
-    fontSize: 10,
-    fontWeight: 500,
-    padding: "3px 9px",
-    borderRadius: 99,
-    background: "#f0fdf4",
-    color: "#15803d",
-    border: "0.5px solid #bbf7d0",
-    whiteSpace: "nowrap",
-  };
-
-  const xBtnStyle = {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    border: "0.5px solid #e2e8f0",
-    background: "transparent",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#94a3b8",
-    fontSize: 11,
-    lineHeight: 1,
-    fontFamily: "inherit",
-    padding: 0,
-    transition: "background 0.12s",
-  };
-
-  const progressTrackStyle = {
-    height: 2,
-    background: "#e7f5ec",
-    position: "relative",
-  };
-
-  const progressFillStyle = {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    height: "100%",
-    width: `${progress}%`,
-    background: "#16a34a",
-    borderRadius: "0 99px 99px 0",
-    transition: hovered ? "none" : "width 0.04s linear",
-  };
-
-  const hintStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: 5,
-    fontSize: 10,
-    color: "#94a3b8",
-    padding: "0 14px 11px 14px",
-  };
-
-  const message = isPDF
-    ? "Employee history exported successfully"
-    : "Employee history downloaded as Excel";
-
-  const subMessage = `${result.filename} · ${result.rows} record${
-    result.rows !== 1 ? "s" : ""
-  } · saved to Downloads`;
-
-  return (
+  return ReactDOM.createPortal(
     <>
       <style>{`
         @keyframes dlToastIn {
@@ -965,113 +617,123 @@ export function DownloadToast({ result, onClose }) {
         }
         .__dl-xbtn:hover { background: #f1f5f9 !important; color: #475569 !important; }
       `}</style>
-
       <div
-        style={toastStyle}
+        style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 2147483647, width: 400,
+          fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+          animation: exiting ? "dlToastOut 0.35s cubic-bezier(0.4,0,1,1) both" : "dlToastIn 0.45s cubic-bezier(0.22,1,0.36,1) both",
+        }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div style={cardStyle}>
-          {/* ── Main row ── */}
-          <div style={innerStyle}>
-            {/* Icon */}
-            <div style={iconWrapStyle}>
-              {isPDF ? (
-                <FileText size={16} color="#16a34a" strokeWidth={1.8} />
-              ) : (
-                <FileSpreadsheet size={16} color="#16a34a" strokeWidth={1.8} />
-              )}
+        <div style={{ background: "#ffffff", border: "0.5px solid #bbf7d0", borderLeft: "3.5px solid #16a34a", borderRadius: 12, overflow: "hidden", boxShadow: "0 8px 32px -4px rgba(22,163,74,0.12), 0 2px 8px -2px rgba(0,0,0,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px 15px 14px" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: "#f0fdf4", border: "0.5px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {isPDF ? <FileText size={16} color="#16a34a" strokeWidth={1.8} /> : <FileSpreadsheet size={16} color="#16a34a" strokeWidth={1.8} />}
             </div>
-
-            {/* Text */}
-            <div style={bodyStyle}>
-              <div style={msgStyle}>{message}</div>
-              <div style={subStyle}>{subMessage}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", lineHeight: 1.35, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{message}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subMessage}</div>
             </div>
-
-            {/* Right: badge + close */}
-            <div style={rightStyle}>
-              <span style={badgeStyle}>Downloaded</span>
-              <button
-                className="__dl-xbtn"
-                style={xBtnStyle}
-                onClick={() => {
-                  clearInterval(intervalRef.current);
-                  triggerExit();
-                }}
-                title="Dismiss"
-              >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontWeight: 500, padding: "3px 9px", borderRadius: 99, background: "#f0fdf4", color: "#15803d", border: "0.5px solid #bbf7d0", whiteSpace: "nowrap" }}>Downloaded</span>
+              <button className="__dl-xbtn" style={{ width: 24, height: 24, borderRadius: 6, border: "0.5px solid #e2e8f0", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontFamily: "inherit", padding: 0, transition: "background 0.12s" }}
+                onClick={() => { clearInterval(intervalRef.current); triggerExit(); }} title="Dismiss">
                 <X size={11} strokeWidth={2.5} />
               </button>
             </div>
           </div>
-
-          {/* ── Downloads hint ── */}
-          <div style={hintStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#94a3b8", padding: "0 14px 11px 14px" }}>
             <ArrowDownToLine size={10} color="#94a3b8" strokeWidth={2} />
             <span>
-              File saved to{" "}
-              <strong style={{ color: "#64748b", fontWeight: 600 }}>
-                Downloads
-              </strong>{" "}
-              automatically
-              {hovered && (
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 9,
-                    color: "#94a3b8",
-                    fontWeight: 500,
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  · PAUSED
-                </span>
-              )}
+              File saved to <strong style={{ color: "#64748b", fontWeight: 600 }}>Downloads</strong> automatically
+              {hovered && <span style={{ marginLeft: 8, fontSize: 9, color: "#94a3b8", fontWeight: 500, letterSpacing: "0.04em" }}>· PAUSED</span>}
             </span>
           </div>
-
-          {/* ── Progress bar ── */}
-          <div style={progressTrackStyle}>
-            <div style={progressFillStyle} />
+          <div style={{ height: 2, background: "#e7f5ec", position: "relative" }}>
+            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${progress}%`, background: "#16a34a", borderRadius: "0 99px 99px 0", transition: hovered ? "none" : "width 0.04s linear" }} />
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
-// Backwards-compat alias
 export const DownloadSuccessModal = DownloadToast;
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DownloadMenu — PDF + Excel split-button with dropdown
-// Usage:
-//   <DownloadMenu
-//     events={historyEvents}
-//     meta={{ title: "HR Log", employeeName: "Rahul Sharma", filename: "rahul-sharma" }}
-//     onDownloadComplete={(result) => setToastResult(result)}
-//   />
+// PortalDropdown
+// Renders the menu into document.body so it's never clipped by overflow:hidden
+// on any parent (modal, scrollable container, etc).
+// Position is recalculated live from the trigger button's getBoundingClientRect.
 // ══════════════════════════════════════════════════════════════════════════════
-export function DownloadMenu({
-  events,
-  meta = {},
-  onDownloadComplete,
-  buttonStyle = {},
-}) {
-  const [busy, setBusy] = useState(null); // null | 'pdf' | 'excel'
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef(null);
+function PortalDropdown({ anchorRef, open, onClose, children }) {
+  const [pos, setPos] = useState({ top: 0, right: 0 });
 
-  // close dropdown on outside click
   useEffect(() => {
-    function handler(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target))
-        setOpen(false);
+    if (!open || !anchorRef.current) return;
+
+    function calcPosition() {
+      if (!anchorRef.current) return;
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({
+        // position: fixed so we use viewport coords directly
+        top: rect.bottom + 7,
+        right: window.innerWidth - rect.right,
+      });
     }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+
+    calcPosition();
+    window.addEventListener("resize", calcPosition);
+    // Use capture on scroll so we catch scroll inside modals too
+    window.addEventListener("scroll", calcPosition, true);
+    return () => {
+      window.removeEventListener("resize", calcPosition);
+      window.removeEventListener("scroll", calcPosition, true);
+    };
+  }, [open, anchorRef]);
+
+  // Close on outside click — use capture so modal stopPropagation doesn't block
+  useEffect(() => {
+    if (!open) return;
+    function handler(e) {
+      if (anchorRef.current && !anchorRef.current.contains(e.target)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handler, true);
+    return () => document.removeEventListener("mousedown", handler, true);
+  }, [open, onClose, anchorRef]);
+
+  if (!open) return null;
+
+  return ReactDOM.createPortal(
+    <div
+      style={{
+        position: "fixed",   // fixed so top/right are viewport-relative
+        top: pos.top,
+        right: pos.right,
+        zIndex: 2147483647,  // max possible — always above everything
+        animation: "dlDropIn 0.18s cubic-bezier(0.22,1,0.36,1) both",
+        pointerEvents: "auto",
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DownloadMenu
+// ══════════════════════════════════════════════════════════════════════════════
+export function DownloadMenu({ events, meta = {}, onDownloadComplete, buttonStyle = {} }) {
+  const [busy, setBusy] = useState(null);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef(null);
+
+  const handleClose = useCallback(() => setOpen(false), []);
 
   async function handlePDF() {
     setOpen(false);
@@ -1079,11 +741,7 @@ export function DownloadMenu({
     await new Promise((r) => setTimeout(r, 200));
     const pdfMeta = {
       ...meta,
-      filename:
-        (meta.filename || "activity-log").replace(
-          /\.(html|pdf|xlsx)$/,
-          ""
-        ) + ".pdf",
+      filename: (meta.filename || "activity-log").replace(/\.(html|pdf|xlsx)$/, "") + ".pdf",
     };
     const result = downloadPDFReport(events, pdfMeta);
     setBusy(null);
@@ -1096,11 +754,7 @@ export function DownloadMenu({
     await new Promise((r) => setTimeout(r, 200));
     const excelMeta = {
       ...meta,
-      filename:
-        (meta.filename || "activity-log").replace(
-          /\.(html|pdf|xlsx)$/,
-          ""
-        ) + ".xlsx",
+      filename: (meta.filename || "activity-log").replace(/\.(html|pdf|xlsx)$/, "") + ".xlsx",
     };
     const result = downloadExcelReport(events, excelMeta);
     setBusy(null);
@@ -1111,10 +765,10 @@ export function DownloadMenu({
   const isBusy = !!busy;
 
   return (
-    <div ref={menuRef} style={{ position: "relative", display: "inline-flex" }}>
+    <>
       <style>{`
-        @keyframes dlSpin    { to { transform: rotate(360deg); } }
-        @keyframes dlDropIn  {
+        @keyframes dlSpin   { to { transform: rotate(360deg); } }
+        @keyframes dlDropIn {
           from { opacity: 0; transform: translateY(-6px) scale(0.97); }
           to   { opacity: 1; transform: none; }
         }
@@ -1127,218 +781,87 @@ export function DownloadMenu({
         .__dl-trigger:disabled { opacity: 0.7; cursor: wait; }
       `}</style>
 
-      {/* Trigger button */}
-      <button
-        className="__dl-trigger"
-        onClick={() => setOpen((v) => !v)}
-        disabled={isBusy}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "7px 14px",
-          borderRadius: 9,
-          border: "1px solid rgba(255,255,255,0.18)",
-          background: "rgba(255,255,255,0.1)",
-          color: "#e2e8f0",
-          fontSize: 12,
-          fontWeight: 600,
-          cursor: isBusy ? "wait" : "pointer",
-          fontFamily: "inherit",
-          transition: "all 0.14s ease",
-          ...buttonStyle,
-        }}
-      >
-        {isBusy ? (
-          <div
-            style={{
-              width: 13,
-              height: 13,
-              border: "2px solid",
-              borderColor:
-                "rgba(255,255,255,0.3) white white white",
-              borderRadius: "50%",
-              animation: "dlSpin 0.7s linear infinite",
-            }}
-          />
-        ) : (
-          <Download size={13} strokeWidth={2} />
-        )}
-        {busy === "pdf"
-          ? "Generating PDF…"
-          : busy === "excel"
-          ? "Generating Excel…"
-          : "Export"}
-        {!isBusy && (
-          <span
-            style={{
-              background: "rgba(255,255,255,0.15)",
-              borderRadius: 4,
-              padding: "1px 5px",
-              fontSize: 10,
-              fontWeight: 700,
-            }}
-          >
-            {count}
-          </span>
-        )}
-        {!isBusy && (
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            style={{ marginLeft: 1, opacity: 0.7 }}
-          >
-            <path
-              d="M2 3.5L5 6.5L8 3.5"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-      </button>
-
-      {/* Dropdown */}
-      {open && (
-        <div
+      {/* Trigger button — ref is on the wrapper div so getBoundingClientRect is stable */}
+      <div ref={triggerRef} style={{ display: "inline-flex" }}>
+        <button
+          className="__dl-trigger"
+          onClick={() => !isBusy && setOpen((v) => !v)}
+          disabled={isBusy}
           style={{
-            position: "absolute",
-            top: "calc(100% + 7px)",
-            right: 0,
-            background: "white",
-            borderRadius: 13,
-            border: "1px solid #e2e8f0",
-            boxShadow:
-              "0 16px 48px -8px rgba(2,6,23,0.18), 0 4px 12px -4px rgba(2,6,23,0.08)",
-            minWidth: 196,
-            zIndex: 9999,
-            animation: "dlDropIn 0.18s cubic-bezier(0.22,1,0.36,1) both",
-            overflow: "hidden",
+            display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
+            borderRadius: 9, border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(255,255,255,0.1)", color: "#e2e8f0", fontSize: 12,
+            fontWeight: 600, cursor: isBusy ? "wait" : "pointer", fontFamily: "inherit",
+            transition: "all 0.14s ease", ...buttonStyle,
           }}
         >
+          {isBusy ? (
+            <div style={{ width: 13, height: 13, border: "2px solid", borderColor: "rgba(255,255,255,0.3) white white white", borderRadius: "50%", animation: "dlSpin 0.7s linear infinite" }} />
+          ) : (
+            <Download size={13} strokeWidth={2} />
+          )}
+          {busy === "pdf" ? "Generating PDF…" : busy === "excel" ? "Generating Excel…" : "Export"}
+          {!isBusy && (
+            <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 4, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>
+              {count}
+            </span>
+          )}
+          {!isBusy && (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ marginLeft: 1, opacity: 0.7 }}>
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Portal dropdown — escapes modal/overflow:hidden completely */}
+      <PortalDropdown anchorRef={triggerRef} open={open} onClose={handleClose}>
+        <div style={{
+          background: "white", borderRadius: 13, border: "1px solid #e2e8f0",
+          boxShadow: "0 16px 48px -8px rgba(2,6,23,0.18), 0 4px 12px -4px rgba(2,6,23,0.08)",
+          minWidth: 196, overflow: "hidden",
+        }}>
           <div style={{ padding: "5px 5px" }}>
-            {/* PDF option */}
+            {/* PDF */}
             <button
               className="__dl-pdf-opt"
               onClick={handlePDF}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                borderRadius: 9,
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                textAlign: "left",
-                transition: "background 0.12s",
-              }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 9, border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "background 0.12s" }}
             >
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: "#fef2f2",
-                  border: "1px solid #fecaca",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <FileText size={15} color="#dc2626" strokeWidth={1.8} />
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: 700,
-                    color: "#0f172a",
-                    marginBottom: 1,
-                  }}
-                >
-                  Download PDF
-                </div>
-                <div style={{ fontSize: 10, color: "#94a3b8" }}>
-                  Formatted report · Print-ready
-                </div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a", marginBottom: 1 }}>Download PDF</div>
+                <div style={{ fontSize: 10, color: "#94a3b8" }}>Formatted report · Print-ready</div>
               </div>
             </button>
 
-            {/* Divider */}
-            <div
-              style={{ height: 1, background: "#f1f5f9", margin: "3px 0" }}
-            />
+            <div style={{ height: 1, background: "#f1f5f9", margin: "3px 0" }} />
 
-            {/* Excel option */}
+            {/* Excel */}
             <button
               className="__dl-xlsx-opt"
               onClick={handleExcel}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                borderRadius: 9,
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                textAlign: "left",
-                transition: "background 0.12s",
-              }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 9, border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "background 0.12s" }}
             >
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <FileSpreadsheet
-                  size={15}
-                  color="#16a34a"
-                  strokeWidth={1.8}
-                />
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <FileSpreadsheet size={15} color="#16a34a" strokeWidth={1.8} />
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: 700,
-                    color: "#0f172a",
-                    marginBottom: 1,
-                  }}
-                >
-                  Download Excel
-                </div>
-                <div style={{ fontSize: 10, color: "#94a3b8" }}>
-                  XLSX · Coloured · With summary sheet
-                </div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a", marginBottom: 1 }}>Download Excel</div>
+                <div style={{ fontSize: 10, color: "#94a3b8" }}>XLSX · Coloured · With summary sheet</div>
               </div>
             </button>
           </div>
         </div>
-      )}
-    </div>
+      </PortalDropdown>
+    </>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Default export (named exports preferred — use those in your app)
+// Default export
 // ══════════════════════════════════════════════════════════════════════════════
 export default {
   downloadPDFReport,
@@ -1349,13 +872,12 @@ export default {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Example usage in your page component:
+// Example usage:
 //
 //   import { DownloadMenu, DownloadToast } from "./EmployeeHistoryDownload";
 //
 //   function EmployeeHistoryPage() {
 //     const [toastResult, setToastResult] = useState(null);
-//
 //     return (
 //       <div>
 //         <DownloadMenu
@@ -1369,12 +891,8 @@ export default {
 //           }}
 //           onDownloadComplete={(result) => setToastResult(result)}
 //         />
-//
 //         {toastResult && (
-//           <DownloadToast
-//             result={toastResult}
-//             onClose={() => setToastResult(null)}
-//           />
+//           <DownloadToast result={toastResult} onClose={() => setToastResult(null)} />
 //         )}
 //       </div>
 //     );
