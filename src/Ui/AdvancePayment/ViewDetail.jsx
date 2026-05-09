@@ -551,9 +551,6 @@ function DocViewer({ src, name, onClose }) {
             borderTop: "1px solid rgba(255,255,255,0.05)",
           }}
         >
-          <span>Click image to zoom</span>
-          <span>•</span>
-          <span>Keyboard: + / − to zoom, 0 to reset, Esc to close</span>
         </div>
       )}
     </div>
