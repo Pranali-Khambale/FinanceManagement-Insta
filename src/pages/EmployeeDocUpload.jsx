@@ -3,8 +3,8 @@
 // Public page — no auth required.
 // Employee visits /upload-documents/:token and uploads:
 //   1. Signed KYE form (required)
-//   2. BGV form (recommended)
-//   3. Screenshot of approval email (recommended)
+//   2. BGV form (required)
+//   3. Screenshot of approval email (required)
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -135,8 +135,8 @@ const EmployeeDocUpload = () => {
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!signedKye) {
-      setError('Please upload your signed KYE form — it is required.');
+    if (!signedKye || !bgvForm || !emailScreenshot) {
+      setError('All three documents are required: Signed KYE Form, BGV Form, and Approval Email Screenshot.');
       return;
     }
 
@@ -146,8 +146,8 @@ const EmployeeDocUpload = () => {
     try {
       const fd = new FormData();
       fd.append('signed_kye',       signedKye,       signedKye.name);
-      if (bgvForm)         fd.append('bgv_form',         bgvForm,         bgvForm.name);
-      if (emailScreenshot) fd.append('email_screenshot', emailScreenshot, emailScreenshot.name);
+      fd.append('bgv_form',         bgvForm,         bgvForm.name);
+      fd.append('email_screenshot', emailScreenshot, emailScreenshot.name);
 
       const res  = await fetch(`${BASE_URL}/employee-docs/upload/${token}`, {
         method: 'POST',
@@ -266,6 +266,8 @@ const EmployeeDocUpload = () => {
     ? new Date(expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
+  const allFilesSelected = signedKye && bgvForm && emailScreenshot;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100 py-8 px-4">
       <div className="max-w-lg mx-auto">
@@ -305,10 +307,17 @@ const EmployeeDocUpload = () => {
           </div>
         </div>
 
-     
-
         {/* Upload form */}
         <div className="bg-white rounded-2xl shadow-lg px-6 py-6 mb-5">
+
+          {/* All required notice */}
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
+            <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-700">
+              All three documents below are <strong>required</strong> to complete your submission.
+            </p>
+          </div>
+
           <DropZone
             label="Signed KYE Form"
             description="Upload the printed, handwritten and signed KYE form. PDF or photo (JPG/PNG) accepted."
@@ -326,6 +335,7 @@ const EmployeeDocUpload = () => {
             file={bgvForm}
             onChange={setBgvForm}
             onRemove={() => setBgvForm(null)}
+            required
             icon={Shield}
           />
           <DropZone
@@ -335,6 +345,7 @@ const EmployeeDocUpload = () => {
             file={emailScreenshot}
             onChange={setEmailScreenshot}
             onRemove={() => setEmailScreenshot(null)}
+            required
             icon={Camera}
           />
 
@@ -347,9 +358,9 @@ const EmployeeDocUpload = () => {
 
           <button
             onClick={handleSubmit}
-            disabled={submitting || !signedKye}
+            disabled={submitting || !allFilesSelected}
             className={`w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2 ${
-              submitting || !signedKye
+              submitting || !allFilesSelected
                 ? 'opacity-50 cursor-not-allowed'
                 : 'hover:opacity-90 active:scale-95'
             }`}

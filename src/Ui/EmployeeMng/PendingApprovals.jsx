@@ -845,7 +845,8 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
 // ═════════════════════════════════════════════════════════════════════════════
 // ── DOCUMENTS PENDING REVIEW SECTION ─────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════════════
-const DocumentsPendingReviewSection = ({ showToast }) => {
+// ✅ FIX: Added `onCountLoaded` prop — calls back with employee count after fetch
+const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
   const [employees, setEmployees] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
@@ -856,17 +857,32 @@ const DocumentsPendingReviewSection = ({ showToast }) => {
     try {
       const res  = await fetch(`${BASE_API}/employee-docs/pending`);
       const data = await res.json();
-      if (data.success) setEmployees(data.data || []);
-      else setError(data.message || 'Failed to load');
-    } catch { setError('Cannot connect to server'); }
+      if (data.success) {
+        const list = data.data || [];
+        setEmployees(list);
+        // ✅ FIX: Report the real count up to the parent stats bar
+        onCountLoaded?.(list.length);
+      } else {
+        setError(data.message || 'Failed to load');
+        onCountLoaded?.(0);
+      }
+    } catch {
+      setError('Cannot connect to server');
+      onCountLoaded?.(0);
+    }
     finally { setLoading(false); }
-  }, []);
+  }, [onCountLoaded]);
 
   useEffect(() => { fetchPendingDocs(); }, [fetchPendingDocs]);
 
-  const handleAllReviewed = (empId) => setEmployees(prev => prev.filter(e => e.id !== empId));
-
-  const totalUnreviewed = employees.reduce((sum, e) => sum + (parseInt(e.unreviewed_count) || 0), 0);
+  const handleAllReviewed = (empId) => {
+    setEmployees(prev => {
+      const updated = prev.filter(e => e.id !== empId);
+      // ✅ FIX: Keep count in sync when an employee's docs are all reviewed
+      onCountLoaded?.(updated.length);
+      return updated;
+    });
+  };
 
   if (!loading && !error && employees.length === 0) return null;
 
@@ -1336,6 +1352,8 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
   const [error, setError]                 = useState('');
   const [actionLoading, setActionLoading] = useState({});
   const [rejectTarget, setRejectTarget]   = useState(null);
+  // ✅ FIX: Track doc-pending count separately from registration pending count
+  const [docPendingCount, setDocPendingCount] = useState(0);
 
   const fetchPending = useCallback(async () => {
     try {
@@ -1410,7 +1428,9 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
 
   const newCount    = pendingList.filter(e => e.status === 'pending').length;
   const rejoinCount = pendingList.filter(e => e.status === 'pending_rejoin').length;
-  const docsCount   = pendingList.filter(e => e.docs_submitted).length;
+  // ✅ FIX: Use docPendingCount (from DocumentsPendingReviewSection) instead of
+  //         pendingList.filter(e => e.docs_submitted).length which was wrong
+  const totalPending = pendingList.length + docPendingCount;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
@@ -1435,14 +1455,23 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
               <h1 className="text-2xl font-bold text-gray-900">Pending Approvals</h1>
             </div>
             <p className="text-gray-500 text-sm ml-13">
-              {pendingList.length > 0
-                ? <><strong className="text-blue-700">{pendingList.length}</strong>{' '}
-                    {pendingList.length === 1 ? 'request' : 'requests'} awaiting review
+              {(pendingList.length > 0 || docPendingCount > 0)
+                ? <>
+                    {pendingList.length > 0 && (
+                      <><strong className="text-blue-700">{pendingList.length}</strong>{' '}
+                      registration {pendingList.length === 1 ? 'request' : 'requests'} awaiting review</>
+                    )}
+                    {pendingList.length > 0 && docPendingCount > 0 && <span className="mx-1">·</span>}
+                    {docPendingCount > 0 && (
+                      <><strong className="text-amber-600">{docPendingCount}</strong>{' '}
+                      {docPendingCount === 1 ? 'employee' : 'employees'} with docs pending review</>
+                    )}
                     {rejoinCount > 0 && (
                       <span className="ml-2 text-indigo-600 font-medium">
                         ({rejoinCount} rejoin{rejoinCount > 1 ? 's' : ''})
                       </span>
-                    )}</>
+                    )}
+                  </>
                 : 'No pending requests at the moment'}
             </p>
           </div>
@@ -1452,19 +1481,43 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
           </button>
         </div>
 
-        {pendingList.length > 0 && (
+        {/* ✅ FIX: Stats bar now shows correct counts for both sections */}
+        {(pendingList.length > 0 || docPendingCount > 0) && (
           <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { label: 'Total Pending',    value: pendingList.length,                          color: '#1d4ed8', bg: '#eff6ff' },
-              { label: 'New Applications', value: newCount,                                    color: '#059669', bg: '#f0fdf4' },
-              { label: 'Rejoin Requests',  value: rejoinCount,                                 color: '#7c3aed', bg: '#f5f3ff' },
-              { label: 'Docs Uploaded',    value: docsCount,                                   color: '#d97706', bg: '#fffbeb' },
-              { label: 'Latest Request',   value: formatDateShort(pendingList[0]?.created_at), color: '#64748b', bg: '#f8fafc' },
+              {
+                label: 'Total Pending',
+                // ✅ Registration pending + doc review pending combined
+                value: totalPending,
+                color: '#1d4ed8', bg: '#eff6ff',
+              },
+              {
+                label: 'New Applications',
+                value: newCount,
+                color: '#059669', bg: '#f0fdf4',
+              },
+              {
+                label: 'Rejoin Requests',
+                value: rejoinCount,
+                color: '#7c3aed', bg: '#f5f3ff',
+              },
+              {
+                label: 'Docs Pending Review',
+                // ✅ FIX: Now correctly shows employees with pending doc reviews
+                //         from DocumentsPendingReviewSection, not from pendingList
+                value: docPendingCount,
+                color: '#d97706', bg: '#fffbeb',
+              },
+              {
+                label: 'Latest Request',
+                value: formatDateShort(pendingList[0]?.created_at),
+                color: '#64748b', bg: '#f8fafc',
+              },
             ].map((stat, i) => (
               <div key={i} className="rounded-xl border px-4 py-3 shadow-sm"
                 style={{ background: stat.bg, borderColor: stat.bg === '#f8fafc' ? '#e2e8f0' : 'transparent' }}>
                 <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">{stat.label}</p>
-                <p className="text-lg font-bold" style={{ color: stat.color }}>{stat.value}</p>
+                <p className="text-lg font-bold" style={{ color: stat.color }}>{stat.value ?? '—'}</p>
               </div>
             ))}
           </div>
@@ -1482,11 +1535,14 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
         </div>
       )}
 
-      {/* Documents Pending Review Section */}
-      <DocumentsPendingReviewSection showToast={showToast} />
+      {/* ✅ FIX: Pass onCountLoaded callback so doc count flows up to stats bar */}
+      <DocumentsPendingReviewSection
+        showToast={showToast}
+        onCountLoaded={setDocPendingCount}
+      />
 
       {/* Empty state */}
-      {!error && pendingList.length === 0 && (
+      {!error && pendingList.length === 0 && docPendingCount === 0 && (
         <div className="bg-white border border-gray-200 rounded-2xl p-16 text-center shadow-sm">
           <div className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center"
             style={{ background: 'linear-gradient(135deg,#dbeafe,#bfdbfe)' }}>
@@ -1494,7 +1550,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">All Caught Up!</h3>
           <p className="text-gray-500 text-sm max-w-xs mx-auto">
-            No pending registration or rejoin requests at the moment.
+            No pending registration, rejoin, or document review requests at the moment.
           </p>
         </div>
       )}
