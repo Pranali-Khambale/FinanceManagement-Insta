@@ -21,6 +21,18 @@ const TABS = [
 const VIEWS = ['monthly', 'quarterly', 'yearly'];
 
 // ─── Column label maps for clean Excel headers ────────────────────────────────
+// =============================================================================
+// PATCH for ReportsPage.jsx — replace only the PAYROLL_COLS and
+// QUARTERLY_PAYROLL_COLS constants.  Everything else stays the same.
+//
+// Changes vs original:
+//   PAYROLL_COLS    — added employerPf, totalPf, gratuity columns
+//   QUARTERLY_PAYROLL_COLS — added employerPf, totalPf, gratuity columns
+//   YEARLY_COLS     — added employerPf, totalPf, gratuity columns
+// =============================================================================
+
+// ─── Column label maps for clean Excel headers ────────────────────────────────
+
 const PAYROLL_COLS = {
   month:           'Month',
   monthLabel:      'Period',
@@ -31,10 +43,15 @@ const PAYROLL_COLS = {
   performancePay:  'Performance Pay (₹)',
   grossEarned:     'Gross Earned (₹)',
   totalDeductions: 'Total Deductions (₹)',
-  pfDeduction:     'PF Deduction (₹)',
-  ptDeduction:     'PT Deduction (₹)',
+  pfDeduction:     'PF Employee 12% (₹)',
+  employerPf:      'PF Employer 13% (₹)',
+  totalPf:         'Total PF 25% (₹)',
+  ptDeduction:     'PT (₹)',
+  gratuity:        'Gratuity 4.81% (₹)',
   tdsDeduction:    'TDS (₹)',
   otherDeduction:  'Other Deductions (₹)',
+  advanceDeduction:'Advance Recovery (₹)',
+  advanceAddition: 'Advance Addition (₹)',
   netPayroll:      'Net Payroll (₹)',
   employeesPaid:   'Employees Paid',
 };
@@ -54,6 +71,15 @@ const QUARTERLY_PAYROLL_COLS = {
   totalPayroll:     'Gross Payroll (₹)',
   netPayroll:       'Net Payroll (₹)',
   totalDeductions:  'Total Deductions (₹)',
+  pfDeduction:      'PF Employee 12% (₹)',
+  employerPf:       'PF Employer 13% (₹)',
+  totalPf:          'Total PF 25% (₹)',
+  ptDeduction:      'PT (₹)',
+  gratuity:         'Gratuity 4.81% (₹)',
+  tdsDeduction:     'TDS (₹)',
+  otherDeduction:   'Other Deductions (₹)',
+  advanceDeduction: 'Advance Recovery (₹)',
+  advanceAddition:  'Advance Addition (₹)',
   performancePay:   'Performance Pay (₹)',
   employeesPaid:    'Employees Paid',
   advanceIssued:    'Advance Issued (₹)',
@@ -66,6 +92,15 @@ const YEARLY_COLS = {
   totalPayroll:     'Gross Payroll (₹)',
   netPayroll:       'Net Payroll (₹)',
   totalDeductions:  'Total Deductions (₹)',
+  pfDeduction:      'PF Employee 12% (₹)',
+  employerPf:       'PF Employer 13% (₹)',
+  totalPf:          'Total PF 25% (₹)',
+  ptDeduction:      'PT (₹)',
+  gratuity:         'Gratuity 4.81% (₹)',
+  tdsDeduction:     'TDS (₹)',
+  otherDeduction:   'Other Deductions (₹)',
+  advanceDeduction: 'Advance Recovery (₹)',
+  advanceAddition:  'Advance Addition (₹)',
   performancePay:   'Performance Pay (₹)',
   avgEmployees:     'Avg Employees',
   advanceIssued:    'Advance Issued (₹)',
@@ -81,6 +116,11 @@ const DEPT_COLS = {
   pfTotal:   'PF Total (₹)',
 };
 
+// ─── No other changes needed in ReportsPage.jsx ───────────────────────────────
+// The chart series already reference totalDeductions, pfDeduction, ptDeduction,
+// tdsDeduction — those keys now correctly come from the controller.
+// The new employerPf / totalPf / gratuity fields are available on every row
+// and will automatically appear in Excel exports via the updated column maps above.
 // ─── XLSX export helper ───────────────────────────────────────────────────────
 /**
  * @param {object[]}  rows      - raw data rows
