@@ -12,8 +12,8 @@
 // =============================================================================
 
 const BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
-  'http://localhost:5000/api';
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
+  "http://localhost:5000/api";
 
 // ── Auth token ────────────────────────────────────────────────────────────────
 function getAuthToken() {
@@ -34,7 +34,7 @@ function getAuthToken() {
 async function apiFetch(endpoint, options = {}) {
   const token = getAuthToken();
   const headers = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   };
@@ -83,7 +83,7 @@ function buildQS(params = {}) {
     qs.append(key, String(value));
   }
   const s = qs.toString();
-  return s ? `?${s}` : '';
+  return s ? `?${s}` : "";
 }
 
 // =============================================================================

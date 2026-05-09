@@ -414,7 +414,7 @@ function DocViewer({ src, name, onClose }) {
       <div
         style={{
           flex: 1,
-          overflow: "auto",
+          overflow: "hidden",
           display: "flex",
           alignItems: isPdf ? "flex-start" : "center",
           justifyContent: "center",
@@ -602,8 +602,8 @@ function DocCard({ label, name, url: urlProp, filePath, file, pt, badge }) {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            padding: "12px 14px",
+            gap: 14,
+            padding: "14px 16px",
             borderRadius: 12,
             border: `1px solid ${pt.borderColor}`,
             background: pt.lightBg,
@@ -619,12 +619,12 @@ function DocCard({ label, name, url: urlProp, filePath, file, pt, badge }) {
             e.currentTarget.style.boxShadow = "none";
           }}
         >
-          {/* Thumbnail */}
+          {/* Thumbnail — increased to 120×120 */}
           <div
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 10,
+              width: 120,
+              height: 120,
+              borderRadius: 14,
               overflow: "hidden",
               flexShrink: 0,
               background: "rgba(255,255,255,0.8)",
@@ -644,8 +644,8 @@ function DocCard({ label, name, url: urlProp, filePath, file, pt, badge }) {
               />
             ) : isPdf ? (
               <svg
-                width="24"
-                height="24"
+                width="36"
+                height="36"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke={pt.color}
@@ -659,7 +659,7 @@ function DocCard({ label, name, url: urlProp, filePath, file, pt, badge }) {
                 <line x1="9" y1="11" x2="11" y2="11" />
               </svg>
             ) : (
-              <FileText size={22} color={pt.color} />
+              <FileText size={34} color={pt.color} />
             )}
           </div>
 
@@ -1275,3 +1275,5 @@ export default function ViewDetailModal({ req, onClose, onApprove, onReject }) {
   // ✅ Portal renders directly into <body>, escaping any parent stacking context
   return createPortal(modalContent, document.body);
 }
+
+
