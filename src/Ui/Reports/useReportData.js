@@ -69,11 +69,11 @@ export function useReportData() {
     setError(null);
     try {
       const [monthly, quarterly, yearly, deptBreak, summary] = await Promise.all([
-        apiFetch(`/api/reports/monthly?year=${year}`),
-        apiFetch(`/api/reports/quarterly?year=${year}`),
-        apiFetch(`/api/reports/yearly?startYear=2021`),
-        apiFetch(`/api/reports/department?year=${year}`),
-        apiFetch(`/api/reports/summary?year=${year}`),
+        apiFetch(`/reports/monthly?year=${year}`),
+        apiFetch(`/reports/quarterly?year=${year}`),
+        apiFetch(`/reports/yearly?startYear=2021`),
+        apiFetch(`/reports/department?year=${year}`),
+        apiFetch(`/reports/summary?year=${year}`),
       ]);
 
       const pieData = buildPieData(monthly);
