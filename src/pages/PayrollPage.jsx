@@ -18,6 +18,32 @@ function currentMonth() {
   return new Date().toLocaleString("en-IN", { month: "long", year: "numeric" });
 }
 
+// ── Financial Year helpers ────────────────────────────────────────────────────
+// Returns the April-start year of the current financial year.
+//   Apr 2026 – Mar 2027  →  2026
+//   Apr 2027 – Mar 2028  →  2027
+//   (flips automatically on 1 April every year — zero maintenance)
+function getCurrentFYStartYear() {
+  const now = new Date();
+  return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+// "FY 2026–27"
+function getFYLabel(aprilYear) {
+  return `FY ${aprilYear}–${String(aprilYear + 1).slice(2)}`;
+}
+
+// Returns the 12 month label strings for a financial year.
+//   buildFYMonths(2026) → ["April 2026", "May 2026", ..., "March 2027"]
+function buildFYMonths(aprilYear) {
+  const months = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(aprilYear, 3 + i, 1); // month 3 = April (0-indexed)
+    months.push(d.toLocaleString("en-IN", { month: "long", year: "numeric" }));
+  }
+  return months;
+}
+
 // ── Summary Card ──────────────────────────────────────────────────────────────
 function SummaryCard({ label, value, color = "#1E293B", sub, subColor }) {
   return (
@@ -180,20 +206,19 @@ export default function PayrollPage() {
 
   const summary = data.summary || {};
 
-  // ── Month options ─────────────────────────────────────────────────────────────
-  // FIX: Generate 12 months BACK + current month + 12 months FORWARD
-  // This ensures future months (e.g. May 2026, June 2026...) are always visible
-  // so HR can check advance deductions that were auto-rolled to next month after
-  // payroll was marked Paid.
+  // ── Month selector — current FY only ─────────────────────────────────────
   //
-  // Range: 12 months ago → today → 12 months ahead  (total 25 options)
-  // Most recent month first in the dropdown (index 0 = furthest future).
-  const monthOptions = Array.from({ length: 25 }, (_, i) => {
-    const d = new Date();
-    // i=0 → 12 months ahead, i=12 → current month, i=24 → 12 months ago
-    d.setMonth(d.getMonth() + (12 - i));
-    return d.toLocaleString("en-IN", { month: "long", year: "numeric" });
-  });
+  // TODAY            fyStartYear   fyLabel        fyMonths
+  // ─────────────    ───────────   ──────────     ────────────────────────────
+  // May 2026            2026       FY 2026–27     April 2026 … March 2027
+  // March 2027          2026       FY 2026–27     April 2026 … March 2027
+  // April 2027          2027       FY 2027–28     April 2027 … March 2028
+  // January 2028        2027       FY 2027–28     April 2027 … March 2028
+  //
+  // No code change ever needed — getCurrentFYStartYear() does all the work.
+  const fyStartYear = getCurrentFYStartYear();
+  const fyLabel     = getFYLabel(fyStartYear);    // shown in the page subtitle
+  const fyMonths    = buildFYMonths(fyStartYear); // the 12 <option> values
 
   return (
     <div style={{ padding: "24px", maxWidth: 1600, margin: "0 auto" }}>
@@ -241,8 +266,9 @@ export default function PayrollPage() {
           >
             Payroll
           </h1>
+          {/* fyLabel always reflects the live financial year */}
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8" }}>
-            Manage salaries, advance effects, and disbursements
+            {fyLabel} &middot; Manage salaries, advance effects, and disbursements
           </p>
         </div>
 
@@ -298,7 +324,12 @@ export default function PayrollPage() {
             History
           </button>
 
-          {/* Month selector */}
+          {/* ── Month selector ──────────────────────────────────────────────
+              Shows only the 12 months of the active financial year.
+              On 1 April the list silently swaps to the new FY — no touch needed.
+              Apr 2026 – Mar 2027  while in FY 2026-27
+              Apr 2027 – Mar 2028  while in FY 2027-28  … and so on.
+          ─────────────────────────────────────────────────────────────────── */}
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
@@ -313,7 +344,7 @@ export default function PayrollPage() {
               cursor: "pointer",
             }}
           >
-            {monthOptions.map((m) => (
+            {fyMonths.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
