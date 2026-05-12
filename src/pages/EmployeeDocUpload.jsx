@@ -3,14 +3,11 @@
 // Public page — no auth required.
 // Employee visits /upload-documents/:token and uploads:
 //   1. Signed KYE form (required)
-//   2. BGV form (required)
-//   3. Screenshot of approval email (required)
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Upload, FileText, CheckCircle, AlertCircle, Loader,
-  Image, File, X, Eye, Download, Info, ChevronRight,
-  Shield, Camera, ClipboardList,
+  X, Info, ChevronRight,
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
@@ -108,9 +105,7 @@ const EmployeeDocUpload = () => {
   const [expiresAt, setExpiresAt] = useState(null);
 
   // Files
-  const [signedKye,       setSignedKye]       = useState(null);
-  const [bgvForm,         setBgvForm]         = useState(null);
-  const [emailScreenshot, setEmailScreenshot] = useState(null);
+  const [signedKye, setSignedKye] = useState(null);
 
   // UI
   const [submitting, setSubmitting] = useState(false);
@@ -135,8 +130,8 @@ const EmployeeDocUpload = () => {
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!signedKye || !bgvForm || !emailScreenshot) {
-      setError('All three documents are required: Signed KYE Form, BGV Form, and Approval Email Screenshot.');
+    if (!signedKye) {
+      setError('Please upload the Signed KYE Form to complete your submission.');
       return;
     }
 
@@ -145,9 +140,7 @@ const EmployeeDocUpload = () => {
 
     try {
       const fd = new FormData();
-      fd.append('signed_kye',       signedKye,       signedKye.name);
-      fd.append('bgv_form',         bgvForm,         bgvForm.name);
-      fd.append('email_screenshot', emailScreenshot, emailScreenshot.name);
+      fd.append('signed_kye', signedKye, signedKye.name);
 
       const res  = await fetch(`${BASE_URL}/employee-docs/upload/${token}`, {
         method: 'POST',
@@ -190,14 +183,14 @@ const EmployeeDocUpload = () => {
             style={{ background: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' }}>
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents Submitted!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Document Submitted!</h2>
           <p className="text-gray-500 text-sm leading-relaxed mb-6">
-            Your signed documents have been successfully uploaded. HR has been notified
-            and will verify them shortly. You will be contacted once the review is complete.
+            Your signed KYE form has been successfully uploaded. HR has been notified
+            and will verify it shortly. You will be contacted once the review is complete.
           </p>
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-left">
             <p className="text-xs font-bold text-green-800 uppercase tracking-wider mb-2">What Happens Next</p>
-            {['HR will verify your signed KYE and BGV forms',
+            {['HR will verify your signed KYE form',
               'Your onboarding will be completed within 1–2 business days',
               'HR will reach out with further instructions'].map((step, i) => (
               <div key={i} className="flex items-start gap-2 mb-1.5">
@@ -220,7 +213,7 @@ const EmployeeDocUpload = () => {
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Already Submitted</h2>
           <p className="text-gray-500 text-sm">
-            Your documents have already been submitted via this link.
+            Your document has already been submitted via this link.
             If you need to resubmit, please contact HR at{' '}
             <a href="mailto:humanresources@instagrp.com" className="text-blue-600 underline">
               humanresources@instagrp.com
@@ -266,8 +259,6 @@ const EmployeeDocUpload = () => {
     ? new Date(expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
-  const allFilesSelected = signedKye && bgvForm && emailScreenshot;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100 py-8 px-4">
       <div className="max-w-lg mx-auto">
@@ -282,7 +273,7 @@ const EmployeeDocUpload = () => {
                 <Upload className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">Upload Your Documents</h1>
+                <h1 className="text-lg font-bold text-gray-900">Upload Your Document</h1>
                 <p className="text-xs text-gray-500">Insta ICT Solutions — HR Department</p>
               </div>
             </div>
@@ -310,11 +301,11 @@ const EmployeeDocUpload = () => {
         {/* Upload form */}
         <div className="bg-white rounded-2xl shadow-lg px-6 py-6 mb-5">
 
-          {/* All required notice */}
+          {/* Required notice */}
           <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
             <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700">
-              All three documents below are <strong>required</strong> to complete your submission.
+              Please upload your <strong>Signed KYE Form</strong> to complete your submission.
             </p>
           </div>
 
@@ -328,26 +319,6 @@ const EmployeeDocUpload = () => {
             required
             icon={FileText}
           />
-          <DropZone
-            label="BGV Form"
-            description="Background Verification form — filled and signed."
-            accept="image/*,application/pdf"
-            file={bgvForm}
-            onChange={setBgvForm}
-            onRemove={() => setBgvForm(null)}
-            required
-            icon={Shield}
-          />
-          <DropZone
-            label="Approval Email Screenshot"
-            description="A screenshot or photo of the approval email you received showing your Employee ID."
-            accept="image/*,application/pdf"
-            file={emailScreenshot}
-            onChange={setEmailScreenshot}
-            onRemove={() => setEmailScreenshot(null)}
-            required
-            icon={Camera}
-          />
 
           {error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
@@ -358,9 +329,9 @@ const EmployeeDocUpload = () => {
 
           <button
             onClick={handleSubmit}
-            disabled={submitting || !allFilesSelected}
+            disabled={submitting || !signedKye}
             className={`w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2 ${
-              submitting || !allFilesSelected
+              submitting || !signedKye
                 ? 'opacity-50 cursor-not-allowed'
                 : 'hover:opacity-90 active:scale-95'
             }`}
@@ -368,7 +339,7 @@ const EmployeeDocUpload = () => {
           >
             {submitting
               ? <><Loader className="w-4 h-4 animate-spin" /> Uploading…</>
-              : <><Upload className="w-4 h-4" /> Submit Documents</>
+              : <><Upload className="w-4 h-4" /> Submit Document</>
             }
           </button>
           <p className="text-center text-xs text-gray-400 mt-2">

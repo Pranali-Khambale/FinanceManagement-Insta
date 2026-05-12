@@ -51,16 +51,6 @@ const DOC_META = {
     icon: FileText,
     color: { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', dot: '#3b82f6' },
   },
-  bgv_form: {
-    label: 'BGV Form',
-    icon: Shield,
-    color: { bg: '#f5f3ff', border: '#ddd6fe', text: '#6d28d9', dot: '#7c3aed' },
-  },
-  email_screenshot: {
-    label: 'Approval Email Screenshot',
-    icon: Camera,
-    color: { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', dot: '#22c55e' },
-  },
   other: {
     label: 'Other Document',
     icon: File,
