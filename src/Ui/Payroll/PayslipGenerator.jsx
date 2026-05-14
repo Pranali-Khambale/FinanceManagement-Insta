@@ -5,6 +5,8 @@
 //
 // Layout matches Salary_slip_format.xlsx exactly:
 //   - Same column proportions & structure
+
+
 //   - Same logo zone (left of header)
 //   - Same rows: Medical Allowance, blank earning row, Gratuity deduction
 //   - Same theme colors: hdr=E7E6E6, netSalaryBg=FFFFFF (black text + medium border),
