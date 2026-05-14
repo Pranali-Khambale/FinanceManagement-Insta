@@ -41,6 +41,7 @@ const VALIDITY_OPTIONS = [
 ];
 
 const LOGO_SRC = "/assets/Insta-logo1.png";
+const SIGNATURE_SRC = "/assets/sign1.jpg";
 const CW = 260;
 const CH = 410;
 
@@ -378,6 +379,7 @@ const CardFront = ({ employee, manualPhoto, onUpload, uploading, onEditClick, va
   const photoUrl    = getPhotoUrl(employee);
   const validTill   = formatDate(validityDate);
 
+
   return (
     <div style={{ width: CW, height: CH, background: "#fff", borderRadius: 0, border: "1px solid #ddd", position: "relative", overflow: "hidden", fontFamily: "'Calibri', 'Segoe UI', Arial", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
       <svg style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }} width="230" height="170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
@@ -395,28 +397,210 @@ const CardFront = ({ employee, manualPhoto, onUpload, uploading, onEditClick, va
         <div style={{ display: "flex", gap: 0 }}><span style={{ width: 78 }}>Employee ID</span><span style={{ width: 14, textAlign: "center" }}>:</span><span>{empId}</span></div>
         <div style={{ display: "flex", gap: 0 }}><span style={{ width: 78 }}>Designation</span><span style={{ width: 14, textAlign: "center" }}>:</span><span>{designation}</span></div>
         <div style={{ display: "flex", gap: 0 }}><span style={{ width: 78 }}>Valid Till</span><span style={{ width: 14, textAlign: "center" }}>:</span><span>{validTill}</span></div>
-        <div style={{ marginTop: 6 }}>
-          <div style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive", fontSize: 18, color: "#1a237e", lineHeight: 1.1, marginBottom: 1 }}>Akshay Shelke</div>
-          <div style={{ fontSize: 10, color: "#333", fontFamily: "'Calibri', Arial" }}>Authorised Sign</div>
-        </div>
+      <div
+  style={{
+    marginTop: 6,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+  }}
+>
+  <img
+    src={SIGNATURE_SRC}
+    alt="Signature"
+    style={{
+      width: 90,
+      height: 32,
+      objectFit: "contain",
+      display: "block",
+      marginBottom: 1,
+    }}
+  />
+
+  <div
+    style={{
+      fontSize: 13,
+      color: "#111",
+      fontFamily: "'Calibri', 'Segoe UI', Arial",
+      lineHeight: 1.2,
+      fontWeight: 500,
+    }}
+  >
+    Authorised Sign
+  </div>
+</div>
       </div>
     </div>
   );
 };
 
 // ── BACK CARD ─────────────────────────────────────────────────────────────────
+// ── BACK CARD ─────────────────────────────────────────────────────────────────
 const CardBack = () => (
-  <div style={{ width: CW, height: CH, background: "#ffffff", borderRadius: 0, border: "1px solid #ddd", position: "relative", overflow: "hidden", fontFamily: "'Calibri', 'Segoe UI', Arial, sans-serif", boxShadow: "0 10px 40px rgba(0,0,0,0.22)" }}>
-    <svg style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }} width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
-    <svg style={{ position: "absolute", bottom: 0, right: 0, zIndex: 1 }} width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
-    <div style={{ position: "absolute", top: 30, right: 45, display: "flex", justifyContent: "flex-end", zIndex: 2 }}>
-      <img src={LOGO_SRC} style={{ height: 100, objectFit: "contain", maxWidth: "99%" }} alt="Insta ICT Solutions" />
+  <div
+    style={{
+      width: CW,
+      height: CH,
+      background: "#ffffff",
+      borderRadius: 0,
+      border: "1px solid #ddd",
+      position: "relative",
+      overflow: "hidden",
+      fontFamily: "'Calibri', 'Segoe UI', Arial, sans-serif",
+      boxShadow: "0 10px 40px rgba(0,0,0,0.22)",
+    }}
+  >
+    {/* Top Yellow Shape */}
+    <svg
+      style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}
+      width="230"
+      height="170"
+      viewBox="0 0 230 170"
+    >
+      <path
+        d="M0 0 L230 0 A190 190 0 0 0 0 170 Z"
+        fill="#F5C100"
+      />
+    </svg>
+
+    {/* Bottom Blue Shape */}
+    <svg
+      style={{ position: "absolute", bottom: 0, right: 0, zIndex: 1 }}
+      width="230"
+      height="170"
+      viewBox="0 0 230 170"
+    >
+      <path
+        d="M230 170 L0 170 A190 190 0 0 0 230 0 Z"
+        fill="#1565C0"
+      />
+    </svg>
+
+    {/* Logo */}
+    <div
+      style={{
+        position: "absolute",
+        top: 30,
+        right: 45,
+        display: "flex",
+        justifyContent: "flex-end",
+        zIndex: 2,
+      }}
+    >
+      <img
+        src={LOGO_SRC}
+        style={{
+          height: 100,
+          objectFit: "contain",
+          maxWidth: "99%",
+        }}
+        alt="Insta ICT Solutions"
+      />
     </div>
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", zIndex: 2, padding: "0 20px", paddingTop: 60 }}>
-      <div style={{ fontWeight: 700, fontSize: 16, color: "#111", marginBottom: 1 }}>Insta ICT Solutions Pvt. Ltd.</div>
-      <div style={{ fontSize: 14, color: "#333", lineHeight: 1.25 }}>201 &amp; 202, Imperial Plaza,</div>
-      <div style={{ fontSize: 14, color: "#333", lineHeight: 1.25, marginBottom: 1 }}>Jijai Nagar, Kothrud, Pune 411 038</div>
-      <div style={{ fontSize: 14, color: "#1565C0", textDecoration: "underline" }}>www.instagrp.com</div>
+
+    {/* Content */}
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        zIndex: 2,
+        padding: "0 18px",
+        paddingTop: 70,
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 700,
+          fontSize: 16,
+          color: "#111",
+          marginBottom: 2,
+        }}
+      >
+        Insta ICT Solutions Pvt. Ltd.
+      </div>
+
+      <div
+        style={{
+          fontSize: 13,
+          color: "#333",
+          lineHeight: 1.3,
+        }}
+      >
+        201 &amp; 202, Imperial Plaza,
+      </div>
+
+      <div
+        style={{
+          fontSize: 13,
+          color: "#333",
+          lineHeight: 1.3,
+          marginBottom: 4,
+        }}
+      >
+        Jijai Nagar, Kothrud, Pune 411 038
+      </div>
+
+     {/* Website */}
+<div
+  style={{
+    fontSize: 13,
+    color: "#1565C0",
+    textDecoration: "underline",
+    marginBottom: 2,
+    lineHeight: 1.1,
+  }}
+>
+  www.instagrp.com
+</div>
+
+{/* Emergency Contact */}
+<div
+  style={{
+    fontSize: 12,
+    color: "#111",
+    fontWeight: 600,
+    marginBottom: 1,
+    lineHeight: 1.1,
+  }}
+>
+  Emergency Contact No
+</div>
+
+{/* Contact Number */}
+<div
+  style={{
+    fontSize: 12,
+    color: "#333",
+    marginBottom: 6,
+    lineHeight: 1.1,
+  }}
+>
+  +91 9876543210
+</div>
+
+{/* Property Clause */}
+<div
+  style={{
+    fontSize: 10.5,
+    color: "#333",
+    lineHeight: 1.25,
+    textAlign: "center",
+    maxWidth: 210,
+    fontWeight: 500,
+  }}
+>
+  Property of Insta ICT Solutions.
+  <br />
+  If found, please return to the Admin Team.
+</div>
     </div>
   </div>
 );
