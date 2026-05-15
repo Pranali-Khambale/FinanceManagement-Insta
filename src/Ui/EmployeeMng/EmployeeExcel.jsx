@@ -24,73 +24,112 @@ const SECTIONS = [
   { label: "Salary & Bank",        color: "#047857" },
 ];
 
-// Middle Name removed → all column indices after it shift by -1
+// ── Section column ranges (0-indexed, inclusive) ─────────────────────────────
+// UAN Number added at index 18 (after "Name on Aadhaar"), shifting subsequent
+// section start/end indices by +1.
 const SECTION_DEFS = [
   ["Basic",                 0,  1,  "374151"],
-  ["Personal Information",  2,  18, "1D4ED8"],  // was 19, -1 for removed Middle Name
-  ["Family Details",        19, 23, "7C3AED"],  // was 20-24
-  ["Emergency Contact",     24, 27, "DC2626"],  // was 25-28
-  ["Permanent Address",     28, 31, "059669"],  // was 29-32
-  ["Local Address",         32, 36, "0891B2"],  // was 33-37
-  ["Reference 1",           37, 43, "D97706"],  // was 38-44
-  ["Reference 2",           44, 50, "D97706"],  // was 45-51
-  ["Reference 3",           51, 57, "D97706"],  // was 52-58
-  ["Employment",            58, 65, "7C3AED"],  // was 59-66
-  ["Salary & Bank",         66, 74, "047857"],  // was 67-75
+  ["Personal Information",  2,  19, "1D4ED8"],  // +1 for UAN Number (was 18)
+  ["Family Details",        20, 24, "7C3AED"],  // was 19-23
+  ["Emergency Contact",     25, 28, "DC2626"],  // was 24-27
+  ["Permanent Address",     29, 32, "059669"],  // was 28-31
+  ["Local Address",         33, 37, "0891B2"],  // was 32-36
+  ["Reference 1",           38, 44, "D97706"],  // was 37-43
+  ["Reference 2",           45, 51, "D97706"],  // was 44-50
+  ["Reference 3",           52, 58, "D97706"],  // was 51-57
+  ["Employment",            59, 66, "7C3AED"],  // was 58-65
+  ["Salary & Bank",         67, 75, "047857"],  // was 66-74
 ];
 
+// ── Column headers (one per column) ──────────────────────────────────────────
+// UAN Number inserted at position 18 (after "Name on Aadhaar")
 const FIELD_HEADERS = [
+  // Basic (0-1)
   "Employee ID", "Status",
-  "First Name", "Father/Husband Name", "Last Name",             // Middle Name removed
+  // Personal Information (2-19)
+  "First Name", "Father/Husband Name", "Last Name",
   "Email", "Phone", "Alternate Phone", "Date of Birth", "Gender",
   "Marital Status", "Educational Qualification", "Blood Group",
   "PAN Number", "Name on PAN", "Aadhaar Number", "Name on Aadhaar",
-  "Address", "City",                                             // (Legacy) removed
+  "Address", "City",
+  "UAN Number",          // ← NEW at index 19
+  // Family Details (20-24)
   "Family Member Name", "Family Contact No", "Family Working Status",
   "Family Employer Name", "Family Employer Contact",
+  // Emergency Contact (25-28)
   "Emergency Contact Name", "Emergency Contact No", "Emergency Address", "Emergency Relation",
+  // Permanent Address (29-32)
   "Permanent Address", "Permanent Phone", "Permanent Landmark", "Permanent Lat-Long",
+  // Local Address (33-37)
   "Same as Permanent", "Local Address", "Local Phone", "Local Landmark", "Local Lat-Long",
+  // Reference 1 (38-44)
   "Ref1 Name", "Ref1 Designation", "Ref1 Organization", "Ref1 Address",
   "Ref1 City/State/Pin", "Ref1 Contact", "Ref1 Email",
+  // Reference 2 (45-51)
   "Ref2 Name", "Ref2 Designation", "Ref2 Organization", "Ref2 Address",
   "Ref2 City/State/Pin", "Ref2 Contact", "Ref2 Email",
+  // Reference 3 (52-58)
   "Ref3 Name", "Ref3 Designation", "Ref3 Organization", "Ref3 Address",
   "Ref3 City/State/Pin", "Ref3 Contact", "Ref3 Email",
+  // Employment (59-66)
   "Department", "Designation", "Joining Date", "Employment Type",
   "Circle", "Project Name", "Reporting Manager", "Basic Salary",
+  // Salary & Bank (67-75)
   "HRA", "Other Allowances", "Total Salary",
   "Bank Name", "Bank Branch", "Account Number", "IFSC Code", "Account Holder Name", "",
 ];
 
+// ── Sample data row (mirrors FIELD_HEADERS order) ────────────────────────────
 const SAMPLE_DATA = [
+  // Basic
   "", "Active",
-  "Rahul", "Suresh", "Sharma",                                  // Middle Name removed
+  // Personal Information
+  "Rahul", "Suresh", "Sharma",
   "rahul.sharma@example.com", "9876543210",
   "", "1995-06-15", "Male", "Unmarried",
   "B.Tech", "O+", "ABCDE1234F", "Rahul Suresh Sharma",
-  "123456789012", "Rahul Suresh Sharma", "45 MG Road", "Pune",  // no (Legacy)
+  "123456789012", "Rahul Suresh Sharma", "45 MG Road", "Pune",
+  "100987654321",  // ← UAN Number sample
+  // Family Details
   "", "", "", "", "",
+  // Emergency Contact
   "", "", "", "",
+  // Permanent Address
   "45 MG Road, Pune", "9876543210", "", "",
+  // Local Address
   "Yes", "", "", "", "",
+  // Reference 1
   "", "", "", "", "", "", "",
+  // Reference 2
   "", "", "", "", "", "", "",
+  // Reference 3
   "", "", "", "", "", "", "",
+  // Employment
   "IT", "Software Developer", "2024-01-10", "Full-time",
   "West", "Project Alpha", "Amit Joshi", 45000,
+  // Salary & Bank
   13500, 5000, 63500,
   "State Bank of India", "Pune Main", "1234567890", "SBIN0001234", "Rahul Suresh Sharma", "",
 ];
 
+// ── Column widths (one per column, matches FIELD_HEADERS) ────────────────────
+// UAN Number width (14) inserted after City (index 18)
 const COL_WIDTHS = [
-  12, 10, 16, 20, 14,                                            // removed Middle Name width (16)
-  28, 14, 16, 13, 10, 14, 24, 12, 14, 20, 16, 20, 14, 14,
-  20, 16, 18, 20, 14, 22, 18, 24, 18, 28, 16, 20, 14, 16, 28, 16, 20, 16, 18,
-  18, 20, 22, 20, 16, 24, 20, 18, 20, 22, 20, 16, 24, 20, 18, 20, 22, 20, 16, 24,
-  18, 20, 14, 16, 14, 20, 14, 14, 12, 18, 14, 22, 18, 16, 14, 22, 10,
+  12, 10,                                                        // Basic
+  16, 20, 14, 28, 14, 16, 13, 10, 14, 24, 12, 14, 20, 16, 20, 14, 14,
+  14,                                                            // UAN Number ← NEW
+  20, 16, 18, 20, 14,                                            // Family
+  22, 18, 24, 18,                                                // Emergency
+  28, 16, 20, 14,                                                // Permanent
+  16, 28, 16, 20, 16,                                            // Local
+  18, 20, 22, 20, 16, 24, 20,                                    // Ref1
+  18, 20, 22, 20, 16, 24, 20,                                    // Ref2
+  18, 20, 22, 20, 16, 24, 20,                                    // Ref3
+  18, 20, 14, 16, 14, 20, 14, 14,                                // Employment
+  12, 18, 14, 22, 18, 16, 14, 22, 10,                           // Salary & Bank
 ];
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const sv  = (v) => (v !== undefined && v !== null ? String(v).trim() : "");
 const num = (v) => parseFloat(String(v ?? "").replace(/[^0-9.-]/g, "")) || 0;
 
@@ -136,7 +175,8 @@ const parseFile = (arrayBuffer) => {
   return { format: fmt, objects };
 };
 
-// ── Map row → API body ──────────────────────────────────────────────────────
+// ── Map spreadsheet row → API body ────────────────────────────────────────────
+// Reads "UAN Number" column and maps to uanNumber
 const mapToBody = (row) => {
   const g = (...keys) => {
     for (const k of keys) {
@@ -146,12 +186,15 @@ const mapToBody = (row) => {
     return "";
   };
 
+  // UAN: strip non-digits, keep up to 12 digits
+  const rawUan = g("UAN Number", "uan_number", "UAN");
+  const uanNumber = rawUan.replace(/\D/g, "").slice(0, 12) || "";
+
   return {
     employeeId:               "",
     status:                   "Active",
     firstName:                g("First Name",                "First Name *"),
     fatherHusbandName:        g("Father/Husband Name"),
-    // middleName removed
     lastName:                 g("Last Name",                 "Last Name *"),
     email:                    g("Email",                     "Email *").toLowerCase(),
     phone:                    g("Phone",                     "Phone *").replace(/\D/g, "").slice(-10),
@@ -165,10 +208,11 @@ const mapToBody = (row) => {
     nameOnPan:                g("Name on PAN"),
     aadhar:                   g("Aadhaar Number", "Aadhar Number", "Aadhar Number *").replace(/\s/g, ""),
     nameOnAadhar:             g("Name on Aadhaar"),
-    address:                  g("Address", "Address (Legacy)"),  // supports old exports too
+    address:                  g("Address", "Address (Legacy)"),
     city:                     g("City",    "City (Legacy)"),
     state:                    g("State"),
     zipCode:                  g("Zip Code"),
+    uanNumber,                                               // ← NEW: mapped from "UAN Number" column
     familyMemberName:         g("Family Member Name"),
     familyContactNo:          g("Family Contact No").replace(/\D/g, ""),
     familyWorkingStatus:      g("Family Working Status"),
@@ -255,6 +299,9 @@ const validate = (rows, format = "template") => {
       errors.push(`${label}: Invalid email format`);
     if (row.phone && !/^[6-9]\d{9}$/.test(row.phone))
       errors.push(`${label}: Phone must be 10 digits starting with 6–9`);
+    // Validate UAN if provided: numeric, max 12 digits
+    if (row.uanNumber && !/^\d{1,12}$/.test(row.uanNumber))
+      errors.push(`${label}: UAN Number must be numeric and up to 12 digits`);
     if (!isReimport && row.dob) {
       const d = new Date(row.dob);
       if (!isNaN(d.getTime())) {
@@ -278,7 +325,7 @@ const friendlyError = (err) => {
   return msg || "Unknown error";
 };
 
-// ── Component ───────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
   const [file,              setFile]              = useState(null);
   const [fileFormat,        setFileFormat]        = useState(null);
@@ -366,6 +413,7 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
     reader.readAsArrayBuffer(file);
   };
 
+  // ── Download import template (with UAN Number column) ─────────────────────
   const downloadTemplate = () => {
     const colColorMap = {};
     SECTION_DEFS.forEach(([, sc, ec, color]) => {
@@ -373,6 +421,7 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
     });
     const totalCols = FIELD_HEADERS.length;
     const mkCell = (value, style) => ({ v: value, t: typeof value === "number" ? "n" : "s", s: style });
+
     const row1 = Array.from({ length: totalCols }, (_, c) => {
       const secDef = SECTION_DEFS.find(([, sc]) => sc === c);
       return mkCell(secDef ? secDef[0] : "", {
@@ -381,16 +430,23 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
         alignment: { horizontal: "center", vertical: "center" },
       });
     });
-    const row2 = FIELD_HEADERS.map((h) => mkCell(h, {
-      font: { bold: true, color: { rgb: "FFFFFF" }, sz: 9, name: "Arial" },
-      fill: { fgColor: { rgb: "1F2937" }, patternType: "solid" },
-      alignment: { horizontal: "center", vertical: "center", wrapText: true },
-    }));
+
+    const row2 = FIELD_HEADERS.map((h, c) => {
+      // Highlight UAN Number column with a distinct teal to make it stand out
+      const isUan = h === "UAN Number";
+      return mkCell(h, {
+        font: { bold: true, color: { rgb: "FFFFFF" }, sz: 9, name: "Arial" },
+        fill: { fgColor: { rgb: isUan ? "0F766E" : "1F2937" }, patternType: "solid" },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      });
+    });
+
     const row3 = SAMPLE_DATA.map((v) => mkCell(v, {
       font: { sz: 9, name: "Arial", color: { rgb: "374151" } },
       fill: { fgColor: { rgb: "F8FAFC" }, patternType: "solid" },
       alignment: { vertical: "center" },
     }));
+
     const ws = {};
     [row1, row2, row3].forEach((rowArr, r) => {
       rowArr.forEach((cellObj, c) => { ws[XLSX.utils.encode_cell({ r, c })] = cellObj; });
@@ -399,6 +455,7 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
     ws["!cols"]   = COL_WIDTHS.map((w) => ({ wch: w }));
     ws["!rows"]   = [{ hpt: 22 }, { hpt: 28 }, { hpt: 16 }];
     ws["!merges"] = SECTION_DEFS.map(([, sc, ec]) => ({ s: { r: 0, c: sc }, e: { r: 0, c: ec } }));
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Employee Import");
     XLSX.writeFile(wb, "employee_import_template.xlsx");
@@ -493,6 +550,11 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
                       {emp.department && <span className="text-indigo-600 text-xs bg-indigo-50 px-2 py-0.5 rounded">{emp.department}</span>}
                       {emp.designation && <span className="text-gray-500 text-xs">· {emp.designation}</span>}
                       {emp.joiningDate && <span className="text-gray-400 text-xs">📅 {emp.joiningDate}</span>}
+                      {emp.uanNumber && (
+                        <span className="text-teal-700 text-xs bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                          UAN: {emp.uanNumber}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -531,6 +593,7 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
                   <p>✓ Each email must be unique in the system</p>
                   <p>✓ Both the Export file and Import Template are accepted</p>
                   <p>✓ Total Salary column is ignored (server computes it)</p>
+                  <p>✓ UAN Number is optional — numeric only, up to 12 digits</p>
                 </div>
               </div>
               <div className="border-t border-amber-200 pt-3">
@@ -584,7 +647,7 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-100 sticky top-0 z-10">
                         <tr>
-                          {["#","Status","Name","Email","Phone","Dept","Designation","Joining","Salary","Note"].map((h) => (
+                          {["#","Status","Name","Email","Phone","Dept","Designation","Joining","UAN","Salary","Note"].map((h) => (
                             <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -606,6 +669,7 @@ const ImportExcelModal = ({ onClose, showToast, onImportComplete }) => {
                               <td className="px-4 py-2.5 text-gray-600 text-xs">{row.department}</td>
                               <td className="px-4 py-2.5 text-gray-600 text-xs">{row.designation}</td>
                               <td className="px-4 py-2.5 text-gray-600 text-xs whitespace-nowrap">{row.joiningDate}</td>
+                              <td className="px-4 py-2.5 text-teal-700 text-xs font-mono">{row.uanNumber || "—"}</td>
                               <td className="px-4 py-2.5 text-gray-600 text-xs">{total > 0 ? `₹${Number(total).toLocaleString("en-IN")}` : "—"}</td>
                               <td className="px-4 py-2.5 text-red-500 text-xs max-w-[180px] truncate" title={row._error || ""}>{row._error || "—"}</td>
                             </tr>

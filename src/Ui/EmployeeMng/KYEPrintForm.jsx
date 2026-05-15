@@ -1,9 +1,15 @@
-import React from "react";
+// src/Ui/EmployeeMng/KYEPrintForm.jsx
+// ✅ FIXED:
+//   1. UAN Number row added to Section 1 (Employee Personal Details)
+//   2. UAN row in Section 9 (For Office Use Only) now filled from employee data
+//   3. Reference field keys corrected:
+//        ref1_desig → ref1_designation
+//        ref1_org   → ref1_organization
+//        ref1_addr  → ref1_address
+//        ref1_mob   → ref1_contact_no
+//        (same for ref2_*, ref3_*)
 
-/**
- * KYEPrintForm.jsx
- * Updated to exactly match the 4-page Blank_KYE_Form.pdf layout and content.
- */
+import React from "react";
 
 const fmt = (d) => {
   if (!d) return "";
@@ -24,6 +30,9 @@ const buildFullName = (e) =>
     .filter(Boolean)
     .join(" ");
 
+// ── Resolve UAN from either snake_case (DB) or camelCase (form state) ────────
+const resolveUan = (e) => val(e.uan_number || e.uanNumber || "");
+
 export const printKYEForm = (employee) => {
   const win = window.open("", "_blank", "width=1000,height=900,scrollbars=yes");
   if (!win) {
@@ -33,6 +42,7 @@ export const printKYEForm = (employee) => {
 
   const e = employee || {};
   const employeeFullName = buildFullName(e);
+  const uanDisplay = resolveUan(e);
   const LOGO_URL = `${window.location.origin}/assets/Insta-logo1.png`;
 
   // Row helper for data tables with Verification columns
@@ -57,7 +67,7 @@ export const printKYEForm = (employee) => {
       </tr>
     </table>`;
 
-  const pageHeader = (pageNum) => `
+  const pageHeader = () => `
     <div class="page-header">
       <span class="revision-label">KYE Form Revision - 1</span>
       <div class="logo-block">
@@ -78,36 +88,39 @@ export const printKYEForm = (employee) => {
     .logo-img { height: 50px; }
     .form-title { border: 1.5px solid #000; text-align: center; padding: 10px; margin-bottom: 20px; font-size: 14pt; font-weight: bold; }
     .sec-heading { font-weight: bold; text-decoration: underline; margin: 15px 0 5px 0; font-size: 11pt; }
-    
+
     .ver-header { width: 100%; border-collapse: collapse; }
     .ver-header td { text-align: center; font-size: 8pt; font-weight: bold; border: 1px solid #000; padding: 2px; }
     .ver-header .spacer { border: none; height: 0; }
     .ver-header .ver-group { border: 1px solid #000; }
-    
+
     .data-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
     .data-table td { border: 1px solid #000; padding: 5px; font-size: 10pt; vertical-align: top; }
     .data-table .label { width: 60mm; background: #f8f8f8; }
     .data-table .value { width: 75mm; }
     .data-table .check { width: 23mm; height: 25px; }
-    
+
+    /* ✅ UAN value cell */
+    .uan-value { font-family: monospace; font-weight: 600; font-size: 10.5pt; }
+
     .ref-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .ref-table th, .ref-table td { border: 1px solid #000; padding: 5px; font-size: 9pt; text-align: left; vertical-align: top; }
-    .ref-table th { background: #f2f2f2; font-weight: bold; }
-    
+    .ref-table th { background: #4472c4; color: #fff; font-weight: bold; }
+
     .declaration-box { margin-top: 20px; font-size: 10pt; line-height: 1.5; border: 1px solid #000; padding: 15px; }
     .footer-note { margin-top: 30px; font-weight: bold; font-size: 10pt; }
     .page-num { position: absolute; bottom: 15mm; right: 15mm; font-size: 9pt; }
-    
-    .photo-box { border: 1px solid #000; width: 35mm; height: 45mm; float: right; margin-top: -10mm; margin-right: 15mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 7pt; }
-    
+
+    .photo-box { border: 1px solid #000; width: 35mm; height: 45mm; float: right; margin-top: -10mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 7pt; }
+
     .sub-sec { font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 10pt; }
-    
+
     .office-table { width: 100mm; border-collapse: collapse; }
     .office-table td { border: 1px solid #000; padding: 5px; font-size: 9pt; }
-    
+
     .doc-table th:nth-child(1) { width: 10mm; }
     .doc-table th:nth-child(3) { width: 30mm; }
-    
+
     @media print {
       body { background: none; }
       .page { margin: 0; padding: 15mm; border: none; box-shadow: none; }
@@ -116,10 +129,11 @@ export const printKYEForm = (employee) => {
 </head>
 <body>
 
+  <!-- ═══════════ PAGE 1 ═══════════ -->
   <div class="page">
-    ${pageHeader(1)}
+    ${pageHeader()}
     <div class="form-title">General Information Form for KYE</div>
-    
+
     <div class="sec-heading">1. Employee Personal Details -</div>
     ${verHeader}
     <table class="data-table">
@@ -134,6 +148,12 @@ export const printKYEForm = (employee) => {
       ${row("Name on PAN", val(e.name_on_pan))}
       ${row("Aadhaar No", "[Aadhaar Redacted]")}
       ${row("Name on Aadhaar Card", val(e.name_on_aadhar))}
+      <tr>
+        <td class="label">UAN Number</td>
+        <td class="${uanDisplay ? "uan-value" : "value"}">${uanDisplay}</td>
+        <td class="check"></td>
+        <td class="check"></td>
+      </tr>
     </table>
 
     <div class="sec-heading">2. Employee Family Details -</div>
@@ -149,8 +169,9 @@ export const printKYEForm = (employee) => {
     <div class="page-num">Page 1 of 4</div>
   </div>
 
+  <!-- ═══════════ PAGE 2 ═══════════ -->
   <div class="page">
-    ${pageHeader(2)}
+    ${pageHeader()}
     <div class="sec-heading">3. Employee Emergency Contact Details -</div>
     ${verHeader}
     <table class="data-table">
@@ -183,16 +204,17 @@ export const printKYEForm = (employee) => {
     <div class="sub-sec">B) Local Address</div>
     ${verHeader}
     <table class="data-table">
-      ${row("Local Address", val(e.local_address))}
-      ${row("Phone/Mobile No", val(e.local_phone))}
-      ${row("Local Address Landmark", val(e.local_landmark))}
-      ${row("Local Address Lat-long", val(e.local_lat_long))}
+      ${row("Local Address", e.local_same_as_permanent ? val(e.permanent_address) : val(e.local_address))}
+      ${row("Phone/Mobile No", e.local_same_as_permanent ? val(e.permanent_phone) : val(e.local_phone))}
+      ${row("Local Address Landmark", e.local_same_as_permanent ? val(e.permanent_landmark) : val(e.local_landmark))}
+      ${row("Local Address Lat-long", e.local_same_as_permanent ? val(e.permanent_lat_long) : val(e.local_lat_long))}
     </table>
     <div class="page-num">Page 2 of 4</div>
   </div>
 
+  <!-- ═══════════ PAGE 3 ═══════════ -->
   <div class="page">
-    ${pageHeader(3)}
+    ${pageHeader()}
     <div class="sec-heading">6. Reference Details -</div>
     <table class="ref-table">
       <tr>
@@ -201,13 +223,53 @@ export const printKYEForm = (employee) => {
         <th>Reference 2<br>(Local Area)</th>
         <th>Reference 3<br>(Other than relative)</th>
       </tr>
-      <tr><td>Name</td><td>${val(e.ref1_name)}</td><td>${val(e.ref2_name)}</td><td>${val(e.ref3_name)}</td></tr>
-      <tr><td>Designation</td><td>${val(e.ref1_desig)}</td><td>${val(e.ref2_desig)}</td><td>${val(e.ref3_desig)}</td></tr>
-      <tr><td>Name of Organization</td><td>${val(e.ref1_org)}</td><td>${val(e.ref2_org)}</td><td>${val(e.ref3_org)}</td></tr>
-      <tr><td>Address</td><td>${val(e.ref1_addr)}</td><td>${val(e.ref2_addr)}</td><td>${val(e.ref3_addr)}</td></tr>
-      <tr><td>Contact No.<br>Mobile/Landline</td><td>${val(e.ref1_mob)}</td><td>${val(e.ref2_mob)}</td><td>${val(e.ref3_mob)}</td></tr>
-      <tr><td>Email ID<br>(Preferably Official)</td><td>${val(e.ref1_email)}</td><td>${val(e.ref2_email)}</td><td>${val(e.ref3_email)}</td></tr>
-      <tr style="height:40px;"><td>Verification Comment<br>To be recorded by HR Manager</td><td colspan="3"></td></tr>
+      <!-- ✅ FIXED: using correct DB field names (ref1_designation, ref1_organization, etc.) -->
+      <tr>
+        <td>Name</td>
+        <td>${val(e.ref1_name)}</td>
+        <td>${val(e.ref2_name)}</td>
+        <td>${val(e.ref3_name)}</td>
+      </tr>
+      <tr>
+        <td>Designation</td>
+        <td>${val(e.ref1_designation)}</td>
+        <td>${val(e.ref2_designation)}</td>
+        <td>${val(e.ref3_designation)}</td>
+      </tr>
+      <tr>
+        <td>Name of Organization</td>
+        <td>${val(e.ref1_organization)}</td>
+        <td>${val(e.ref2_organization)}</td>
+        <td>${val(e.ref3_organization)}</td>
+      </tr>
+      <tr>
+        <td>Address</td>
+        <td>${val(e.ref1_address)}</td>
+        <td>${val(e.ref2_address)}</td>
+        <td>${val(e.ref3_address)}</td>
+      </tr>
+      <tr>
+        <td>City, State, Pin Code</td>
+        <td>${val(e.ref1_city_state_pin)}</td>
+        <td>${val(e.ref2_city_state_pin)}</td>
+        <td>${val(e.ref3_city_state_pin)}</td>
+      </tr>
+      <tr>
+        <td>Contact No. (Mobile/Landline)</td>
+        <td>${val(e.ref1_contact_no)}</td>
+        <td>${val(e.ref2_contact_no)}</td>
+        <td>${val(e.ref3_contact_no)}</td>
+      </tr>
+      <tr>
+        <td>Email ID (Preferably Official)</td>
+        <td>${val(e.ref1_email)}</td>
+        <td>${val(e.ref2_email)}</td>
+        <td>${val(e.ref3_email)}</td>
+      </tr>
+      <tr style="height:40px;">
+        <td>Verification Comment<br><span style="font-size:8pt;font-weight:normal;">To be recorded by HR Manager</span></td>
+        <td colspan="3"></td>
+      </tr>
     </table>
 
     <div class="sec-heading">7. DECLARATION -</div>
@@ -226,33 +288,35 @@ export const printKYEForm = (employee) => {
     <div class="page-num">Page 3 of 4</div>
   </div>
 
+  <!-- ═══════════ PAGE 4 ═══════════ -->
   <div class="page">
-    ${pageHeader(4)}
+    ${pageHeader()}
     <div class="sec-heading">8. Please attach the below-listed documents with the KYE form.</div>
     <table class="ref-table doc-table">
       <tr><th>Sr.</th><th>Name of Document</th><th>Attached (Yes/No)</th></tr>
       <tr><td>1</td><td>Resume - Signed copy</td><td></td></tr>
-      <tr><td>2</td><td>2 passport size photographs<br>-Name should be written on backside</td><td></td></tr>
+      <tr><td>2</td><td>2 passport size photographs - Name should be written on backside</td><td></td></tr>
       <tr><td>3</td><td>Medical Certificate - Latest</td><td></td></tr>
       <tr><td>4</td><td>Aadhaar Card</td><td></td></tr>
       <tr><td>5</td><td>Pan Card</td><td></td></tr>
-      <tr><td>6</td><td>Academic records<br>SSC,ITI,HSC, Diploma, Degree Certificates Copy</td><td></td></tr>
+      <tr><td>6</td><td>Academic records (SSC, ITI, HSC, Diploma, Degree Certificates Copy)</td><td></td></tr>
       <tr><td>7</td><td>Bank Details</td><td></td></tr>
       <tr><td>8</td><td>Pay slip or bank statement reflecting last drawn salary</td><td></td></tr>
       <tr><td>9</td><td>Other certificates, if any</td><td></td></tr>
     </table>
 
-    <div style="margin-top: 20px; font-size: 9pt;">
-      <strong>Attachment Status (Yes/No):</strong> __________________
-    </div>
-
-    <div class="sec-heading" style="margin-top: 30px;">9. For office Use only.</div>
+    <div class="sec-heading" style="margin-top: 20px;">9. For office Use only.</div>
     <table class="office-table">
-      <tr><td>1</td><td>DOJ</td><td></td></tr>
-      <tr><td>2</td><td>Experience</td><td></td></tr>
-      <tr><td>3</td><td>UAN</td><td></td></tr>
-      <tr><td>4</td><td>Member ID</td><td></td></tr>
-      <tr><td>5</td><td>Remarks</td><td></td></tr>
+      <tr><td style="width:12mm;text-align:center;">1</td><td style="width:55mm;">DOJ</td><td></td></tr>
+      <tr><td style="text-align:center;">2</td><td>Experience</td><td></td></tr>
+      <!-- ✅ FIXED: UAN row now populated with actual value from employee record -->
+      <tr>
+        <td style="text-align:center;">3</td>
+        <td>UAN</td>
+        <td class="${uanDisplay ? "uan-value" : ""}">${uanDisplay}</td>
+      </tr>
+      <tr><td style="text-align:center;">4</td><td>Member ID</td><td></td></tr>
+      <tr><td style="text-align:center;">5</td><td>Remarks</td><td style="height:30px;"></td></tr>
     </table>
     <div class="page-num">Page 4 of 4</div>
   </div>
@@ -260,7 +324,7 @@ export const printKYEForm = (employee) => {
 </body>
 </html>
   `);
-  win.document.close();
+  win.document.close(); 
   win.print();
 };
 

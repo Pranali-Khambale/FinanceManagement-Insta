@@ -870,31 +870,3 @@ export default {
   DownloadSuccessModal,
   DownloadMenu,
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Example usage:
-//
-//   import { DownloadMenu, DownloadToast } from "./EmployeeHistoryDownload";
-//
-//   function EmployeeHistoryPage() {
-//     const [toastResult, setToastResult] = useState(null);
-//     return (
-//       <div>
-//         <DownloadMenu
-//           events={historyEvents}
-//           meta={{
-//             title: "Employee History",
-//             employeeName: "Rahul Sharma",
-//             employeeId: "EMP-001",
-//             department: "Engineering",
-//             filename: "rahul-sharma-history",
-//           }}
-//           onDownloadComplete={(result) => setToastResult(result)}
-//         />
-//         {toastResult && (
-//           <DownloadToast result={toastResult} onClose={() => setToastResult(null)} />
-//         )}
-//       </div>
-//     );
-//   }
-// ══════════════════════════════════════════════════════════════════════════════
