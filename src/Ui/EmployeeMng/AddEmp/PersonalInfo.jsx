@@ -1,4 +1,5 @@
 // src/Ui/EmployeeMng/AddEmp/PersonalInfo.jsx
+// ✅ UPDATED: UAN Number field added after Aadhaar section
 import React from "react";
 import {
   Mail,
@@ -16,6 +17,7 @@ import {
   MapPin,
   Users,
   Copy,
+  Hash,
 } from "lucide-react";
 import { genders } from "../../../data/empmockdata";
 
@@ -79,6 +81,15 @@ const hp = (e, name, handleInputChange) => {
 };
 
 /* ─────────────────────────────────────────────
+   UAN Number handler — numeric only, max 12 digits
+───────────────────────────────────────────── */
+const handleUanChange = (e, handleInputChange) => {
+  const v = e.target.value;
+  if (/^\d*$/.test(v) && v.length <= 12)
+    handleInputChange({ target: { name: "uanNumber", value: v } });
+};
+
+/* ─────────────────────────────────────────────
    Main component — all sub-sections inside
 ───────────────────────────────────────────── */
 const PersonalInformation = ({
@@ -106,14 +117,12 @@ const PersonalInformation = ({
       target: { name: "localSameAsPermanent", value: checked },
     });
     if (checked) {
-      // Copy permanent → local
       ["Address", "Phone", "Landmark", "LatLong"].forEach((f) =>
         handleInputChange({
           target: { name: `local${f}`, value: formData[`permanent${f}`] || "" },
         }),
       );
     } else {
-      // Clear local fields when unchecked
       ["Address", "Phone", "Landmark", "LatLong"].forEach((f) =>
         handleInputChange({ target: { name: `local${f}`, value: "" } }),
       );
@@ -373,6 +382,29 @@ const PersonalInformation = ({
             />
             <Err msg={errors.nameOnAadhar} />
           </div>
+
+          {/* ── UAN Number ── */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <Hash className="w-4 h-4 text-gray-500" /> UAN Number
+            </label>
+            <input
+              type="text"
+              name="uanNumber"
+              value={formData.uanNumber || ""}
+              onChange={(e) => handleUanChange(e, handleInputChange)}
+              maxLength={12}
+              placeholder="123456789012"
+              className={`${inputCls(errors.uanNumber)} font-mono tracking-wide`}
+            />
+            {errors.uanNumber ? (
+              <Err msg={errors.uanNumber} />
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                Universal Account Number — 12 digits (optional)
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
@@ -529,7 +561,7 @@ const PersonalInformation = ({
               className={selectCls(errors.emergencyContactRelation)}
             >
               <option value="">Select Relation</option>
-              {["Father", "Mother", "Spouse", "Sibling", "Friend", "Brother","Sister","Other"].map(
+              {["Father", "Mother", "Spouse", "Sibling", "Friend", "Brother", "Sister", "Other"].map(
                 (r) => (
                   <option key={r} value={r}>
                     {r}
@@ -616,7 +648,6 @@ const PersonalInformation = ({
               <h5 className="text-sm font-bold text-gray-600 flex items-center gap-2">
                 <Home className="w-4 h-4 text-green-500" /> B) Local Address
               </h5>
-              {/* Same as Permanent checkbox */}
               <label className="flex items-center gap-2 cursor-pointer select-none group">
                 <div className="relative">
                   <input
@@ -750,81 +781,57 @@ const PersonalInformation = ({
               </div>
               {[
                 { name: "Name", key: "Name", placeholder: "Full name" },
-                {
-                  name: "Designation",
-                  key: "Designation",
-                  placeholder: "Job designation",
-                },
-                {
-                  name: "Organization",
-                  key: "Organization",
-                  placeholder: "Company name",
-                },
-                {
-                  name: "Address",
-                  key: "Address",
-                  placeholder: "Address",
-                  textarea: true,
-                },
-                {
-                  name: "City, State, Pin",
-                  key: "CityStatePin",
-                  placeholder: "Pune, Maharashtra, 411001",
-                },
+                { name: "Designation", key: "Designation", placeholder: "Job designation" },
+                { name: "Organization", key: "Organization", placeholder: "Company name" },
+                { name: "Address", key: "Address", placeholder: "Address", textarea: true },
+                { name: "City, State, Pin", key: "CityStatePin", placeholder: "Pune, Maharashtra, 411001" },
                 { name: "Contact No.", key: "ContactNo", phone: true },
-                {
-                  name: "Email ID",
-                  key: "Email",
-                  placeholder: "official@example.com",
-                  email: true,
-                },
-              ].map(
-                ({ name, key: fKey, placeholder, textarea, phone, email }) => {
-                  const fn = `${key}${fKey}`;
-                  const err = errors[fn];
-                  return (
-                    <div key={fKey} className="space-y-1">
-                      <label className="block text-xs font-semibold text-gray-600">
-                        {name}
-                      </label>
-                      {textarea ? (
-                        <textarea
-                          name={fn}
-                          value={formData[fn] || ""}
-                          onChange={handleInputChange}
-                          rows={2}
-                          placeholder={placeholder}
-                          className={`${inputCls(err)} resize-none text-sm`}
-                        />
-                      ) : phone ? (
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">
-                            +91
-                          </span>
-                          <input
-                            type="tel"
-                            name={fn}
-                            value={formData[fn] || ""}
-                            onChange={(e) => hp(e, fn, handleInputChange)}
-                            className={`w-full pl-10 pr-3 py-2 rounded-lg border-2 ${err ? "border-red-500 bg-red-50" : "border-gray-300"} focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none font-mono text-sm`}
-                            placeholder="9876543210"
-                          />
-                        </div>
-                      ) : (
+                { name: "Email ID", key: "Email", placeholder: "official@example.com", email: true },
+              ].map(({ name, key: fKey, placeholder, textarea, phone, email }) => {
+                const fn = `${key}${fKey}`;
+                const err = errors[fn];
+                return (
+                  <div key={fKey} className="space-y-1">
+                    <label className="block text-xs font-semibold text-gray-600">
+                      {name}
+                    </label>
+                    {textarea ? (
+                      <textarea
+                        name={fn}
+                        value={formData[fn] || ""}
+                        onChange={handleInputChange}
+                        rows={2}
+                        placeholder={placeholder}
+                        className={`${inputCls(err)} resize-none text-sm`}
+                      />
+                    ) : phone ? (
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">
+                          +91
+                        </span>
                         <input
-                          type={email ? "email" : "text"}
+                          type="tel"
                           name={fn}
                           value={formData[fn] || ""}
-                          onChange={handleInputChange}
-                          placeholder={placeholder}
-                          className={`${inputCls(err)} text-sm`}
+                          onChange={(e) => hp(e, fn, handleInputChange)}
+                          className={`w-full pl-10 pr-3 py-2 rounded-lg border-2 ${err ? "border-red-500 bg-red-50" : "border-gray-300"} focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none font-mono text-sm`}
+                          placeholder="9876543210"
                         />
-                      )}
-                      <Err msg={err} />
-                    </div>
-                  );
-                },
-              )}
+                      </div>
+                    ) : (
+                      <input
+                        type={email ? "email" : "text"}
+                        name={fn}
+                        value={formData[fn] || ""}
+                        onChange={handleInputChange}
+                        placeholder={placeholder}
+                        className={`${inputCls(err)} text-sm`}
+                      />
+                    )}
+                    <Err msg={err} />
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

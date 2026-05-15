@@ -1,3 +1,5 @@
+// src/Ui/EmployeeMng/Registration/PersonalInfoStep.jsx
+// ✅ UPDATED: UAN Number field added after Aadhaar section
 import React from 'react';
 import {
   Mail,
@@ -15,6 +17,7 @@ import {
   MapPin,
   Users,
   Copy,
+  Hash,
 } from 'lucide-react';
 
 const maritalStatuses = ['Married', 'Unmarried'];
@@ -75,6 +78,15 @@ const hp = (e, name, onChange) => {
   const v = e.target.value;
   if (/^\d*$/.test(v) && v.length <= 10)
     onChange({ target: { name, value: v } });
+};
+
+/* ─────────────────────────────────────────────
+   UAN Number handler — numeric only, max 12 digits
+───────────────────────────────────────────── */
+const handleUanChange = (e, onChange) => {
+  const v = e.target.value;
+  if (/^\d*$/.test(v) && v.length <= 12)
+    onChange({ target: { name: 'uanNumber', value: v } });
 };
 
 /* ─────────────────────────────────────────────
@@ -360,6 +372,29 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             />
             <Err msg={errors.nameOnAadhar} />
           </div>
+
+          {/* ── UAN Number ── */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <Hash className="w-4 h-4 text-gray-500" /> UAN Number
+            </label>
+            <input
+              type="text"
+              name="uanNumber"
+              value={formData.uanNumber || ''}
+              onChange={(e) => handleUanChange(e, onChange)}
+              maxLength={12}
+              placeholder="123456789012"
+              className={`${inputCls(errors.uanNumber)} font-mono tracking-wide`}
+            />
+            {errors.uanNumber ? (
+              <Err msg={errors.uanNumber} />
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                Universal Account Number — 12 digits (optional)
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
@@ -508,7 +543,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
               className={selectCls(errors.emergencyContactRelation)}
             >
               <option value="">Select Relation</option>
-              {['Father', 'Mother', 'Spouse', 'Sibling', 'Friend', 'Sister','Brother','Other'].map((r) => (
+              {['Father', 'Mother', 'Spouse', 'Sibling', 'Friend', 'Sister', 'Brother', 'Other'].map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
