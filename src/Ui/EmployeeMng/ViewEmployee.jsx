@@ -676,6 +676,7 @@ const ViewEmployee = ({ employee, onClose }) => {
           accentColor="#059669"
         />
         <div
+          onClick={() => setCollapsed((c) => !c)}
           style={{
             background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
             borderRadius: 10,
@@ -719,7 +720,7 @@ const ViewEmployee = ({ employee, onClose }) => {
               Total CTC
             </span>
           </div>
-          <div
+          <span
             style={{
               fontSize: 20,
               fontWeight: 800,
@@ -853,7 +854,9 @@ const ViewEmployee = ({ employee, onClose }) => {
           gap: 6,
           marginBottom: 2,
         }}
+        onClick={(ev) => ev.target === ev.currentTarget && onClose()}
       >
+        {/* ── Top bar ── */}
         <div
           style={{
             width: 26,
@@ -1279,7 +1282,7 @@ const ViewEmployee = ({ employee, onClose }) => {
                     </td>
                     <td
                       style={{
-                        border: "1px solid #000",
+                        border: BORDER,
                         padding: "4px 6px",
                         color: e[k2] ? "#000" : "#bbb",
                       }}
@@ -1288,7 +1291,7 @@ const ViewEmployee = ({ employee, onClose }) => {
                     </td>
                     <td
                       style={{
-                        border: "1px solid #000",
+                        border: BORDER,
                         padding: "4px 6px",
                         color: e[k3] ? "#000" : "#bbb",
                       }}
