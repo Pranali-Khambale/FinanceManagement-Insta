@@ -1,4 +1,6 @@
 // src/Ui/EmployeeMng/Linkgen/RegistrationForm.jsx
+// ✅ UPDATED: uanNumber added to emptyForm, mapPrefillToForm, handleInputChange, handleSubmit payload
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -40,6 +42,8 @@ const RegistrationForm = () => {
     email: "", phone: "", altPhone: "",
     panNumber: "", nameOnPan: "",
     aadhar: "", nameOnAadhar: "",
+    // ✅ UAN Number added — optional, digits-only, max 12
+    uanNumber: "",
     familyMemberName: "", familyContactNo: "",
     familyWorkingStatus: "", familyEmployerName: "", familyEmployerContact: "",
     emergencyContactName: "", emergencyContactNo: "",
@@ -63,7 +67,6 @@ const RegistrationForm = () => {
 
   const [formData,  setFormData]  = useState(emptyForm);
 
-  // ✅ farmToCli included in documents state
   const [documents, setDocuments] = useState({
     idPhoto: null, aadharCard: null, panCard: null, resume: null,
     medicalCertificate: null, academicRecords: null,
@@ -72,65 +75,77 @@ const RegistrationForm = () => {
   });
 
   // ── Map API data → form fields ───────────────────────────────────────────
+  // ✅ uanNumber mapped from both snake_case (uan_number) and camelCase (uanNumber)
   const mapPrefillToForm = (d) => ({
-    firstName:                d.firstName                || "",
-    fatherHusbandName:        d.fatherHusbandName        || "",
-    lastName:                 d.lastName                 || "",
-    dob:                      d.dob                      || "",
+    firstName:                d.firstName                || d.first_name                || "",
+    fatherHusbandName:        d.fatherHusbandName        || d.father_husband_name        || "",
+    lastName:                 d.lastName                 || d.last_name                 || "",
+    dob:                      d.dob                      || d.date_of_birth              || "",
     gender:                   d.gender                   || "",
-    maritalStatus:            d.maritalStatus            || "",
-    educationalQualification: d.educationalQualification || "",
-    bloodGroup:               d.bloodGroup               || "",
+    maritalStatus:            d.maritalStatus            || d.marital_status             || "",
+    educationalQualification: d.educationalQualification || d.educational_qualification  || "",
+    bloodGroup:               d.bloodGroup               || d.blood_group                || "",
     email:                    d.email                    || "",
     phone:                    d.phone                    || "",
-    altPhone:                 d.altPhone                 || "",
-    panNumber:                d.panNumber                || "",
-    nameOnPan:                d.nameOnPan                || "",
-    aadhar:                   d.aadhar                   || "",
-    nameOnAadhar:             d.nameOnAadhar             || "",
-    familyMemberName:         d.familyMemberName         || "",
-    familyContactNo:          d.familyContactNo          || "",
-    familyWorkingStatus:      d.familyWorkingStatus      || "",
-    familyEmployerName:       d.familyEmployerName       || "",
-    familyEmployerContact:    d.familyEmployerContact    || "",
-    emergencyContactName:     d.emergencyContactName     || "",
-    emergencyContactNo:       d.emergencyContactNo       || "",
-    emergencyContactAddress:  d.emergencyContactAddress  || "",
-    emergencyContactRelation: d.emergencyContactRelation || "",
-    permanentAddress:         d.permanentAddress         || "",
-    permanentPhone:           d.permanentPhone           || "",
-    permanentLandmark:        d.permanentLandmark        || "",
-    permanentLatLong:         d.permanentLatLong         || "",
-    localSameAsPermanent:     d.localSameAsPermanent     || false,
-    localAddress:             d.localAddress             || "",
-    localPhone:               d.localPhone               || "",
-    localLandmark:            d.localLandmark            || "",
-    localLatLong:             d.localLatLong             || "",
-    ref1Name:         d.ref1Name         || "", ref1Designation: d.ref1Designation || "",
-    ref1Organization: d.ref1Organization || "", ref1Address:     d.ref1Address     || "",
-    ref1CityStatePin: d.ref1CityStatePin || "", ref1ContactNo:   d.ref1ContactNo   || "",
-    ref1Email:        d.ref1Email        || "",
-    ref2Name:         d.ref2Name         || "", ref2Designation: d.ref2Designation || "",
-    ref2Organization: d.ref2Organization || "", ref2Address:     d.ref2Address     || "",
-    ref2CityStatePin: d.ref2CityStatePin || "", ref2ContactNo:   d.ref2ContactNo   || "",
-    ref2Email:        d.ref2Email        || "",
-    ref3Name:         d.ref3Name         || "", ref3Designation: d.ref3Designation || "",
-    ref3Organization: d.ref3Organization || "", ref3Address:     d.ref3Address     || "",
-    ref3CityStatePin: d.ref3CityStatePin || "", ref3ContactNo:   d.ref3ContactNo   || "",
-    ref3Email:        d.ref3Email        || "",
+    altPhone:                 d.altPhone                 || d.alt_phone                  || "",
+    panNumber:                d.panNumber                || d.pan_number                 || "",
+    nameOnPan:                d.nameOnPan                || d.name_on_pan                || "",
+    aadhar:                   d.aadhar                   || d.aadhar_number              || "",
+    nameOnAadhar:             d.nameOnAadhar             || d.name_on_aadhar             || "",
+    // ✅ Prefill UAN — reads from snake_case DB field OR camelCase
+    uanNumber:                d.uanNumber                || d.uan_number                 || "",
+    familyMemberName:         d.familyMemberName         || d.family_member_name         || "",
+    familyContactNo:          d.familyContactNo          || d.family_contact_no          || "",
+    familyWorkingStatus:      d.familyWorkingStatus      || d.family_working_status      || "",
+    familyEmployerName:       d.familyEmployerName       || d.family_employer_name       || "",
+    familyEmployerContact:    d.familyEmployerContact    || d.family_employer_contact    || "",
+    emergencyContactName:     d.emergencyContactName     || d.emergency_contact_name     || "",
+    emergencyContactNo:       d.emergencyContactNo       || d.emergency_contact_no       || "",
+    emergencyContactAddress:  d.emergencyContactAddress  || d.emergency_contact_address  || "",
+    emergencyContactRelation: d.emergencyContactRelation || d.emergency_contact_relation || "",
+    permanentAddress:         d.permanentAddress         || d.permanent_address          || "",
+    permanentPhone:           d.permanentPhone           || d.permanent_phone            || "",
+    permanentLandmark:        d.permanentLandmark        || d.permanent_landmark         || "",
+    permanentLatLong:         d.permanentLatLong         || d.permanent_lat_long         || "",
+    localSameAsPermanent:     d.localSameAsPermanent     || d.local_same_as_permanent    || false,
+    localAddress:             d.localAddress             || d.local_address              || "",
+    localPhone:               d.localPhone               || d.local_phone                || "",
+    localLandmark:            d.localLandmark            || d.local_landmark             || "",
+    localLatLong:             d.localLatLong             || d.local_lat_long             || "",
+    ref1Name:         d.ref1Name         || d.ref1_name         || "",
+    ref1Designation:  d.ref1Designation  || d.ref1_designation  || "",
+    ref1Organization: d.ref1Organization || d.ref1_organization || "",
+    ref1Address:      d.ref1Address      || d.ref1_address      || "",
+    ref1CityStatePin: d.ref1CityStatePin || d.ref1_city_state_pin || "",
+    ref1ContactNo:    d.ref1ContactNo    || d.ref1_contact_no   || "",
+    ref1Email:        d.ref1Email        || d.ref1_email        || "",
+    ref2Name:         d.ref2Name         || d.ref2_name         || "",
+    ref2Designation:  d.ref2Designation  || d.ref2_designation  || "",
+    ref2Organization: d.ref2Organization || d.ref2_organization || "",
+    ref2Address:      d.ref2Address      || d.ref2_address      || "",
+    ref2CityStatePin: d.ref2CityStatePin || d.ref2_city_state_pin || "",
+    ref2ContactNo:    d.ref2ContactNo    || d.ref2_contact_no   || "",
+    ref2Email:        d.ref2Email        || d.ref2_email        || "",
+    ref3Name:         d.ref3Name         || d.ref3_name         || "",
+    ref3Designation:  d.ref3Designation  || d.ref3_designation  || "",
+    ref3Organization: d.ref3Organization || d.ref3_organization || "",
+    ref3Address:      d.ref3Address      || d.ref3_address      || "",
+    ref3CityStatePin: d.ref3CityStatePin || d.ref3_city_state_pin || "",
+    ref3ContactNo:    d.ref3ContactNo    || d.ref3_contact_no   || "",
+    ref3Email:        d.ref3Email        || d.ref3_email        || "",
     department:        d.department        || "",
     position:          d.position          || "",
-    joiningDate:       d.joiningDate       || "",
-    employmentType:    d.employmentType    || "",
-    reportingManager:  d.reportingManager  || "",
-    projectName:       d.projectName       || "",
+    joiningDate:       d.joiningDate       || d.joining_date    || "",
+    employmentType:    d.employmentType    || d.employment_type || "",
+    reportingManager:  d.reportingManager  || d.reporting_manager || "",
+    projectName:       d.projectName       || d.project_name    || "",
     circle:            d.circle            || "",
-    bankName:          d.bankName          || "",
-    accountNumber:     d.accountNumber     || "",
-    confirmAccountNumber: d.accountNumber  || "",
-    ifscCode:          d.ifscCode          || "",
-    accountHolderName: d.accountHolderName || "",
-    bankBranch:        d.bankBranch        || "",
+    bankName:          d.bankName          || d.bank_name        || "",
+    accountNumber:     d.accountNumber     || d.account_number   || "",
+    confirmAccountNumber: d.accountNumber  || d.account_number   || "",
+    ifscCode:          d.ifscCode          || d.ifsc_code        || "",
+    accountHolderName: d.accountHolderName || d.account_holder_name || "",
+    bankBranch:        d.bankBranch        || d.bank_branch      || "",
   });
 
   // ── On mount: validate link OR load resubmit prefill ────────────────────
@@ -141,7 +156,7 @@ const RegistrationForm = () => {
           const res = await employeeService.getPrefillData(token);
           if (res.success && res.data) {
             setFormData(prev => ({ ...prev, ...mapPrefillToForm(res.data) }));
-            setRejectionReason(res.data.rejectionReason || "");
+            setRejectionReason(res.data.rejectionReason || res.data.rejection_reason || "");
             setLinkStatus("valid");
           } else {
             setLinkStatus("invalid");
@@ -153,8 +168,8 @@ const RegistrationForm = () => {
     } else {
       (async () => {
         try {
-          const res = await employeeService.validateLink(linkId);
-          if (!res.success || !res.valid) {
+         const res = await employeeService.validateLink(linkId);
+          if (!res.success || (!res.valid && !res.isRejoin)) {
             if (res.used)         setLinkStatus("used");
             else if (res.expired) setLinkStatus("expired");
             else                  setLinkStatus("invalid");
@@ -164,7 +179,7 @@ const RegistrationForm = () => {
             const p = res.prefillData;
             setIsRejoinLink(true);
             setIsRejoin(true);
-            setOldEmployeeId(p.oldEmployeeId || null);
+            setOldEmployeeId(p.oldEmployeeId || p.old_employee_id || null);
             setFormData(prev => ({ ...prev, ...mapPrefillToForm(p) }));
           }
           setLinkStatus("valid");
@@ -196,14 +211,17 @@ const RegistrationForm = () => {
   // ── Input handler ─────────────────────────────────────────────────────────
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    // ✅ UAN must be digits only, max 12 characters
+    if (name === "uanNumber") {
+      const cleaned = value.replace(/\D/g, "").slice(0, 12);
+      setFormData(prev => ({ ...prev, uanNumber: cleaned }));
+      if (errors.uanNumber) setErrors(prev => ({ ...prev, uanNumber: "" }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
-    if (name === 'aadhar' && !isResubmit && !isRejoinLink) {
-      setAadharCheck(null);
-      setIsRejoin(false);
-      clearTimeout(aadharDebounceRef.current);
-      aadharDebounceRef.current = setTimeout(() => checkAadhar(value), 700);
-    }
   };
 
   // ── Rejoin toggle ─────────────────────────────────────────────────────────
@@ -255,6 +273,14 @@ const RegistrationForm = () => {
       if (!formData.aadhar.trim())                   newErrors.aadhar = "Aadhaar number is required";
       else if (formData.aadhar.replace(/\s/g, "").length !== 12) newErrors.aadhar = "Aadhaar must be 12 digits";
       if (!formData.nameOnAadhar.trim())             newErrors.nameOnAadhar = "Name on Aadhaar is required";
+
+      // ✅ UAN validation — optional but must be exactly 12 digits if provided
+      if (formData.uanNumber && formData.uanNumber.trim() !== "") {
+        const cleanUan = formData.uanNumber.replace(/\D/g, "");
+        if (cleanUan.length !== 12) {
+          newErrors.uanNumber = "UAN must be exactly 12 digits";
+        }
+      }
 
       if (!isResubmit && !isRejoinLink && aadharCheck?.exists && !isRejoin) {
         const s = aadharCheck.status;
@@ -310,14 +336,10 @@ const RegistrationForm = () => {
 
     if (step === 4) {
       const isTelecom = formData.department?.toLowerCase() === "telecom";
-
-      // ✅ Mandatory for ALL departments: Photo, Aadhaar Card, Resume, Bank Passbook
       if (!documents.idPhoto)      newErrors.idPhoto      = "Employee photo is required";
       if (!documents.aadharCard)   newErrors.aadharCard   = "Aadhaar card is required";
       if (!documents.resume)       newErrors.resume       = "Resume is required";
       if (!documents.bankPassbook) newErrors.bankPassbook = "Bank passbook / cancelled cheque is required";
-
-      // ✅ Extra mandatory ONLY for Telecom: Medical Certificate, Academic Records, FARM-ToCli
       if (isTelecom) {
         if (!documents.medicalCertificate) newErrors.medicalCertificate = "Medical certificate is required for Telecom employees";
         if (!documents.academicRecords)    newErrors.academicRecords    = "Academic records are required for Telecom employees";
@@ -347,6 +369,7 @@ const RegistrationForm = () => {
     if (!validateStep(4)) return;
     setIsSubmitting(true);
     try {
+      // ✅ uanNumber is included in formData and will be sent via employeeService.submitRegistration
       const payload = { ...formData };
       if (isResubmit)    { payload.resubmitToken = token; }
       else if (isRejoin) { payload.linkId = linkId; payload.isRejoin = true; }
@@ -360,6 +383,7 @@ const RegistrationForm = () => {
         dob: formData.dob, gender: formData.gender, maritalStatus: formData.maritalStatus,
         educationalQualification: formData.educationalQualification, bloodGroup: formData.bloodGroup,
         panNumber: formData.panNumber, aadhar: formData.aadhar,
+        uanNumber: formData.uanNumber || "",   // ✅ include in email payload
         permanentAddress: formData.permanentAddress,
         localAddress: formData.localSameAsPermanent ? formData.permanentAddress : formData.localAddress,
         emergencyContactName: formData.emergencyContactName, emergencyContactNo: formData.emergencyContactNo,
@@ -578,6 +602,8 @@ const RegistrationForm = () => {
                           ["Designation", formData.position    || "—"],
                           ["Email",       formData.email       || "—"],
                           ["Phone",       formData.phone       || "—"],
+                          // ✅ Show UAN in the pre-filled summary if it exists
+                          ...(formData.uanNumber ? [["UAN", formData.uanNumber]] : []),
                         ].map(([label, val]) => (
                           <div key={label} className="bg-white rounded-lg px-3 py-2 border border-indigo-100">
                             <p className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
@@ -765,8 +791,6 @@ const RegistrationForm = () => {
           {currentStep === 3 && (
             <BankDetailsinfo formData={formData} errors={errors} onChange={handleInputChange} />
           )}
-
-          {/* ✅ Pass department so DocumentUploadStep knows to show/require Telecom docs */}
           {currentStep === 4 && (
             <Documents
               formData={documents}

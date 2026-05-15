@@ -43,7 +43,7 @@ const VALIDITY_OPTIONS = [
 const LOGO_SRC = "/assets/Insta-logo1.png";
 const SIGNATURE_SRC = "/assets/sign1.jpg";
 const CW = 260;
-const CH = 410;
+const CH = 430; // increased from 410 to accommodate extra row
 
 const uploadPhotoToDb = async (employeeDbId, file) => {
   const formData = new FormData();
@@ -57,7 +57,7 @@ const uploadPhotoToDb = async (employeeDbId, file) => {
   return data;
 };
 
-// ── Photo Crop Editor (unchanged) ─────────────────────────────────────────────
+// ── Photo Crop Editor ─────────────────────────────────────────────────────────
 const PhotoCropEditor = ({ src, onDone, onCancel }) => {
   const canvasRef  = useRef(null);
   const overlayRef = useRef(null);
@@ -73,13 +73,11 @@ const PhotoCropEditor = ({ src, onDone, onCancel }) => {
   const cropStart     = useRef({ x: 0, y: 0 });
   const cropBoxStart  = useRef(null);
   const MIN_CROP = 30;
-  // High-res output: 4× the card's physical photo slot (90×108) for crisp rendering
   const OUTPUT_W      = 360;
   const OUTPUT_H      = 432;
-  // Display canvas is smaller for UI ergonomics; we scale DOWN for display only
   const DISPLAY_W     = 225;
   const DISPLAY_H     = 270;
-  const DISPLAY_SCALE = OUTPUT_W / DISPLAY_W; // 1.6 — used when exporting from move mode
+  const DISPLAY_SCALE = OUTPUT_W / DISPLAY_W;
   const DW = DISPLAY_W;
   const DH = DISPLAY_H;
   const initCropBox = useCallback(() => ({ x: 0, y: 0, w: DW, h: DH }), [DW, DH]);
@@ -236,7 +234,6 @@ const PhotoCropEditor = ({ src, onDone, onCancel }) => {
     const upscale = OUTPUT_W / DW;
 
     if (mode === "crop") {
-      // Render full pan/zoom into high-res intermediate, then crop from it
       const intermediate = document.createElement("canvas");
       intermediate.width  = OUTPUT_W;
       intermediate.height = OUTPUT_H;
@@ -255,7 +252,6 @@ const PhotoCropEditor = ({ src, onDone, onCancel }) => {
         0, 0, OUTPUT_W, OUTPUT_H
       );
     } else {
-      // Move/zoom: draw original image directly at full output resolution
       const baseScale = Math.max(DW / img.naturalWidth, DH / img.naturalHeight);
       const scale = baseScale * zoom * upscale;
       const sw = img.naturalWidth  * scale;
@@ -348,14 +344,14 @@ const PhotoUploadOverlay = ({ onUpload, onEdit, uploading, hasPhoto }) => (
   </div>
 );
 
-// ── Photo box (unchanged) ─────────────────────────────────────────────────────
+// ── Photo box ─────────────────────────────────────────────────────────────────
 const PhotoBox = ({ photoUrl, manualPhoto, firstName, onUpload, uploading, onEditClick }) => {
   const displayPhoto = manualPhoto || photoUrl;
   return (
     <div className="photo-box" style={{ width: 90, height: 108, border: "2px solid #aaa", borderRadius: 2, overflow: "hidden", background: "#f5f5f5", position: "relative" }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } } .photo-box:hover .photo-upload-overlay { opacity: 1; }`}</style>
       {displayPhoto ? (
-      <img src={displayPhoto} style={{ width: "100%", height: "100%", objectFit: "cover", imageRendering: "auto", display: "block" }} alt="Employee" />
+        <img src={displayPhoto} style={{ width: "100%", height: "100%", objectFit: "cover", imageRendering: "auto", display: "block" }} alt="Employee" />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 4 }}>
           <span style={{ fontSize: 28, fontWeight: "bold", color: "#bbb" }}>{(firstName?.[0] || "?").toUpperCase()}</span>
@@ -367,65 +363,67 @@ const PhotoBox = ({ photoUrl, manualPhoto, firstName, onUpload, uploading, onEdi
   );
 };
 
-// ── FRONT CARD (unchanged) ────────────────────────────────────────────────────
+// ── FRONT CARD ────────────────────────────────────────────────────────────────
 const CardFront = ({ employee, manualPhoto, onUpload, uploading, onEditClick, validityDate }) => {
-  const firstName  = employee.first_name  || employee.firstName  || "";
-  const fatherName = employee.father_husband_name || employee.fatherHusbandName || "";
-  const middleName = employee.middle_name || employee.middleName || "";
-  const lastName   = employee.last_name   || employee.lastName   || "";
-  const fullName    = [firstName, fatherName || middleName, lastName].filter(Boolean).join(" ").toUpperCase();
-  const empId       = employee.employee_id || employee.id       || "—";
-  const designation = employee.designation || employee.position || "—";
-  const photoUrl    = getPhotoUrl(employee);
-  const validTill   = formatDate(validityDate);
-
+  const firstName       = employee.first_name  || employee.firstName  || "";
+  const fatherName      = employee.father_husband_name || employee.fatherHusbandName || "";
+  const middleName      = employee.middle_name || employee.middleName || "";
+  const lastName        = employee.last_name   || employee.lastName   || "";
+  const fullName        = [firstName, fatherName || middleName, lastName].filter(Boolean).join(" ").toUpperCase();
+  const empId           = employee.employee_id || employee.id       || "—";
+  const designation     = employee.designation || employee.position || "—";
+  // ── Pull emergency contact from DB ──────────────────────────────────────────
+  const emergencyContact = employee.emergency_contact_no || "—";
+  const photoUrl        = getPhotoUrl(employee);
+  const validTill       = formatDate(validityDate);
 
   return (
     <div style={{ width: CW, height: CH, background: "#fff", borderRadius: 0, border: "1px solid #ddd", position: "relative", overflow: "hidden", fontFamily: "'Calibri', 'Segoe UI', Arial", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
       <svg style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }} width="230" height="170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
       <svg style={{ position: "absolute", bottom: 0, right: 0, zIndex: 1 }} width="230" height="170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
+
+      {/* Logo */}
       <div style={{ position: "absolute", top: 30, right: 45, display: "flex", justifyContent: "flex-end", zIndex: 2 }}>
         <img src={LOGO_SRC} style={{ height: 100, objectFit: "contain", maxWidth: "99%" }} alt="Insta ICT Solutions" />
       </div>
+
+      {/* Photo — top: 148, height: 108, bottom edge = 256 */}
       <div style={{ position: "absolute", top: 148, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
         <PhotoBox photoUrl={photoUrl} manualPhoto={manualPhoto} firstName={firstName} onUpload={onUpload} uploading={uploading} onEditClick={onEditClick} />
       </div>
-      <div style={{ position: "absolute", top: 260, left: "50%", transform: "translateX(-50%)", fontWeight: 700, fontSize: 15, letterSpacing: 0.2, lineHeight: 1.2, color: "#111", zIndex: 2, textAlign: "center", whiteSpace: "nowrap" }}>
+
+      {/* Employee Name — increased gap from photo (275 vs old 260) */}
+      <div style={{ position: "absolute", top: 275, left: "50%", transform: "translateX(-50%)", fontWeight: 700, fontSize: 15, letterSpacing: 0.2, lineHeight: 1.2, color: "#111", zIndex: 2, textAlign: "center", whiteSpace: "nowrap" }}>
         {fullName || "EMPLOYEE NAME"}
       </div>
-      <div style={{ position: "absolute", top: 285, left: "50%", transform: "translateX(-50%)", fontSize: 15, color: "#111", zIndex: 2, fontFamily: "'Calibri', 'Segoe UI', Arial", lineHeight: 1.2, whiteSpace: "nowrap" }}>
-        <div style={{ display: "flex", gap: 0 }}><span style={{ width: 78 }}>Employee ID</span><span style={{ width: 14, textAlign: "center" }}>:</span><span>{empId}</span></div>
-        <div style={{ display: "flex", gap: 0 }}><span style={{ width: 78 }}>Designation</span><span style={{ width: 14, textAlign: "center" }}>:</span><span>{designation}</span></div>
-        <div style={{ display: "flex", gap: 0 }}><span style={{ width: 78 }}>Valid Till</span><span style={{ width: 14, textAlign: "center" }}>:</span><span>{validTill}</span></div>
-      <div
-  style={{
-    marginTop: 6,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-  }}
->
+
+      {/* Details block — reduced gap from name (292 vs old 285) */}
+      <div style={{ position: "absolute", top: 292, left: "50%", transform: "translateX(-50%)", fontSize: 13, color: "#111", zIndex: 2, fontFamily: "'Calibri', 'Segoe UI', Arial", lineHeight: 1.35, whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", gap: 0 }}>
+          <span style={{ width: 78 }}>Employee ID</span>
+          <span style={{ width: 14, textAlign: "center" }}>:</span>
+          <span>{empId}</span>
+        </div>
+        <div style={{ display: "flex", gap: 0 }}>
+          <span style={{ width: 78 }}>Designation</span>
+          <span style={{ width: 14, textAlign: "center" }}>:</span>
+          <span>{designation}</span>
+        </div>
+        <div style={{ display: "flex", gap: 0 }}>
+          <span style={{ width: 78 }}>Valid Till</span>
+          <span style={{ width: 14, textAlign: "center" }}>:</span>
+          <span>{validTill}</span>
+        </div>
+      
+
+        {/* Signature */}
+     <div style={{ marginTop: 14, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
   <img
     src={SIGNATURE_SRC}
     alt="Signature"
-    style={{
-      width: 90,
-      height: 32,
-      objectFit: "contain",
-      display: "block",
-      marginBottom: 1,
-    }}
+  style={{ width: 130, height: 50, objectFit: "contain", display: "block", marginBottom: -12 }}
   />
-
-  <div
-    style={{
-      fontSize: 13,
-      color: "#111",
-      fontFamily: "'Calibri', 'Segoe UI', Arial",
-      lineHeight: 1.2,
-      fontWeight: 500,
-    }}
-  >
+  <div style={{ fontSize: 13, color: "#111", fontFamily: "'Calibri', 'Segoe UI', Arial", lineHeight: 1.2, fontWeight: 500 }}>
     Authorised Sign
   </div>
 </div>
@@ -435,177 +433,34 @@ const CardFront = ({ employee, manualPhoto, onUpload, uploading, onEditClick, va
 };
 
 // ── BACK CARD ─────────────────────────────────────────────────────────────────
-// ── BACK CARD ─────────────────────────────────────────────────────────────────
-const CardBack = () => (
-  <div
-    style={{
-      width: CW,
-      height: CH,
-      background: "#ffffff",
-      borderRadius: 0,
-      border: "1px solid #ddd",
-      position: "relative",
-      overflow: "hidden",
-      fontFamily: "'Calibri', 'Segoe UI', Arial, sans-serif",
-      boxShadow: "0 10px 40px rgba(0,0,0,0.22)",
-    }}
-  >
-    {/* Top Yellow Shape */}
-    <svg
-      style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}
-      width="230"
-      height="170"
-      viewBox="0 0 230 170"
-    >
-      <path
-        d="M0 0 L230 0 A190 190 0 0 0 0 170 Z"
-        fill="#F5C100"
-      />
+const CardBack = ({ emergencyContact }) => (
+  <div style={{ width: CW, height: CH, background: "#ffffff", borderRadius: 0, border: "1px solid #ddd", position: "relative", overflow: "hidden", fontFamily: "'Calibri', 'Segoe UI', Arial, sans-serif", boxShadow: "0 10px 40px rgba(0,0,0,0.22)" }}>
+    <svg style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }} width="230" height="170" viewBox="0 0 230 170">
+      <path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100" />
     </svg>
-
-    {/* Bottom Blue Shape */}
-    <svg
-      style={{ position: "absolute", bottom: 0, right: 0, zIndex: 1 }}
-      width="230"
-      height="170"
-      viewBox="0 0 230 170"
-    >
-      <path
-        d="M230 170 L0 170 A190 190 0 0 0 230 0 Z"
-        fill="#1565C0"
-      />
+    <svg style={{ position: "absolute", bottom: 0, right: 0, zIndex: 1 }} width="230" height="170" viewBox="0 0 230 170">
+      <path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0" />
     </svg>
-
-    {/* Logo */}
-    <div
-      style={{
-        position: "absolute",
-        top: 30,
-        right: 45,
-        display: "flex",
-        justifyContent: "flex-end",
-        zIndex: 2,
-      }}
-    >
-      <img
-        src={LOGO_SRC}
-        style={{
-          height: 100,
-          objectFit: "contain",
-          maxWidth: "99%",
-        }}
-        alt="Insta ICT Solutions"
-      />
+    <div style={{ position: "absolute", top: 30, right: 45, display: "flex", justifyContent: "flex-end", zIndex: 2 }}>
+      <img src={LOGO_SRC} style={{ height: 100, objectFit: "contain", maxWidth: "99%" }} alt="Insta ICT Solutions" />
     </div>
-
-    {/* Content */}
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        zIndex: 2,
-        padding: "0 18px",
-        paddingTop: 70,
-      }}
-    >
-      <div
-        style={{
-          fontWeight: 700,
-          fontSize: 16,
-          color: "#111",
-          marginBottom: 2,
-        }}
-      >
-        Insta ICT Solutions Pvt. Ltd.
+  <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", zIndex: 2, padding: "0 18px", paddingTop: 100 }}>
+      <div style={{ fontWeight: 700, fontSize: 16, color: "#111", marginBottom: 2 }}>Insta ICT Solutions Pvt. Ltd.</div>
+      <div style={{ fontSize: 13, color: "#333", lineHeight: 1.3 }}>201 &amp; 202, Imperial Plaza,</div>
+      <div style={{ fontSize: 13, color: "#333", lineHeight: 1.3, marginBottom: 4 }}>Jijai Nagar, Kothrud, Pune 411 038</div>
+      <div style={{ fontSize: 13, color: "#1565C0", textDecoration: "underline", marginBottom: 2, lineHeight: 1.1 }}>www.instagrp.com</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 12, color: "#111", fontWeight: 600, marginBottom: 6, lineHeight: 1.1, flexWrap: "wrap", textAlign: "center" }}>
+        <span>Emergency Contact No :</span>
+<span style={{ color: "#333", fontWeight: 500 }}>{emergencyContact}</span>
       </div>
-
-      <div
-        style={{
-          fontSize: 13,
-          color: "#333",
-          lineHeight: 1.3,
-        }}
-      >
-        201 &amp; 202, Imperial Plaza,
+      <div style={{ fontSize: 10.5, color: "#333", lineHeight: 1.25, textAlign: "center", maxWidth: 210, fontWeight: 500 }}>
+        Property of Insta ICT Solutions.<br />If found, please return to the Admin Team.
       </div>
-
-      <div
-        style={{
-          fontSize: 13,
-          color: "#333",
-          lineHeight: 1.3,
-          marginBottom: 4,
-        }}
-      >
-        Jijai Nagar, Kothrud, Pune 411 038
-      </div>
-
-     {/* Website */}
-<div
-  style={{
-    fontSize: 13,
-    color: "#1565C0",
-    textDecoration: "underline",
-    marginBottom: 2,
-    lineHeight: 1.1,
-  }}
->
-  www.instagrp.com
-</div>
-
-{/* Emergency Contact */}
-<div
-  style={{
-    fontSize: 12,
-    color: "#111",
-    fontWeight: 600,
-    marginBottom: 1,
-    lineHeight: 1.1,
-  }}
->
-  Emergency Contact No
-</div>
-
-{/* Contact Number */}
-<div
-  style={{
-    fontSize: 12,
-    color: "#333",
-    marginBottom: 6,
-    lineHeight: 1.1,
-  }}
->
-  +91 9876543210
-</div>
-
-{/* Property Clause */}
-<div
-  style={{
-    fontSize: 10.5,
-    color: "#333",
-    lineHeight: 1.25,
-    textAlign: "center",
-    maxWidth: 210,
-    fontWeight: 500,
-  }}
->
-  Property of Insta ICT Solutions.
-  <br />
-  If found, please return to the Admin Team.
-</div>
     </div>
   </div>
 );
 
-// ── MODAL — Professional Redesign ─────────────────────────────────────────────
+// ── MODAL ─────────────────────────────────────────────────────────────────────
 const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
   const [flipped, setFlipped]               = useState(false);
   const [manualPhoto, setManualPhoto]       = useState(null);
@@ -618,14 +473,15 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
   const [customDate, setCustomDate]         = useState("");
   const fileInputRef = useRef(null);
 
-  const employeeDbId = employee.id || employee.employee_id;
-  const firstName    = employee.first_name  || employee.firstName  || "";
-  const lastName     = employee.last_name   || employee.lastName   || "";
-  const fullName     = [firstName, lastName].filter(Boolean).join(" ");
-  const empId        = employee.employee_id || employee.id || "—";
-  const designation  = employee.designation || employee.position || "—";
-  const dbPhotoUrl   = getPhotoUrl(employee);
-  const hasPhoto     = !!(manualPhoto || dbPhotoUrl);
+  const employeeDbId     = employee.id || employee.employee_id;
+  const firstName        = employee.first_name  || employee.firstName  || "";
+  const lastName         = employee.last_name   || employee.lastName   || "";
+  const fullName         = [firstName, lastName].filter(Boolean).join(" ");
+  const empId            = employee.employee_id || employee.id || "—";
+  const designation      = employee.designation || employee.position || "—";
+  const emergencyContact = employee.emergency_contact_no || "—";
+  const dbPhotoUrl       = getPhotoUrl(employee);
+  const hasPhoto         = !!(manualPhoto || dbPhotoUrl);
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
@@ -669,17 +525,75 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
   };
 
   const handlePrint = () => {
-    const fatherName = employee.father_husband_name || employee.fatherHusbandName || "";
-    const middleName = employee.middle_name || employee.middleName || "";
+    const fatherName    = employee.father_husband_name || employee.fatherHusbandName || "";
+    const middleName    = employee.middle_name || employee.middleName || "";
     const fullPrintName = [firstName, fatherName || middleName, lastName].filter(Boolean).join(" ").toUpperCase();
-    const photoSrc   = manualPhoto || dbPhotoUrl;
-    const validTill  = formatDate(validityDate);
-    const logoUrl    = window.location.origin + (LOGO_SRC.startsWith("/") ? LOGO_SRC : "/" + LOGO_SRC);
-    const photoHtml  = photoSrc
+    const photoSrc      = manualPhoto || dbPhotoUrl;
+    const validTill     = formatDate(validityDate);
+    const logoUrl       = window.location.origin + (LOGO_SRC.startsWith("/") ? LOGO_SRC : "/" + LOGO_SRC);
+    const signUrl       = window.location.origin + (SIGNATURE_SRC.startsWith("/") ? SIGNATURE_SRC : "/" + SIGNATURE_SRC);
+    const photoHtml     = photoSrc
       ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover"/>`
       : `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;"><span style="font-size:28px;font-weight:bold;color:#bbb">${(firstName[0] || "?").toUpperCase()}</span></div>`;
-    const pw = window.open("", "_blank", "width=720,height=620");
-    pw.document.write(`<!DOCTYPE html><html><head><title>ID Card – ${fullPrintName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:center;align-items:flex-start;font-family:'Calibri','Segoe UI',Arial,sans-serif;flex-wrap:wrap}.card{width:260px;height:410px;background:#fff;border-radius:0;border:1px solid #ddd;position:relative;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.2);page-break-inside:avoid;flex-shrink:0}@media print{body{background:#fff;padding:10px;gap:20px}.card{box-shadow:none}}</style></head><body><div class="card"><svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg><svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg><div style="position:absolute;top:30px;right:45px;display:flex;justify-content:flex-end;z-index:2"><img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/></div><div style="position:absolute;top:148px;left:50%;transform:translateX(-50%);z-index:2;width:90px;height:108px;border:2px solid #aaa;border-radius:2px;overflow:hidden;background:#f5f5f5">${photoHtml}</div><div style="position:absolute;top:260px;left:50%;transform:translateX(-50%);font-weight:700;font-size:15px;letter-spacing:0.2px;line-height:1.2;color:#111;z-index:2;text-align:center;white-space:nowrap">${fullPrintName || "EMPLOYEE NAME"}</div><div style="position:absolute;top:285px;left:50%;transform:translateX(-50%);font-size:15px;color:#111;z-index:2;font-family:'Calibri','Segoe UI',Arial;line-height:1.2;white-space:nowrap"><div style="display:flex;gap:0"><span style="width:78px">Employee ID</span><span style="width:14px;text-align:center">:</span><span>${empId}</span></div><div style="display:flex;gap:0"><span style="width:78px">Designation</span><span style="width:14px;text-align:center">:</span><span>${designation}</span></div><div style="display:flex;gap:0"><span style="width:78px">Valid Till</span><span style="width:14px;text-align:center">:</span><span>${validTill}</span></div><div style="margin-top:6px"><div style="font-family:'Brush Script MT','Segoe Script',cursive;font-size:18px;color:#1a237e;line-height:1.1;margin-bottom:1px">Akshay Shelke</div><div style="font-size:10px;color:#333">Authorised Sign</div></div></div></div><div class="card"><svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg><svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg><div style="position:absolute;top:30px;right:45px;display:flex;justify-content:flex-end;z-index:2"><img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/></div><div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2;padding:0 20px"><div style="font-weight:700;font-size:16px;color:#111;margin-bottom:1px">Insta ICT Solutions Pvt. Ltd.</div><div style="font-size:14px;color:#333;line-height:1.25">201 &amp; 202, Imperial Plaza,</div><div style="font-size:14px;color:#333;line-height:1.25;margin-bottom:1px">Jijai Nagar, Kothrud, Pune 411 038</div><div style="font-size:14px;color:#1565C0;text-decoration:underline">www.instagrp.com</div></div></div><script>setTimeout(()=>window.print(),400)</script></body></html>`);
+
+    const pw = window.open("", "_blank", "width=720,height=660");
+    pw.document.write(`<!DOCTYPE html><html><head><title>ID Card – ${fullPrintName}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:center;align-items:flex-start;font-family:'Calibri','Segoe UI',Arial,sans-serif;flex-wrap:wrap}
+.card{width:260px;height:430px;background:#fff;border-radius:0;border:1px solid #ddd;position:relative;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.2);page-break-inside:avoid;flex-shrink:0}
+@media print{body{background:#fff;padding:10px;gap:20px}.card{box-shadow:none}}
+</style>
+</head><body>
+
+<!-- FRONT CARD -->
+<div class="card">
+  <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
+  <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
+  <div style="position:absolute;top:30px;right:45px;display:flex;justify-content:flex-end;z-index:2">
+    <img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
+  </div>
+  <div style="position:absolute;top:148px;left:50%;transform:translateX(-50%);z-index:2;width:90px;height:108px;border:2px solid #aaa;border-radius:2px;overflow:hidden;background:#f5f5f5">
+    ${photoHtml}
+  </div>
+  <div style="position:absolute;top:275px;left:50%;transform:translateX(-50%);font-weight:700;font-size:15px;letter-spacing:0.2px;line-height:1.2;color:#111;z-index:2;text-align:center;white-space:nowrap">
+    ${fullPrintName || "EMPLOYEE NAME"}
+  </div>
+  <div style="position:absolute;top:292px;left:50%;transform:translateX(-50%);font-size:13px;color:#111;z-index:2;font-family:'Calibri','Segoe UI',Arial;line-height:1.35;white-space:nowrap">
+    <div style="display:flex;gap:0"><span style="width:78px">Employee ID</span><span style="width:14px;text-align:center">:</span><span>${empId}</span></div>
+    <div style="display:flex;gap:0"><span style="width:78px">Designation</span><span style="width:14px;text-align:center">:</span><span>${designation}</span></div>
+    <div style="display:flex;gap:0"><span style="width:78px">Valid Till</span><span style="width:14px;text-align:center">:</span><span>${validTill}</span></div>
+  
+   <div style="margin-top:14px">
+ <img src="${signUrl}" alt="Signature" style="width:130px;height:50px;object-fit:contain;display:block;margin-bottom:-12px" onerror="this.style.display='none'"/>
+<div style="font-size:13px;color:#111;line-height:1.2;font-weight:500">Authorised Sign</div>
+    </div>
+  </div>
+</div>
+
+<!-- BACK CARD -->
+<div class="card">
+  <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
+  <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
+  <div style="position:absolute;top:30px;right:45px;display:flex;justify-content:flex-end;z-index:2">
+    <img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
+  </div>
+ <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2;padding:0 20px;padding-top:100px">
+    <div style="font-weight:700;font-size:16px;color:#111;margin-bottom:1px">Insta ICT Solutions Pvt. Ltd.</div>
+    <div style="font-size:14px;color:#333;line-height:1.25">201 &amp; 202, Imperial Plaza,</div>
+    <div style="font-size:14px;color:#333;line-height:1.25;margin-bottom:1px">Jijai Nagar, Kothrud, Pune 411 038</div>
+    <div style="font-size:14px;color:#1565C0;text-decoration:underline;margin-bottom:4px">www.instagrp.com</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:#111;font-weight:600;margin-bottom:6px;flex-wrap:wrap;text-align:center">
+      <span>Emergency Contact No :</span><span style="color:#333;font-weight:500">${emergencyContact}</span>
+    </div>
+    <div style="font-size:10.5px;color:#333;line-height:1.25;text-align:center;max-width:210px;font-weight:500">
+      Property of Insta ICT Solutions.<br/>If found, please return to the Admin Team.
+    </div>
+  </div>
+</div>
+
+<script>setTimeout(()=>window.print(),400)</script>
+</body></html>`);
     pw.document.close();
   };
 
@@ -711,7 +625,6 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
       flexDirection: "column",
       boxShadow: "0 32px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.06)",
     },
-    // Top header band
     header: {
       background: "linear-gradient(135deg, #0d47a1 0%, #1565C0 50%, #1976D2 100%)",
       borderRadius: "20px 20px 0 0",
@@ -726,7 +639,6 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
       gap: 0,
       flex: 1,
     },
-    // Left panel: card preview
     leftPanel: {
       width: CW + 40,
       minWidth: CW + 40,
@@ -738,7 +650,6 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
       padding: "28px 20px 20px",
       gap: 16,
     },
-    // Right panel: controls
     rightPanel: {
       flex: 1,
       padding: "24px 24px 20px",
@@ -798,139 +709,78 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
           {/* ── Header ── */}
           <div style={styles.header}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              {/* Avatar circle */}
-              <div style={{
-                width: 42, height: 42, borderRadius: "50%",
-                background: "rgba(255,255,255,0.18)",
-                border: "2px solid rgba(255,255,255,0.35)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16, fontWeight: 700, color: "#fff",
-                flexShrink: 0,
-              }}>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "2px solid rgba(255,255,255,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
                 {(firstName[0] || "?").toUpperCase()}
               </div>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>
-                  Employee ID Card
-                </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
-                  {fullName || "—"} &nbsp;·&nbsp; {empId}
-                </div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>Employee ID Card</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>{fullName || "—"} &nbsp;·&nbsp; {empId}</div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {/* Designation badge */}
               {designation !== "—" && (
-                <div style={{
-                  background: "rgba(255,255,255,0.15)",
-                  border: "1px solid rgba(255,255,255,0.25)",
-                  borderRadius: 8, padding: "4px 10px",
-                  fontSize: 11, fontWeight: 600, color: "#fff",
-                }}>
+                <div style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 600, color: "#fff" }}>
                   {designation}
                 </div>
               )}
-              <button onClick={onClose} style={{
-                background: "rgba(255,255,255,0.15)", border: "none",
-                borderRadius: 10, width: 34, height: 34, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#fff",
-              }}>
+              <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 10, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
                 <X size={15} />
               </button>
             </div>
           </div>
 
-          {/* ── Body: left + right ── */}
+          {/* ── Body ── */}
           <div style={styles.body}>
 
-            {/* ── LEFT: card preview ── */}
+            {/* LEFT: card preview */}
             <div style={styles.leftPanel}>
-              {/* Side label */}
+              {/* Front/Back toggle */}
               <div style={{ display: "flex", gap: 0, background: "#e2e8f0", borderRadius: 30, padding: 3, width: "100%" }}>
                 {[["Front", false], ["Back", true]].map(([label, side]) => (
-                  <button key={label} onClick={() => setFlipped(side)} style={{
-                    flex: 1, padding: "5px 0", borderRadius: 24,
-                    border: "none", cursor: "pointer",
-                    background: flipped === side ? "#1565C0" : "transparent",
-                    color: flipped === side ? "#fff" : "#64748b",
-                    fontSize: 12, fontWeight: 600, transition: "all .2s",
-                  }}>{label}</button>
+                  <button key={label} onClick={() => setFlipped(side)} style={{ flex: 1, padding: "5px 0", borderRadius: 24, border: "none", cursor: "pointer", background: flipped === side ? "#1565C0" : "transparent", color: flipped === side ? "#fff" : "#64748b", fontSize: 12, fontWeight: 600, transition: "all .2s" }}>
+                    {label}
+                  </button>
                 ))}
               </div>
 
               {/* 3D flip card */}
               <div style={{ perspective: 1200, width: CW, height: CH }}>
-                <div style={{
-                  width: CW, height: CH, position: "relative",
-                  transformStyle: "preserve-3d",
-                  transition: "transform 0.6s cubic-bezier(.4,0,.2,1)",
-                  transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                }}>
+                <div style={{ width: CW, height: CH, position: "relative", transformStyle: "preserve-3d", transition: "transform 0.6s cubic-bezier(.4,0,.2,1)", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
                   <div style={{ position: "absolute", width: "100%", height: "100%", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
                     <CardFront employee={employee} manualPhoto={manualPhoto} onUpload={handlePhotoUpload} uploading={uploadState === "uploading"} onEditClick={handleEditExisting} validityDate={validityDate} />
                   </div>
                   <div style={{ position: "absolute", width: "100%", height: "100%", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-                    <CardBack />
+                    <CardBack emergencyContact={emergencyContact} />
                   </div>
                 </div>
               </div>
 
-              {/* Flip hint */}
               <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
                 Click Front / Back to preview both sides
               </div>
             </div>
 
-            {/* ── RIGHT: controls ── */}
+            {/* RIGHT: controls */}
             <div style={styles.rightPanel}>
 
               {/* Photo section */}
               <div>
                 <div style={styles.sectionLabel}>Photo</div>
-                {/* Status row */}
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  background: statusConfig.bg,
-                  border: `1px solid ${statusConfig.border}`,
-                  borderRadius: 10, padding: "9px 12px",
-                  marginBottom: 12,
-                }}>
-                  <div style={{
-                    width: 22, height: 22, borderRadius: "50%",
-                    background: statusConfig.color,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, fontWeight: 800, color: "#fff", flexShrink: 0,
-                  }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, background: statusConfig.bg, border: `1px solid ${statusConfig.border}`, borderRadius: 10, padding: "9px 12px", marginBottom: 12 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: statusConfig.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
                     {statusConfig.icon}
                   </div>
                   <span style={{ fontSize: 12, color: statusConfig.color, fontWeight: 500, flex: 1 }}>
                     {statusConfig.label}
                   </span>
                 </div>
-
-                {/* Upload / Edit buttons */}
                 <div style={{ display: "flex", gap: 8 }}>
                   {hasPhoto && (
-                    <button onClick={handleEditExisting} style={{
-                      flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                      padding: "9px 12px", borderRadius: 10,
-                      background: "#fff", border: "1.5px solid #1565C0",
-                      color: "#1565C0", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                    }}>
+                    <button onClick={handleEditExisting} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 12px", borderRadius: 10, background: "#fff", border: "1.5px solid #1565C0", color: "#1565C0", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                       <Move size={13} /> Edit Photo
                     </button>
                   )}
-                  <label style={{
-                    flex: hasPhoto ? 1 : 2,
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "9px 12px", borderRadius: 10,
-                    background: uploadState === "uploading" ? "#93c5fd" : "#1565C0",
-                    border: "none", color: "#fff", fontSize: 12, fontWeight: 600,
-                    cursor: uploadState === "uploading" ? "wait" : "pointer",
-                    pointerEvents: uploadState === "uploading" ? "none" : "auto",
-                    transition: "background .2s",
-                  }}>
+                  <label style={{ flex: hasPhoto ? 1 : 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 12px", borderRadius: 10, background: uploadState === "uploading" ? "#93c5fd" : "#1565C0", border: "none", color: "#fff", fontSize: 12, fontWeight: 600, cursor: uploadState === "uploading" ? "wait" : "pointer", pointerEvents: uploadState === "uploading" ? "none" : "auto", transition: "background .2s" }}>
                     {uploadState === "uploading"
                       ? <><Loader size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving…</>
                       : <><Upload size={13} /> {hasPhoto ? "Replace Photo" : "Upload Photo"}</>
@@ -942,7 +792,6 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
                 </div>
               </div>
 
-              {/* Divider */}
               <div style={{ height: 1, background: "#f1f5f9" }} />
 
               {/* Validity section */}
@@ -955,55 +804,35 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
                     </button>
                   ))}
                 </div>
-
                 {selectedValidity === "Custom" && (
-                  <input type="date" value={customDate} min={toInputValue(new Date())} onChange={handleCustomDate} style={{
-                    width: "100%", padding: "8px 12px", borderRadius: 10,
-                    border: "1.5px solid #e2e8f0", fontSize: 13, color: "#334155",
-                    outline: "none", background: "#fff", boxSizing: "border-box",
-                    marginBottom: 8,
-                  }} />
+                  <input type="date" value={customDate} min={toInputValue(new Date())} onChange={handleCustomDate} style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, color: "#334155", outline: "none", background: "#fff", boxSizing: "border-box", marginBottom: 8 }} />
                 )}
-
-                {/* Expiry display */}
-                <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  background: "#f8fafc", borderRadius: 10, padding: "10px 14px",
-                  border: "1px solid #e2e8f0",
-                }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc", borderRadius: 10, padding: "10px 14px", border: "1px solid #e2e8f0" }}>
                   <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>Card expires on</span>
                   <span style={{ fontSize: 14, color: "#1565C0", fontWeight: 700 }}>{formatDate(validityDate)}</span>
                 </div>
               </div>
 
-              {/* Divider */}
               <div style={{ height: 1, background: "#f1f5f9" }} />
 
               {/* Employee details summary */}
               <div>
                 <div style={styles.sectionLabel}>Employee Details</div>
-                <div style={{
-                  background: "#f8fafc", borderRadius: 10,
-                  border: "1px solid #e2e8f0", overflow: "hidden",
-                }}>
+                <div style={{ background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0", overflow: "hidden" }}>
                   {[
-                    ["Full Name", fullName || "—"],
-                    ["Employee ID", empId],
-                    ["Designation", designation],
+                    ["Full Name",        fullName        || "—"],
+                    ["Employee ID",      empId],
+                    ["Designation",      designation],
+                    ["Emergency No",     emergencyContact],
                   ].map(([label, value], i) => (
-                    <div key={label} style={{
-                      display: "flex", alignItems: "center",
-                      padding: "9px 14px",
-                      borderTop: i === 0 ? "none" : "1px solid #e2e8f0",
-                    }}>
-                      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, width: 90, flexShrink: 0 }}>{label}</span>
+                    <div key={label} style={{ display: "flex", alignItems: "center", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid #e2e8f0" }}>
+                      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, width: 100, flexShrink: 0 }}>{label}</span>
                       <span style={{ fontSize: 13, color: "#1e293b", fontWeight: 500 }}>{value}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Spacer */}
               <div style={{ flex: 1 }} />
 
               {/* Action buttons */}

@@ -38,6 +38,7 @@ const getDocLabel = (doc) =>
 
 const isPdf = (rawPath) => rawPath?.toLowerCase().endsWith(".pdf");
 
+// ── Full name helper: First + Father/Husband + Last ───────────────────────────
 const buildFullName = (firstName = "", fatherHusbandName = "", lastName = "") =>
   [firstName, fatherHusbandName, lastName]
     .map((s) => String(s || "").trim())
@@ -49,13 +50,15 @@ const ViewEmployee = ({ employee, onClose }) => {
 
   const e = employee;
 
-  const firstName = e.first_name || e.firstName || "";
-  const lastName = e.last_name || e.lastName || "";
+  const firstName         = e.first_name         || e.firstName         || "";
+  const lastName          = e.last_name          || e.lastName          || "";
   const fatherHusbandName = e.father_husband_name || e.fatherHusbandName || "";
+
+  // Full name: First + Father/Husband + Last
   const fullName = buildFullName(firstName, fatherHusbandName, lastName);
 
   const fmtDate = (v) => {
-    if (!v) return "";
+    if (!v) return "—";
     const d = new Date(v);
     if (isNaN(d)) return v;
     return d.toLocaleDateString("en-IN", {
@@ -65,7 +68,7 @@ const ViewEmployee = ({ employee, onClose }) => {
     });
   };
 
-  const val = (v) => (v && String(v).trim() !== "" ? String(v).trim() : "");
+  const val = (v) => (v && String(v).trim() !== "" ? v : "—");
 
   const fmtCurrency = (v) => {
     const n = parseFloat(v) || 0;
@@ -115,6 +118,7 @@ const ViewEmployee = ({ employee, onClose }) => {
     dot: "#94a3b8",
   };
 
+  /* ─── employee photo ─────────────────────────────────────────────────── */
   const BASE_URL =
     (typeof import.meta !== "undefined" &&
       import.meta.env?.VITE_API_URL?.replace("/api", "")) ||
@@ -131,17 +135,19 @@ const ViewEmployee = ({ employee, onClose }) => {
       )
     : null;
   const photoPath = photoDoc?.path || photoDoc?.file_path || null;
-  const photoUrl = resolveUrl(photoPath);
-  const initials =
+  const photoUrl  = resolveUrl(photoPath);
+  const initials  =
     `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "NA";
 
-  const basic = parseFloat(e.basic_salary) || 0;
-  const hra = parseFloat(e.hra) || 0;
-  const otherAllow = parseFloat(e.other_allowances) || 0;
+  /* ─── Salary numbers ─────────────────────────────────────────────────── */
+  const basic      = parseFloat(e.basic_salary)      || 0;
+  const hra        = parseFloat(e.hra)               || 0;
+  const otherAllow = parseFloat(e.other_allowances)  || 0;
   const totalSalary = basic + hra + otherAllow;
 
-  const allDocs = Array.isArray(e.documents) ? e.documents : [];
-  const seenPaths = new Set();
+  /* ─── Uploaded documents (deduped) ──────────────────────────────────── */
+  const allDocs    = Array.isArray(e.documents) ? e.documents : [];
+  const seenPaths  = new Set();
   const renderableDocs = allDocs.filter((doc) => {
     const rawPath = doc.path || doc.file_path || null;
     if (!rawPath) return false;
@@ -150,356 +156,127 @@ const ViewEmployee = ({ employee, onClose }) => {
     return true;
   });
 
-  /* ─── Shared style tokens ─────────────────────────────────────── */
-  const FONT = "'Calibri', 'Segoe UI', Arial, sans-serif";
-  const BORDER = "1px solid #000";
+  /* ─── KYE table helpers ───────────────────────────────────────────────── */
+  const tdLabel = {
+    width: "42%",
+    fontWeight: 400,
+    verticalAlign: "top",
+    padding: "5px 8px",
+    fontSize: "9.5pt",
+    border: "1px solid #000",
+    background: "#fff",
+  };
+  const tdValue = {
+    verticalAlign: "top",
+    padding: "5px 8px",
+    fontSize: "9.5pt",
+    border: "1px solid #000",
+  };
+  const tdCheck = {
+    width: "16%",
+    textAlign: "center",
+    border: "1px solid #000",
+    padding: "4px 2px",
+  };
 
-  /*
-   * Layout: use a real HTML <table> with 4 columns so that row heights
-   * are IDENTICAL between the data side and the verification side.
-   *
-   *  col 0  : label       (~33% of page width)
-   *  col 1  : value       (~40% of page width)
-   *  col 2  : Verified    (~13.5% — equal halves of the ver box)
-   *  col 3  : Doc name    (~13.5%)
-   *
-   * A thin transparent spacer column sits between col1 and col2 to
-   * create the visible gap between the two "tables".
-   */
-
-  /* ─── Verification header (shown once per section above the rows) ─ */
-  const VerHeader = () => (
-    <>
-      {/* spacer col header */}
-      <th
-        style={{
-          width: "3%",
-          border: "none",
-          background: "transparent",
-          padding: 0,
-        }}
-      />
-      {/* ver box header spans 2 cols */}
-      <th
-        colSpan={2}
-        style={{
-          border: BORDER,
-          textAlign: "center",
-          padding: 0,
-          background: "#fff",
-          verticalAlign: "top",
-          width: "24%",
-        }}
-      >
-        {/* inner table for the two-row header */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "8.5pt",
-            fontFamily: FONT,
-          }}
-        >
-          <tbody>
-            <tr>
-              <td
-                colSpan={2}
-                style={{
-                  border: "none",
-                  borderBottom: BORDER,
-                  textAlign: "center",
-                  padding: "3px 4px",
-                  fontWeight: 700,
-                }}
-              >
-                Verification Status
-              </td>
-            </tr>
-            <tr>
-              <td
-                style={{
-                  borderRight: BORDER,
-                  textAlign: "center",
-                  padding: "3px 4px",
-                  fontSize: "8pt",
-                  width: "50%",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Verified
-                <br />
-                Yes/No
-              </td>
-              <td
-                style={{
-                  textAlign: "center",
-                  padding: "3px 4px",
-                  fontSize: "8pt",
-                  width: "50%",
-                }}
-              >
-                Referred Documents name
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </th>
-    </>
+  const Row = ({ label, value, tall = false }) => (
+    <tr>
+      <td style={{ ...tdLabel, height: tall ? 56 : "auto" }}>{label}</td>
+      <td style={{ ...tdValue, color: value === "—" ? "#bbb" : "#000" }}>
+        {value}
+      </td>
+      <td style={tdCheck}></td>
+      <td style={{ ...tdCheck, borderRight: "1px solid #000" }}></td>
+    </tr>
   );
 
-  /* ─── Combined section: one <table> for both data + ver columns ── */
-  const SectionWithVerification = ({ rows, showVerHeader = false }) => (
-    <table
-      style={{
-        width: "100%",
-        borderCollapse: "collapse",
-        fontSize: "9.5pt",
-        fontFamily: FONT,
-        marginBottom: "5mm",
-        tableLayout: "fixed",
-      }}
+  const VerHeader = () => (
+    <div
+      style={{ display: "flex", justifyContent: "flex-end", marginBottom: 0 }}
     >
-      {/* Column widths — must sum to 100% */}
-      <colgroup>
-        <col style={{ width: "33%" }} /> {/* label */}
-        <col style={{ width: "40%" }} /> {/* value */}
-        <col style={{ width: "3%" }} /> {/* gap   */}
-        <col style={{ width: "12%" }} /> {/* Verified Yes/No  */}
-        <col style={{ width: "12%" }} /> {/* Referred Doc     */}
-      </colgroup>
-
-      <thead>
-        {showVerHeader && (
+      <table
+        style={{ borderCollapse: "collapse", width: "34%", fontSize: "8.5pt" }}
+      >
+        <tbody>
           <tr>
-            {/* label + value cols: empty */}
-            <th style={{ border: "none", padding: 0 }} />
-            <th style={{ border: "none", padding: 0 }} />
-            {/* gap */}
-            <th style={{ border: "none", padding: 0 }} />
-            {/* Verified Yes/No header */}
-            <th
+            <td
+              colSpan={2}
               style={{
-                border: BORDER,
-                borderRight: "none",
+                border: "1px solid #000",
                 textAlign: "center",
                 padding: "3px 4px",
                 fontWeight: 700,
-                fontSize: "8.5pt",
-                background: "#fff",
-                whiteSpace: "nowrap",
+              }}
+            >
+              Verification Status
+            </td>
+          </tr>
+          <tr>
+            <td
+              style={{
+                border: "1px solid #000",
+                textAlign: "center",
+                padding: "3px 4px",
+                fontSize: "8pt",
+                width: "50%",
               }}
             >
               Verified
               <br />
               Yes/No
-            </th>
-            {/* Referred Documents header */}
-            <th
+            </td>
+            <td
               style={{
-                border: BORDER,
+                border: "1px solid #000",
                 textAlign: "center",
                 padding: "3px 4px",
-                fontWeight: 700,
-                fontSize: "8.5pt",
-                background: "#fff",
+                fontSize: "8pt",
+                width: "50%",
               }}
             >
               Referred Documents name
-            </th>
-          </tr>
-        )}
-      </thead>
-
-      <tbody>
-        {rows.map((row, i) => (
-          <tr key={i}>
-            {/* Label cell */}
-            <td
-              style={{
-                border: BORDER,
-                borderRight: "none",
-                padding: "5px 8px",
-                verticalAlign: "top",
-                background: "#fff",
-                minHeight: row.tall ? 64 : 28,
-                height: row.tall ? 64 : 28,
-              }}
-            >
-              {row.label}
             </td>
-
-            {/* Value cell */}
-            <td
-              style={{
-                border: BORDER,
-                borderLeft: BORDER,
-                padding: "5px 8px",
-                verticalAlign: "top",
-                background: "#fff",
-                minHeight: row.tall ? 64 : 28,
-                height: row.tall ? 64 : 28,
-              }}
-            >
-              {row.value}
-            </td>
-
-            {/* Gap cell — transparent, no border */}
-            <td
-              style={{ border: "none", background: "transparent", padding: 0 }}
-            />
-
-            {/* Verified Yes/No cell */}
-            <td
-              style={{
-                border: BORDER,
-                borderRight: "none",
-                background: "#fff",
-                minHeight: row.tall ? 64 : 28,
-                height: row.tall ? 64 : 28,
-              }}
-            />
-
-            {/* Referred Documents name cell */}
-            <td
-              style={{
-                border: BORDER,
-                background: "#fff",
-                minHeight: row.tall ? 64 : 28,
-                height: row.tall ? 64 : 28,
-              }}
-            />
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-
-  /* ─── Section header line + ver header (both in one flex row) ─── */
-  const SectionHeaderWithVer = ({ text }) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-end",
-        marginTop: "5mm",
-        marginBottom: 0,
-      }}
-    >
-      {/* Title: 73% wide (matches label+value cols = 33+40) */}
-      <div style={{ width: "73%", flexShrink: 0 }}>
-        <div
-          style={{
-            fontWeight: 700,
-            fontSize: "10pt",
-            textDecoration: "underline",
-            fontFamily: FONT,
-            marginBottom: "1mm",
-          }}
-        >
-          {text}
-        </div>
-      </div>
-
-      {/* Gap: 3% */}
-      <div style={{ width: "3%", flexShrink: 0 }} />
-
-      {/* Verification header box: 24% wide (matches 12+12 cols) */}
-      <div style={{ width: "24%", flexShrink: 0 }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "8.5pt",
-            fontFamily: FONT,
-            border: BORDER,
-          }}
-        >
-          <tbody>
-            <tr>
-              <td
-                colSpan={2}
-                style={{
-                  border: "none",
-                  borderBottom: BORDER,
-                  textAlign: "center",
-                  padding: "3px 4px",
-                  fontWeight: 700,
-                  background: "#fff",
-                }}
-              >
-                Verification Status
-              </td>
-            </tr>
-            <tr>
-              <td
-                style={{
-                  borderRight: BORDER,
-                  textAlign: "center",
-                  padding: "3px 4px",
-                  fontSize: "8pt",
-                  width: "50%",
-                  background: "#fff",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Verified
-                <br />
-                Yes/No
-              </td>
-              <td
-                style={{
-                  textAlign: "center",
-                  padding: "3px 4px",
-                  fontSize: "8pt",
-                  width: "50%",
-                  background: "#fff",
-                }}
-              >
-                Referred Documents name
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 
-  /* ─── Plain section header (no verification box) ───────────────── */
+  const DataTable = ({ children }) => (
+    <table
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        marginTop: 0,
+        marginBottom: "5mm",
+        border: "1px solid #000",
+      }}
+    >
+      <tbody>{children}</tbody>
+    </table>
+  );
+
   const Sec = ({ text }) => (
     <div
       style={{
         fontWeight: 700,
-        fontSize: "10pt",
+        fontSize: "10.5pt",
         textDecoration: "underline",
-        fontFamily: FONT,
         margin: "5mm 0 1.5mm",
+        color: "#000",
       }}
     >
       {text}
     </div>
   );
 
-  /* ─── Page wrapper ─────────────────────────────────────────────── */
-  const Page = ({ children }) => (
-    <div
-      style={{
-        width: "210mm",
-        background: "#fff",
-        padding: "12mm 14mm",
-        boxSizing: "border-box",
-        fontFamily: FONT,
-        color: "#000",
-        fontSize: "10pt",
-        marginBottom: 14,
-        borderRadius: 2,
-        boxShadow: "0 2px 16px rgba(0,0,0,0.14)",
-      }}
-    >
-      {children}
+  const AddrSub = ({ text }) => (
+    <div style={{ fontWeight: 700, fontSize: "10pt", margin: "3mm 0 1mm" }}>
+      {text}
     </div>
   );
 
-  /* ─── Page header ──────────────────────────────────────────────── */
-  const PageHeader = ({ pageNum }) => (
+  const PageHeader = () => (
     <div
       style={{
         display: "flex",
@@ -508,7 +285,7 @@ const ViewEmployee = ({ employee, onClose }) => {
         marginBottom: "3mm",
       }}
     >
-      <span style={{ fontSize: "8pt", color: "#555" }}>
+      <span style={{ fontSize: "8pt", color: "#888" }}>
         KYE Form Revision - 1
       </span>
       <img
@@ -520,13 +297,12 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Page footer ──────────────────────────────────────────────── */
   const PageFooter = ({ n }) => (
     <div
       style={{
         textAlign: "right",
         fontSize: "8pt",
-        color: "#555",
+        color: "#888",
         marginTop: "6mm",
       }}
     >
@@ -534,24 +310,42 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Document data ────────────────────────────────────────────── */
+  const Page = ({ children }) => (
+    <div
+      style={{
+        width: "210mm",
+        background: "#fff",
+        padding: "12mm 14mm",
+        boxSizing: "border-box",
+        fontFamily: "'Calibri','Segoe UI',Arial,sans-serif",
+        color: "#000",
+        fontSize: "10pt",
+        marginBottom: 14,
+        borderRadius: 4,
+        boxShadow: "0 2px 16px rgba(0,0,0,0.14)",
+      }}
+    >
+      {children}
+    </div>
+  );
+
   const docList = [
-    { sr: 1, name: "Resume -Signed copy", types: ["resume"] },
+    { sr: 1, name: "Resume - Signed copy", types: ["resume"] },
     {
       sr: 2,
-      name: "2 passport size photographs-Name should be written on backside",
+      name: "2 passport size photographs - Name should be written on backside",
       types: ["idPhoto", "photo"],
     },
     {
       sr: 3,
-      name: "Medical Certificate-Latest",
+      name: "Medical Certificate - Latest",
       types: ["medicalCertificate"],
     },
     { sr: 4, name: "Aadhaar Card", types: ["aadharCard"] },
     { sr: 5, name: "Pan Card", types: ["panCard"] },
     {
       sr: 6,
-      name: "Academic records (SSC,ITI,HSC, Diploma, Degree Certificates Copy)",
+      name: "Academic records (SSC, ITI, HSC, Diploma, Degree Certificates Copy)",
       types: ["academicRecords"],
     },
     { sr: 7, name: "Bank Details", types: ["bankPassbook"] },
@@ -562,12 +356,10 @@ const ViewEmployee = ({ employee, onClose }) => {
     },
     { sr: 9, name: "Other certificates, if any", types: ["otherCertificates"] },
   ];
-
   const hasDoc = (types) =>
     Array.isArray(e.documents) &&
     e.documents.some((d) => types.includes(d.type || d.document_type));
 
-  /* ─── Reference rows ───────────────────────────────────────────── */
   const refRows = [
     ["Name", "ref1_name", "ref2_name", "ref3_name"],
     ["Designation", "ref1_designation", "ref2_designation", "ref3_designation"],
@@ -598,14 +390,15 @@ const ViewEmployee = ({ employee, onClose }) => {
     ],
   ];
 
-  /* ─── Uploaded Documents ───────────────────────────────────────── */
+  /* ─── Uploaded Documents Section ────────────────────────────────────── */
   const UploadedDocCard = ({ doc, index }) => {
     const [collapsed, setCollapsed] = useState(false);
-    const [imgError, setImgError] = useState(false);
+    const [imgError, setImgError]   = useState(false);
+
     const rawPath = doc.path || doc.file_path;
-    const url = resolveUrl(rawPath);
-    const label = getDocLabel(doc);
-    const pdf = isPdf(rawPath);
+    const url     = resolveUrl(rawPath);
+    const label   = getDocLabel(doc);
+    const pdf     = isPdf(rawPath);
 
     return (
       <div
@@ -616,6 +409,7 @@ const ViewEmployee = ({ employee, onClose }) => {
           marginBottom: 12,
         }}
       >
+        {/* Card header */}
         <div
           onClick={() => setCollapsed((c) => !c)}
           style={{
@@ -671,6 +465,8 @@ const ViewEmployee = ({ employee, onClose }) => {
             <ChevronUp size={16} color="rgba(255,255,255,0.8)" />
           )}
         </div>
+
+        {/* Card body */}
         {!collapsed && (
           <div style={{ background: "#f8fafc", padding: 12 }}>
             {pdf ? (
@@ -736,6 +532,8 @@ const ViewEmployee = ({ employee, onClose }) => {
                 }}
               />
             )}
+
+            {/* Open-in-new-tab link */}
             <div style={{ marginTop: 8, textAlign: "right" }}>
               <a
                 href={url}
@@ -759,6 +557,7 @@ const ViewEmployee = ({ employee, onClose }) => {
 
   const UploadedDocsSection = () => {
     if (!renderableDocs.length) return null;
+
     return (
       <div
         style={{
@@ -779,13 +578,333 @@ const ViewEmployee = ({ employee, onClose }) => {
     );
   };
 
-  /* ═══════════════════════════════════════════════════════════════ */
-  /*  RENDER                                                         */
-  /* ═══════════════════════════════════════════════════════════════ */
+  /* ─── Salary card component (screen-only) ─────────────────────────────── */
+  const SalarySection = () => (
+    <div className="no-print" style={{ width: "210mm", marginBottom: 20 }}>
+      <div
+        style={{
+          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+          borderRadius: "12px 12px 0 0",
+          padding: "16px 24px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: "rgba(99,102,241,0.25)",
+            border: "1px solid rgba(99,102,241,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Wallet size={16} color="#a5b4fc" />
+        </div>
+        <div>
+          <div
+            style={{
+              color: "#f1f5f9",
+              fontWeight: 700,
+              fontSize: 15,
+              fontFamily: "inherit",
+            }}
+          >
+            Salary Details
+          </div>
+          <div style={{ color: "#94a3b8", fontSize: 11 }}>
+            Compensation breakdown — not printed in KYE form
+          </div>
+        </div>
+        <div
+          style={{
+            marginLeft: "auto",
+            background: "rgba(99,102,241,0.15)",
+            border: "1px solid rgba(99,102,241,0.3)",
+            borderRadius: 20,
+            padding: "3px 12px",
+            fontSize: 11,
+            color: "#a5b4fc",
+            fontWeight: 600,
+          }}
+        >
+          🔒 Confidential
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "0 0 12px 12px",
+          border: "1px solid #e2e8f0",
+          borderTop: "none",
+          padding: "20px 24px",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr 1fr",
+          gap: 16,
+        }}
+      >
+        <SalaryCard
+          icon={<DollarSign size={16} color="#6366f1" />}
+          iconBg="rgba(99,102,241,0.1)"
+          iconBorder="rgba(99,102,241,0.2)"
+          label="Basic Salary"
+          value={fmtCurrency(basic)}
+          subtext={`${totalSalary > 0 ? Math.round((basic / totalSalary) * 100) : 0}% of CTC`}
+          accentColor="#6366f1"
+        />
+        <SalaryCard
+          icon={<Building size={16} color="#0891b2" />}
+          iconBg="rgba(8,145,178,0.1)"
+          iconBorder="rgba(8,145,178,0.2)"
+          label="House Rent Allowance"
+          value={fmtCurrency(hra)}
+          subtext={`${totalSalary > 0 ? Math.round((hra / totalSalary) * 100) : 0}% of CTC`}
+          accentColor="#0891b2"
+        />
+        <SalaryCard
+          icon={<CreditCard size={16} color="#059669" />}
+          iconBg="rgba(5,150,105,0.1)"
+          iconBorder="rgba(5,150,105,0.2)"
+          label="Other Allowances"
+          value={fmtCurrency(otherAllow)}
+          subtext={`${totalSalary > 0 ? Math.round((otherAllow / totalSalary) * 100) : 0}% of CTC`}
+          accentColor="#059669"
+        />
+        <div
+          onClick={() => setCollapsed((c) => !c)}
+          style={{
+            background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+            borderRadius: 10,
+            padding: "14px 16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            boxShadow: "0 4px 14px rgba(99,102,241,0.35)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginBottom: 2,
+            }}
+          >
+            <div
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 6,
+                background: "rgba(255,255,255,0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <TrendingUp size={14} color="#fff" />
+            </div>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.75)",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}
+            >
+              Total CTC
+            </span>
+          </div>
+          <span
+            style={{
+              fontSize: 20,
+              fontWeight: 800,
+              color: "#fff",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {fmtCurrency(totalSalary)}
+          </div>
+          <div
+            style={{
+              fontSize: 10,
+              color: "rgba(255,255,255,0.6)",
+              fontWeight: 500,
+            }}
+          >
+            Per month gross salary
+          </div>
+          {totalSalary > 0 && (
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 2,
+                borderRadius: 4,
+                overflow: "hidden",
+                height: 4,
+              }}
+            >
+              <div
+                style={{
+                  width: `${(basic / totalSalary) * 100}%`,
+                  background: "rgba(255,255,255,0.9)",
+                }}
+              />
+              <div
+                style={{
+                  width: `${(hra / totalSalary) * 100}%`,
+                  background: "rgba(255,255,255,0.55)",
+                }}
+              />
+              <div
+                style={{
+                  width: `${(otherAllow / totalSalary) * 100}%`,
+                  background: "rgba(255,255,255,0.3)",
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {totalSalary > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            padding: "8px 24px",
+            background: "#f8fafc",
+            borderRadius: "0 0 12px 12px",
+            border: "1px solid #e2e8f0",
+            borderTop: "1px dashed #e2e8f0",
+            marginTop: -1,
+          }}
+        >
+          {[
+            { color: "#6366f1", label: "Basic", pct: basic },
+            { color: "#0891b2", label: "HRA", pct: hra },
+            { color: "#059669", label: "Other", pct: otherAllow },
+          ].map(({ color, label, pct }) => (
+            <div
+              key={label}
+              style={{ display: "flex", alignItems: "center", gap: 5 }}
+            >
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: color,
+                }}
+              />
+              <span style={{ fontSize: 11, color: "#64748b" }}>
+                {label}:{" "}
+                <strong style={{ color: "#1e293b" }}>{fmtCurrency(pct)}</strong>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const SalaryCard = ({
+    icon,
+    iconBg,
+    iconBorder,
+    label,
+    value,
+    subtext,
+    accentColor,
+  }) => (
+    <div
+      style={{
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: 10,
+        padding: "14px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: accentColor,
+          borderRadius: "10px 10px 0 0",
+        }}
+      />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 2,
+        }}
+        onClick={(ev) => ev.target === ev.currentTarget && onClose()}
+      >
+        {/* ── Top bar ── */}
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 6,
+            background: iconBg,
+            border: `1px solid ${iconBorder}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {icon}
+        </div>
+        <span
+          style={{
+            fontSize: 10.5,
+            fontWeight: 600,
+            color: "#64748b",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {label}
+        </span>
+      </div>
+      <div
+        style={{
+          fontSize: 18,
+          fontWeight: 800,
+          color: "#0f172a",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500 }}>
+        {subtext}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <style>{`
-        @media print { .no-print { display: none !important; } }
+        @media print {
+          .no-print { display: none !important; }
+        }
       `}</style>
 
       <div
@@ -802,7 +921,7 @@ const ViewEmployee = ({ employee, onClose }) => {
         }}
         onClick={(ev) => ev.target === ev.currentTarget && onClose()}
       >
-        {/* ── Top bar ── */}
+        {/* ── Slim top bar ─────────────────────────────────────────── */}
         <div
           style={{
             width: "100%",
@@ -882,7 +1001,7 @@ const ViewEmployee = ({ employee, onClose }) => {
           </button>
         </div>
 
-        {/* ── Scrollable pages ── */}
+        {/* ── Scrollable pages ─────────────────────────────────────── */}
         <div
           style={{
             flex: 1,
@@ -896,44 +1015,36 @@ const ViewEmployee = ({ employee, onClose }) => {
             background: "#cbd5e1",
           }}
         >
-          {/* ══════════════════════════════════════ PAGE 1 ══ */}
+          {/* ══ PAGE 1 ══ */}
           <Page>
-            <PageHeader pageNum={1} />
-
-            {/* Title box */}
+            <PageHeader />
             <div
               style={{
                 border: "1.5px solid #000",
                 textAlign: "center",
-                padding: "10px 0",
-                marginBottom: "4mm",
+                padding: "8px 0",
+                marginBottom: "6mm",
               }}
             >
-              <div
-                style={{ fontSize: "14pt", fontWeight: 700, fontFamily: FONT }}
-              >
+              <div style={{ fontSize: "14pt", fontWeight: 700 }}>
                 General Information Form for
               </div>
-              <div
-                style={{ fontSize: "14pt", fontWeight: 700, fontFamily: FONT }}
-              >
-                KYE
-              </div>
+              <div style={{ fontSize: "14pt", fontWeight: 700 }}>KYE</div>
             </div>
 
-            {/* Passport photo */}
             <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                marginBottom: "4mm",
+                marginBottom: "3mm",
+                marginTop: "-5mm",
               }}
             >
               <div
                 style={{
                   width: "32mm",
                   height: "40mm",
-                  border: BORDER,
+                  border: "1px solid #999",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -960,7 +1071,6 @@ const ViewEmployee = ({ employee, onClose }) => {
                       textAlign: "center",
                       padding: 4,
                       lineHeight: 1.6,
-                      fontFamily: FONT,
                     }}
                   >
                     Employee Passport Size
@@ -973,267 +1083,143 @@ const ViewEmployee = ({ employee, onClose }) => {
               </div>
             </div>
 
-            {/* Section 1 */}
-            <SectionHeaderWithVer text="1. Employee Personal Details -" />
-            <SectionWithVerification
-              rows={[
-                { label: "Employee Name:", value: val(fullName) },
-                {
-                  label: "Date of birth (DD-MMM-YYYY)",
-                  value: fmtDate(e.date_of_birth),
-                },
-                {
-                  label: "Educational qualification",
-                  value: val(e.educational_qualification),
-                },
-                {
-                  label: "Name of Father/Husband",
-                  value: val(e.father_husband_name),
-                },
-                {
-                  label: "Marital Status (Married/Unmarried)",
-                  value: val(e.marital_status),
-                },
-                { label: "Employee Blood Group", value: val(e.blood_group) },
-                { label: "Email ID", value: val(e.email) },
-                { label: "PAN Number", value: val(e.pan_number) },
-                { label: "Name on PAN", value: val(e.name_on_pan) },
-                { label: "Aadhaar No", value: val(e.aadhar_number) },
-                { label: "Name on Aadhaar Card", value: val(e.name_on_aadhar) },
-              ]}
-            />
+            <Sec text="1. Employee Personal Details -" />
+            <VerHeader />
+            <DataTable>
+              <Row label="Employee Name:"                         value={val(fullName)} />
+              <Row label="Date of birth (DD-MMM-YYYY)"           value={fmtDate(e.date_of_birth)} />
+              <Row label="Educational qualification"             value={val(e.educational_qualification)} />
+              <Row label="Name of Father/Husband"                value={val(e.father_husband_name)} />
+              <Row label="Marital Status (Married/Unmarried)"    value={val(e.marital_status)} />
+              <Row label="Employee Blood Group"                  value={val(e.blood_group)} />
+              <Row label="Email ID"                              value={val(e.email)} />
+              <Row label="PAN Number"                            value={val(e.pan_number)} />
+              <Row label="Name on PAN"                           value={val(e.name_on_pan)} />
+              <Row label="Aadhaar No"                            value={val(e.aadhar_number)} />
+              <Row label="Name on Aadhaar Card"                  value={val(e.name_on_aadhar)} />
+              {/* ✅ UAN Number row — reads uan_number from DB response */}
+              <Row label="UAN Number"                            value={val(e.uan_number || e.uanNumber)} />
+            </DataTable>
 
-            {/* Section 2 */}
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: "10pt",
-                textDecoration: "underline",
-                fontFamily: FONT,
-                margin: "5mm 0 1.5mm",
-              }}
-            >
-              2.Employee Family Details -
-            </div>
-            <SectionWithVerification
-              rows={[
-                {
-                  label: "Father/Mother /Spouse Name",
-                  value: val(e.family_member_name),
-                },
-                {
-                  label: "Father/Mother / Spouse contact number",
-                  value: val(e.family_contact_no),
-                },
-                {
-                  label: "Father/Mother / Spouse working status",
-                  value: val(e.family_working_status),
-                },
-                {
-                  label: "Father/Mother / Spouse Employer name",
-                  value: val(e.family_employer_name),
-                },
-                {
-                  label: "Father/Spouse / Mother Employer contact number",
-                  value: val(e.family_employer_contact),
-                },
-              ]}
-            />
-
+            <Sec text="2. Employee Family Details -" />
+            <VerHeader />
+            <DataTable>
+              <Row label="Father/Mother /Spouse Name"                          value={val(e.family_member_name)} />
+              <Row label="Father/Mother / Spouse contact number"               value={val(e.family_contact_no)} />
+              <Row label="Father/Mother / Spouse working status"               value={val(e.family_working_status)} />
+              <Row label="Father/Mother / Spouse Employer name"                value={val(e.family_employer_name)} />
+              <Row label="Father/Spouse / Mother Employer contact number"      value={val(e.family_employer_contact)} />
+            </DataTable>
             <PageFooter n="1" />
           </Page>
 
-          {/* ══════════════════════════════════════ PAGE 2 ══ */}
+          {/* ══ PAGE 2 ══ */}
           <Page>
-            <PageHeader pageNum={2} />
+            <PageHeader />
+            <Sec text="3. Employee Emergency Contact Details –" />
+            <VerHeader />
+            <DataTable>
+              <Row label="Emergency Contact Person Name"                         value={val(e.emergency_contact_name)} />
+              <Row label="Emergency Contact Person No"                           value={val(e.emergency_contact_no)} />
+              <Row label="Emergency Contact Person Address"                      value={val(e.emergency_contact_address)} tall />
+              <Row label="Emergency Contact Person Relation with Employee"       value={val(e.emergency_contact_relation)} />
+            </DataTable>
 
-            {/* Section 3 */}
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: "10pt",
-                textDecoration: "underline",
-                fontFamily: FONT,
-                margin: "0 0 1.5mm",
-              }}
-            >
-              3. Employee Emergency Contact Details –
-            </div>
-            <SectionWithVerification
-              rows={[
-                {
-                  label: "Emergency Contact Person Name",
-                  value: val(e.emergency_contact_name),
-                },
-                {
-                  label: "Emergency Contact Person No",
-                  value: val(e.emergency_contact_no),
-                },
-                {
-                  label: "Emergency Contact Person Address",
-                  value: val(e.emergency_contact_address),
-                  tall: true,
-                },
-                {
-                  label: "Emergency Contact Person Relation with Employee",
-                  value: val(e.emergency_contact_relation),
-                },
-              ]}
-            />
+            <Sec text="4. Employee Bank account Details –" />
+            <VerHeader />
+            <DataTable>
+              <Row label="Name of Bank"           value={val(e.bank_name)} />
+              <Row label="Bank A/c No"            value={val(e.account_number)} />
+              <Row label="IFSC Code"              value={val(e.ifsc_code)} />
+              <Row label="Name on bank passbook"  value={val(e.account_holder_name)} />
+              <Row label="Address of the Bank"    value={val(e.bank_branch || e.branch)} />
+            </DataTable>
 
-            {/* Section 4 */}
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: "10pt",
-                textDecoration: "underline",
-                fontFamily: FONT,
-                margin: "5mm 0 1.5mm",
-              }}
-            >
-              4.Employee Bank account Details –
-            </div>
-            <SectionWithVerification
-              rows={[
-                { label: "Name of Bank", value: val(e.bank_name) },
-                { label: "Bank A/c No", value: val(e.account_number) },
-                { label: "IFSC Code", value: val(e.ifsc_code) },
-                {
-                  label: "Name on bank passbook",
-                  value: val(e.account_holder_name),
-                },
-                {
-                  label: "Address of the Bank",
-                  value: val(e.bank_branch || e.branch),
-                },
-              ]}
-            />
+            <Sec text="5. Employee Address Details -" />
+            <VerHeader />
+            <AddrSub text="A) Permanent Address" />
+            <DataTable>
+              <Row label="Permanent Address"              value={val(e.permanent_address)} tall />
+              <Row label="Phone/Mobile No"                value={val(e.permanent_phone)} />
+              <Row label="Permanent Address Land mark"    value={val(e.permanent_landmark)} />
+              <Row label="Permanent Address Lat-long"     value={val(e.permanent_lat_long)} />
+            </DataTable>
 
-            {/* Section 5 */}
-            <SectionHeaderWithVer text="5.Employee Address Details -" />
-
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: "10pt",
-                fontFamily: FONT,
-                margin: "3mm 0 1mm",
-              }}
-            >
-              A)Permanent Address
-            </div>
-            <SectionWithVerification
-              rows={[
-                {
-                  label: "Permanent Address",
-                  value: val(e.permanent_address),
-                  tall: true,
-                },
-                { label: "Phone/Mobile No", value: val(e.permanent_phone) },
-                {
-                  label: "Permanent Address Land mark",
-                  value: val(e.permanent_landmark),
-                },
-                {
-                  label: "Permanent Address Lat-long",
-                  value: val(e.permanent_lat_long),
-                },
-              ]}
-            />
-
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: "10pt",
-                fontFamily: FONT,
-                margin: "3mm 0 1mm",
-              }}
-            >
-              B)Local Address
-            </div>
-            <SectionWithVerification
-              rows={[
-                {
-                  label: "Local Address",
-                  value: e.local_same_as_permanent
+            <AddrSub text="B) Local Address" />
+            <DataTable>
+              <Row
+                label="Local Address"
+                value={
+                  e.local_same_as_permanent
                     ? "Same as Permanent Address"
-                    : val(e.local_address),
-                  tall: true,
-                },
-                {
-                  label: "Phone/Mobile No",
-                  value: e.local_same_as_permanent
+                    : val(e.local_address)
+                }
+                tall
+              />
+              <Row
+                label="Phone/Mobile No"
+                value={
+                  e.local_same_as_permanent
                     ? val(e.permanent_phone)
-                    : val(e.local_phone),
-                },
-                {
-                  label: "Local Address Landmark",
-                  value: e.local_same_as_permanent
+                    : val(e.local_phone)
+                }
+              />
+              <Row
+                label="Local Address Landmark"
+                value={
+                  e.local_same_as_permanent
                     ? val(e.permanent_landmark)
-                    : val(e.local_landmark),
-                },
-                {
-                  label: "Local Address Lat-long",
-                  value: e.local_same_as_permanent
+                    : val(e.local_landmark)
+                }
+              />
+              <Row
+                label="Local Address Lat-long"
+                value={
+                  e.local_same_as_permanent
                     ? val(e.permanent_lat_long)
-                    : val(e.local_lat_long),
-                },
-              ]}
-            />
-
+                    : val(e.local_lat_long)
+                }
+              />
+            </DataTable>
             <PageFooter n="2" />
           </Page>
 
-          {/* ══════════════════════════════════════ PAGE 3 ══ */}
+          {/* ══ PAGE 3 ══ */}
           <Page>
-            <PageHeader pageNum={3} />
-
-            {/* Section 6 */}
+            <PageHeader />
             <Sec text="6. Reference Details –" />
             <table
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
                 fontSize: "9.5pt",
-                fontFamily: FONT,
                 marginBottom: "6mm",
-                border: BORDER,
+                border: "1px solid #000",
               }}
             >
               <thead>
                 <tr>
                   <th
-                    colSpan={4}
                     style={{
-                      border: BORDER,
-                      textAlign: "center",
-                      padding: "5px 6px",
+                      background: "#4472c4",
+                      color: "#fff",
                       fontWeight: 700,
-                      background: "#fff",
-                      color: "#000",
+                      padding: "5px 6px",
+                      border: "1px solid #000",
+                      textAlign: "left",
+                      width: "28%",
                     }}
                   >
                     Personal References
                   </th>
-                </tr>
-                <tr>
                   <th
                     style={{
-                      border: BORDER,
-                      padding: "5px 6px",
-                      width: "28%",
-                      background: "#fff",
-                      color: "#000",
-                    }}
-                  />
-                  <th
-                    style={{
-                      border: BORDER,
-                      padding: "5px 6px",
-                      textAlign: "center",
+                      background: "#4472c4",
+                      color: "#fff",
                       fontWeight: 700,
-                      background: "#fff",
-                      color: "#000",
+                      padding: "5px 6px",
+                      border: "1px solid #000",
+                      textAlign: "center",
                     }}
                   >
                     Reference 1<br />
@@ -1243,12 +1229,12 @@ const ViewEmployee = ({ employee, onClose }) => {
                   </th>
                   <th
                     style={{
-                      border: BORDER,
-                      padding: "5px 6px",
-                      textAlign: "center",
+                      background: "#4472c4",
+                      color: "#fff",
                       fontWeight: 700,
-                      background: "#fff",
-                      color: "#000",
+                      padding: "5px 6px",
+                      border: "1px solid #000",
+                      textAlign: "center",
                     }}
                   >
                     Reference 2<br />
@@ -1258,12 +1244,12 @@ const ViewEmployee = ({ employee, onClose }) => {
                   </th>
                   <th
                     style={{
-                      border: BORDER,
-                      padding: "5px 6px",
-                      textAlign: "center",
+                      background: "#4472c4",
+                      color: "#fff",
                       fontWeight: 700,
-                      background: "#fff",
-                      color: "#000",
+                      padding: "5px 6px",
+                      border: "1px solid #000",
+                      textAlign: "center",
                     }}
                   >
                     Reference 3<br />
@@ -1278,7 +1264,7 @@ const ViewEmployee = ({ employee, onClose }) => {
                   <tr key={label}>
                     <td
                       style={{
-                        border: BORDER,
+                        border: "1px solid #000",
                         padding: "4px 6px",
                         background: "#fff",
                       }}
@@ -1287,9 +1273,9 @@ const ViewEmployee = ({ employee, onClose }) => {
                     </td>
                     <td
                       style={{
-                        border: BORDER,
+                        border: "1px solid #000",
                         padding: "4px 6px",
-                        background: "#fff",
+                        color: e[k1] ? "#000" : "#bbb",
                       }}
                     >
                       {val(e[k1])}
@@ -1298,7 +1284,7 @@ const ViewEmployee = ({ employee, onClose }) => {
                       style={{
                         border: BORDER,
                         padding: "4px 6px",
-                        background: "#fff",
+                        color: e[k2] ? "#000" : "#bbb",
                       }}
                     >
                       {val(e[k2])}
@@ -1307,7 +1293,7 @@ const ViewEmployee = ({ employee, onClose }) => {
                       style={{
                         border: BORDER,
                         padding: "4px 6px",
-                        background: "#fff",
+                        color: e[k3] ? "#000" : "#bbb",
                       }}
                     >
                       {val(e[k3])}
@@ -1317,45 +1303,24 @@ const ViewEmployee = ({ employee, onClose }) => {
                 <tr>
                   <td
                     style={{
-                      border: BORDER,
+                      border: "1px solid #000",
                       padding: "4px 6px",
                       fontSize: "9pt",
-                      background: "#fff",
                     }}
                   >
                     Verification Comment
                     <br />
-                    <span style={{ fontSize: "7.5pt", color: "#555" }}>
+                    <span style={{ fontSize: "7.5pt", color: "#666" }}>
                       (To be recorded by HR Manager)
                     </span>
                   </td>
-                  <td
-                    style={{
-                      border: BORDER,
-                      padding: "4px 6px",
-                      height: 44,
-                      background: "#fff",
-                    }}
-                  />
-                  <td
-                    style={{
-                      border: BORDER,
-                      padding: "4px 6px",
-                      background: "#fff",
-                    }}
-                  />
-                  <td
-                    style={{
-                      border: BORDER,
-                      padding: "4px 6px",
-                      background: "#fff",
-                    }}
-                  />
+                  <td style={{ border: "1px solid #000", padding: "4px 6px", height: 44 }}></td>
+                  <td style={{ border: "1px solid #000", padding: "4px 6px" }}></td>
+                  <td style={{ border: "1px solid #000", padding: "4px 6px" }}></td>
                 </tr>
               </tbody>
             </table>
 
-            {/* Section 7 */}
             <Sec text="7. DECLARATION –" />
             <div
               style={{
@@ -1363,10 +1328,9 @@ const ViewEmployee = ({ employee, onClose }) => {
                 lineHeight: 1.7,
                 marginBottom: "5mm",
                 textAlign: "justify",
-                fontFamily: FONT,
               }}
             >
-              <p style={{ margin: "0 0 8px" }}>
+              <p>
                 I
                 <span
                   style={{
@@ -1387,67 +1351,43 @@ const ViewEmployee = ({ employee, onClose }) => {
                 Insta ICT Pvt Ltd for verification of it for employment related
                 activity.
               </p>
-              <div
-                style={{ fontWeight: 700, fontSize: "9.5pt", marginBottom: 4 }}
-              >
-                घोषणा –
-              </div>
-              <div style={{ fontSize: "9pt", lineHeight: 1.8 }}>
+              <div style={{ fontSize: "9pt", marginTop: 10, lineHeight: 1.8 }}>
+                <strong>घोषणा –</strong>
+                <br />
                 मैं
                 <span
                   style={{
                     display: "inline-block",
                     minWidth: "108mm",
-                    borderBottom: "1px dotted #000",
+                    borderBottom: "1px solid #ccc",
                   }}
                 >
                   &nbsp;
                 </span>
                 , एतद्द्वारा घोषणा करता हूं कि ऊपर दी गई जानकारी मेरे सर्वोत्तम
-                ज्ञान और विश्वास के अनुसार सत्य, पूर्ण और सही है। मैं समझता हूं
-                कि किसी भी स्तर पर मेरी जानकारी के गलत या गलत पाए जाने की स्थिति
-                में, मेरी उम्मीदवारी/ बिना किसी सूचना के रद्द/समाप्त की जा सकती
-                है या उसके बदले में कोई कटौती की जा सकती है। ली गई जानकारी
-                विशुद्ध रूप से रोजगार सत्यापन प्रक्रिया के लिए है और मैंने
-                रोजगार संबंधी गतिविधि के लिए इसके सत्यापन के लिए इंस्टा आईसीटी
-                प्राइवेट लिमिटेड को अपनी सहमति दी है।
+                ज्ञान और विश्वास के अनुसार सत्य, पूर्ण और सही है।
               </div>
             </div>
-
-            {/* Signature row */}
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "flex-start",
                 marginTop: "10mm",
-                fontFamily: FONT,
                 fontSize: "10pt",
                 fontWeight: 700,
               }}
             >
               <div>
                 <div style={{ marginBottom: "8mm" }}>
-                  Date &nbsp;:&nbsp;
-                  <span
-                    style={{
-                      display: "inline-block",
-                      minWidth: 55,
-                      borderBottom: BORDER,
-                    }}
-                  >
+                  Date &nbsp;:&nbsp;{" "}
+                  <span style={{ display: "inline-block", minWidth: 55, borderBottom: "1px solid #000" }}>
                     &nbsp;
                   </span>
                 </div>
                 <div>
-                  Place &nbsp;:&nbsp;
-                  <span
-                    style={{
-                      display: "inline-block",
-                      minWidth: 55,
-                      borderBottom: BORDER,
-                    }}
-                  >
+                  Place &nbsp;:&nbsp;{" "}
+                  <span style={{ display: "inline-block", minWidth: 55, borderBottom: "1px solid #000" }}>
                     &nbsp;
                   </span>
                 </div>
@@ -1456,60 +1396,49 @@ const ViewEmployee = ({ employee, onClose }) => {
                 <div>Employee Signature</div>
                 <div
                   style={{
-                    borderTop: BORDER,
-                    width: 200,
+                    borderTop: "1px solid #000",
+                    width: 180,
                     marginTop: 56,
                     paddingTop: 2,
                     fontSize: "9.5pt",
-                    textAlign: "center",
                   }}
                 >
-                  &nbsp;(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)
+                  &nbsp;(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)
                 </div>
               </div>
             </div>
-
-            <div
-              style={{
-                fontSize: "9.5pt",
-                fontWeight: 700,
-                marginTop: "8mm",
-                fontFamily: FONT,
-              }}
-            >
-              Note: Digitally filled out the KYE form is not acceptable. KYE
-              form should be handwritten by the respective employee.
+            <div style={{ fontSize: "9.5pt", fontWeight: 700, marginTop: "8mm" }}>
+              <strong>
+                Note: Digitally filled out the KYE form is not acceptable. KYE
+                form should be handwritten by the respective employee.
+              </strong>
             </div>
-
             <PageFooter n="3" />
           </Page>
 
-          {/* ══════════════════════════════════════ PAGE 4 ══ */}
+          {/* ══ PAGE 4 ══ */}
           <Page>
-            <PageHeader pageNum={4} />
-
-            {/* Section 8 */}
+            <PageHeader />
             <Sec text="8. Please attach the below-listed documents with the KYE form. –" />
             <table
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
                 fontSize: "9.5pt",
-                fontFamily: FONT,
                 marginBottom: "6mm",
-                border: BORDER,
+                border: "1px solid #000",
               }}
             >
               <thead>
                 <tr>
                   <th
                     style={{
-                      border: BORDER,
+                      background: "#4472c4",
+                      color: "#fff",
                       textAlign: "center",
                       padding: "5px 8px",
                       fontWeight: 700,
-                      background: "#fff",
-                      color: "#000",
+                      border: "1px solid #000",
                       width: "12mm",
                     }}
                   >
@@ -1519,24 +1448,24 @@ const ViewEmployee = ({ employee, onClose }) => {
                   </th>
                   <th
                     style={{
-                      border: BORDER,
-                      textAlign: "center",
+                      background: "#4472c4",
+                      color: "#fff",
+                      textAlign: "left",
                       padding: "5px 8px",
                       fontWeight: 700,
-                      background: "#fff",
-                      color: "#000",
+                      border: "1px solid #000",
                     }}
                   >
                     Name of Document
                   </th>
                   <th
                     style={{
-                      border: BORDER,
+                      background: "#4472c4",
+                      color: "#fff",
                       textAlign: "center",
                       padding: "5px 8px",
                       fontWeight: 700,
-                      background: "#fff",
-                      color: "#000",
+                      border: "1px solid #000",
                       width: "34mm",
                     }}
                   >
@@ -1549,36 +1478,22 @@ const ViewEmployee = ({ employee, onClose }) => {
                   const attached = hasDoc(types);
                   return (
                     <tr key={sr}>
-                      <td
-                        style={{
-                          border: BORDER,
-                          textAlign: "center",
-                          padding: "5px 8px",
-                          background: "#fff",
-                        }}
-                      >
+                      <td style={{ border: "1px solid #000", textAlign: "center", padding: "5px 8px" }}>
                         {sr}
                       </td>
-                      <td
-                        style={{
-                          border: BORDER,
-                          padding: "5px 8px",
-                          background: "#fff",
-                        }}
-                      >
+                      <td style={{ border: "1px solid #000", padding: "5px 8px" }}>
                         {name}
                       </td>
                       <td
                         style={{
-                          border: BORDER,
+                          border: "1px solid #000",
                           textAlign: "center",
                           padding: "5px 8px",
-                          background: "#fff",
-                          color: attached ? "#15803d" : "#000",
+                          color: attached ? "#15803d" : "#aaa",
                           fontWeight: attached ? 700 : 400,
                         }}
                       >
-                        {attached ? "Yes ✓" : ""}
+                        {attached ? "Yes ✓" : "No"}
                       </td>
                     </tr>
                   );
@@ -1586,69 +1501,64 @@ const ViewEmployee = ({ employee, onClose }) => {
               </tbody>
             </table>
 
-            {/* Section 9 */}
             <Sec text="9. For office Use only." />
             <table
               style={{
+                width: "80mm",
                 borderCollapse: "collapse",
                 fontSize: "9.5pt",
-                fontFamily: FONT,
-                width: "auto",
               }}
             >
               <tbody>
                 {[
-                  ["DOJ"],
-                  ["Experience"],
-                  ["UAN"],
-                  ["Member ID"],
-                  ["Remarks"],
-                ].map(([label], i) => (
+                  ["DOJ",       null],
+                  ["Experience",null],
+                  /* ✅ UAN row in "For Office Use Only" — shows actual value */
+                  ["UAN",       e.uan_number || e.uanNumber || null],
+                  ["Member ID", null],
+                  ["Remarks",   null],
+                ].map(([label, value], i) => (
                   <tr key={label}>
                     <td
                       style={{
-                        border: BORDER,
+                        border: "1px solid #000",
                         textAlign: "center",
                         fontWeight: 700,
+                        width: "8mm",
                         padding: "4px 8px",
-                        width: "10mm",
-                        background: "#fff",
                       }}
                     >
                       {i + 1}
                     </td>
-                    <td
-                      style={{
-                        border: BORDER,
-                        padding: "4px 8px",
-                        width: "40mm",
-                        background: "#fff",
-                      }}
-                    >
+                    <td style={{ border: "1px solid #000", width: "40mm", padding: "4px 8px" }}>
                       {label}
                     </td>
                     <td
                       style={{
-                        border: BORDER,
-                        padding: "4px 8px",
-                        width: "80mm",
+                        border: "1px solid #000",
+                        minWidth: "30mm",
                         height: label === "Remarks" ? 24 : "auto",
-                        background: "#fff",
+                        padding: "4px 8px",
+                        fontWeight: value ? 600 : 400,
+                        color: value ? "#000" : "transparent",
                       }}
-                    />
+                    >
+                      {value || "\u00a0"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
+            {/* ── Uploaded Documents ── */}
             <UploadedDocsSection />
+
             <PageFooter n="4" />
           </Page>
 
-          {/* ── Salary Details (screen-only) ── */}
           <SalaryDetails employee={e} />
 
-          {/* ── Print button ── */}
+          {/* ── Print button ─────────────────────────────── */}
           <div
             className="no-print"
             style={{
@@ -1678,13 +1588,11 @@ const ViewEmployee = ({ employee, onClose }) => {
               }}
               onMouseEnter={(ev) => {
                 ev.currentTarget.style.transform = "translateY(-2px)";
-                ev.currentTarget.style.boxShadow =
-                  "0 8px 24px rgba(99,102,241,0.6)";
+                ev.currentTarget.style.boxShadow = "0 8px 24px rgba(99,102,241,0.6)";
               }}
               onMouseLeave={(ev) => {
                 ev.currentTarget.style.transform = "translateY(0)";
-                ev.currentTarget.style.boxShadow =
-                  "0 4px 16px rgba(99,102,241,0.45)";
+                ev.currentTarget.style.boxShadow = "0 4px 16px rgba(99,102,241,0.45)";
               }}
             >
               <Printer size={16} />
@@ -1692,6 +1600,7 @@ const ViewEmployee = ({ employee, onClose }) => {
             </button>
           </div>
         </div>
+        {/* end scrollable */}
       </div>
     </>
   );
