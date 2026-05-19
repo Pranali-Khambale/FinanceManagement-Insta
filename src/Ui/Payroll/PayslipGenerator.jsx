@@ -1,1252 +1,705 @@
 // src/Ui/Payroll/PayslipGenerator.js
-//
-// EXACT REPLICA of Salary_slip_format.xlsx
-//
-// Template structure (B:I, rows 2–26):
-//   Col B  = Earning Head / emp label-left             (width 23.22)
-//   Col C  = Gross Salary / emp value-left pt1         (width 16.44)
-//   Col D  = Gross Salary (d) / emp value-left pt2     (width 20.78)  ← C:D merged for emp values
-//   Col E  = Deduction Head pt1 / emp label-right pt1  (width 15.00)
-//   Col F  = Deduction Head pt2 / emp label-right pt2  (width  9.44)  ← E:F merged for ded-head & emp labels
-//   Col G  = Amount span / emp value-right pt1         (width 17.44)
-//   Col H  = Amount pt1 / emp value-right pt2          (width  5.44)  ← G:I merged for emp values
-//   Col I  = Amount pt2 / emp value-right pt3          (width 18.44)  ← H:I merged for amounts
-//
-// Row map:
-//   1      = top spacer (28.5 pt)
-//   2      = header logo + company name
-//   3      = header address
-//   4      = header website
-//   5      = Payslip banner (B5:I5 merged)
-//   6–14   = 9 employee info rows
-//   15     = Table column header
-//   16     = Basic          | PF (Employee + Employer)
-//   17     = HRA            | PT
-//   18     = Org Allowance  | Other
-//   19     = Medical Allow. | TDS
-//   20     = (blank earn.)  | Advance
-//   21     = Total Earning  | Total Deduction
-//   22     = Perf Pay       | Net Salary
-//   23     = Total Earning Potential | Perf Pay (Variable)
-//   24     = (blank B:D)    | Total Earning DARK (E:I)
-//   25     = spacer row
-//   26     = Footer
+// PDF  → downloadPayslipPDF(employee)
+// Excel → downloadPayslipExcel(employee)
 
-/* ─── shared data builder ─────────────────────────────────────────────────── */
-function _buildData(employee) {
-  const n = (val) => {
-    const v = Number(val);
-    return isFinite(v) ? v : 0;
+/* ─── Normalize DB snake_case → camelCase ───────────────────────────────── */
+function _normalizeEmployee(emp) {
+  return {
+    ...emp,
+    employeeId:             emp.employeeId            || emp.employee_id             || "",
+    joiningDate:            emp.joiningDate           || emp.joining_date             || "",
+    currentLocation:        emp.currentLocation       || emp.circle                   || "",
+    project:                emp.project               || emp.project_name             || "",
+    designation:            emp.designation           || emp.position                 || "",
+    grade:                  emp.grade                 || "",
+    forMonth:               emp.forMonth              || emp.for_month                || "",
+    uanNo:                  emp.uanNo                 || emp.uan_number               || "",
+    aadharNo:               emp.aadharNo              || emp.aadhar_number            || "",
+    panNo:                  emp.panNo                 || emp.pan_number               || "",
+    bankName:               emp.bankName              || emp.bank_name                || "",
+    bankAccountNo:          emp.bankAccountNo         || emp.account_number           || "",
+    ifscCode:               emp.ifscCode              || emp.ifsc_code                || "",
+    basic:                  emp.basic                 || emp.basic_salary             || 0,
+    hra:                    emp.hra                   || 0,
+    organisationAllowance:  emp.organisationAllowance || emp.other_allowances         || 0,
+    performancePay:         emp.performancePay        || emp.performance_pay          || 0,
+    pfDeduction:            emp.pfDeduction           || emp.pf_deduction             || null,
+    employerPfContribution: emp.employerPfContribution|| emp.employer_pf_contribution || null,
+    pt:                     emp.pt                    || 0,
+    gratuity:               emp.gratuity              || null,
+    pDays:                  emp.pDays                 || emp.p_days                   || null,
+    monthDays:              emp.monthDays             || emp.month_days               || 30,
+    aDays:                  emp.aDays                 || emp.a_days                   || 0,
+    gender:                 emp.gender                || "",
+  };
+}
+
+/* ─── Build computed data ───────────────────────────────────────────────── */
+function _buildData(emp) {
+  const n = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };
+  const fmtDate = (v) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`;
   };
 
-  const fmtDate = (val) => {
-    if (!val) return "";
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val);
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const yyyy = d.getUTCFullYear();
-    return `${dd}-${mm}-${yyyy}`;
-  };
+  const basic                 = n(emp.basic);
+  const hra                   = n(emp.hra);
+  const organisationAllowance = n(emp.organisationAllowance);
+  const performancePay        = n(emp.performancePay);
+  const monthDays             = n(emp.monthDays) || 30;
+  const pDays                 = emp.pDays != null ? n(emp.pDays) : monthDays;
+  const aDays                 = n(emp.aDays);
 
-  const basic = n(employee.basic);
-  const hra = n(employee.hra);
-  const organisationAllowance = n(employee.organisationAllowance);
-  const medicalAllowance = n(employee.medicalAllowance);
-  const performancePay = n(employee.performancePay);
-  const monthDays = n(employee.monthDays) || 30;
-  const pDays = employee.pDays != null ? n(employee.pDays) : monthDays;
-  const aDays = n(employee.aDays);
-
-  const pfEmp =
-    employee.pfDeduction != null
-      ? n(employee.pfDeduction)
-      : Math.round(basic * 0.12);
-  const pfCo =
-    employee.employerPfContribution != null
-      ? n(employee.employerPfContribution)
-      : Math.round(basic * 0.13);
-
-  const isFemale = /female|woman|f/i.test(employee.gender || "");
+  const pfEmp = emp.pfDeduction != null            ? n(emp.pfDeduction)            : Math.round(basic * 0.12);
+  const pfCo  = emp.employerPfContribution != null ? n(emp.employerPfContribution) : Math.round(basic * 0.13);
+  const isFemale  = /female|woman|^f$/i.test(emp.gender || "");
   const grossFull = basic + hra + organisationAllowance;
-  let pt;
-  if (employee.pt != null) {
-    pt = n(employee.pt);
-  } else if (isFemale && grossFull <= 25000) {
-    pt = 0;
-  } else {
-    pt = /february/i.test(employee.forMonth || "") ? 300 : 200;
-  }
+  const pt = (emp.pt != null && n(emp.pt) !== 0) ? n(emp.pt)
+           : (isFemale && grossFull <= 25000) ? 0
+           : /february/i.test(emp.forMonth || "") ? 300 : 200;
+  const gratuity = emp.gratuity != null ? n(emp.gratuity) : Math.round(basic * 0.0481 * 100) / 100;
 
-  const other = employee.other != null ? n(employee.other) : 0;
-  const tds = employee.tds != null ? n(employee.tds) : 0;
-  const advance = employee.advance != null ? n(employee.advance) : 0;
-
-  const ratio = monthDays > 0 ? pDays / monthDays : 1;
-  const grossSalary = basic + hra + organisationAllowance + medicalAllowance;
+  const ratio        = monthDays > 0 ? pDays / monthDays : 1;
+  const grossSalary  = basic + hra + organisationAllowance;
+  const basicD       = basic * ratio;
+  const hraD         = hra   * ratio;
+  const oaD          = organisationAllowance * ratio;
   const grossSalaryD = grossSalary * ratio;
-  const basicD = basic * ratio;
-  const hraD = hra * ratio;
-  const oaD = organisationAllowance * ratio;
-  const maD = medicalAllowance * ratio;
-  const perfD = performancePay * ratio;
+  const perfD        = performancePay * ratio;
 
-  // Deductions match template rows 16-20:
-  // 16 = PF (Emp+Employer), 17 = PT, 18 = Other, 19 = TDS, 20 = Advance
-  const totalDeduction = pfEmp + pfCo + pt + other + tds + advance;
-  const netSalary = grossSalaryD - totalDeduction;
-  const totalWithPerf = netSalary + perfD;
-  const totalEarning = grossSalary + performancePay;
-  const totalEarningD = grossSalaryD + perfD;
+  const totalDeduction = pfEmp + pfCo + pt + gratuity;
+  const netSalary      = grossSalaryD - totalDeduction;
+  const totalWithPerf  = netSalary + perfD;
+  const totalEarning   = grossSalary + performancePay;
+  const totalEarningD  = grossSalaryD + perfD;
 
   return {
-    name: employee.name || "",
-    employeeId: employee.employeeId || "",
-    joiningDate: fmtDate(employee.joiningDate),
-    currentLocation: employee.currentLocation || employee.circle || "",
-    pDays,
-    aDays,
-    monthDays,
-    project: employee.project || "",
-    designation: employee.designation || "",
-    grade: employee.grade || "",
-    epfNo: employee.epfNo || "0",
-    esicNo: employee.esicNo || "0",
-    uanNo: employee.uanNo || "",
-    aadharNo: employee.aadharNo || "",
-    panNo: employee.panNo || "",
-    forMonth: employee.forMonth || "",
-    bankName: employee.bankName || "",
-    bankAccountNo: employee.bankAccountNo || employee.accountNumber || "",
-    ifscCode: employee.ifscCode || "",
-    basic,
-    hra,
-    organisationAllowance,
-    medicalAllowance,
-    performancePay,
-    pfEmp,
-    pfCo,
-    pt,
-    other,
-    tds,
-    advance,
-    grossSalary,
-    grossSalaryD,
-    basicD,
-    hraD,
-    oaD,
-    maD,
-    perfD,
-    totalEarning,
-    totalEarningD,
-    totalDeduction,
-    netSalary,
-    totalWithPerf,
-    gender: employee.gender || "",
+    name: emp.name || "", employeeId: emp.employeeId || "",
+    joiningDate: fmtDate(emp.joiningDate),
+    currentLocation: emp.currentLocation || "", project: emp.project || "",
+    designation: emp.designation || "", grade: emp.grade || "",
+    uanNo: emp.uanNo || "", aadharNo: emp.aadharNo || "", panNo: emp.panNo || "",
+    forMonth: emp.forMonth || "", bankName: emp.bankName || "",
+    bankAccountNo: emp.bankAccountNo || "", ifscCode: emp.ifscCode || "",
+    pDays, aDays, monthDays,
+    basic, hra, organisationAllowance, performancePay,
+    pfEmp, pfCo, pt, gratuity,
+    grossSalary, grossSalaryD, basicD, hraD, oaD, perfD,
+    totalEarning, totalEarningD, totalDeduction, netSalary, totalWithPerf,
   };
 }
 
 /* ─── INR formatter ─────────────────────────────────────────────────────── */
 const inr = (num) =>
-  "Rs. " +
-  Number(num || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  "Rs. " + Number(num || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/* ─── Load image as base64 data URL ──────────────────────────────────────── */
+/* ─── Load logo as base64 ────────────────────────────────────────────────── */
 const loadImageBase64 = (src) =>
   new Promise((res) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      canvas.getContext("2d").drawImage(img, 0, 0);
-      res({
-        dataUrl: canvas.toDataURL("image/png"),
-        w: img.naturalWidth,
-        h: img.naturalHeight,
-      });
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      res({ dataUrl: c.toDataURL("image/png"), w: img.naturalWidth, h: img.naturalHeight });
     };
     img.onerror = () => res(null);
     img.src = src;
   });
 
 /* =============================================================================
-   PDF PAYSLIP — A4 portrait, single-page
+   PDF PAYSLIP
    ============================================================================= */
 export const downloadPayslipPDF = async (employee) => {
+  const d = _buildData(_normalizeEmployee(employee));
+
   if (!window.jspdf) {
-    await new Promise((resolve, reject) => {
+    await new Promise((res, rej) => {
       const s = document.createElement("script");
-      s.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-      s.onload = resolve;
-      s.onerror = reject;
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = res; s.onerror = rej;
       document.head.appendChild(s);
     });
   }
 
   const { jsPDF } = window.jspdf;
-  const d = _buildData(employee);
-  const logoInfo = await loadImageBase64("/assets/Insta-logo1.png");
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const logoInfo  = await loadImageBase64("/assets/Insta-logo1.png");
+  const doc       = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  const PAGE_W = 210;
-  const MARGIN_L = 8;
-  const MARGIN_R = 8;
-  const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R;
+  // ── Page geometry ─────────────────────────────────────────────────────────
+  const ML = 14;              // left margin
+  const MR = 14;              // right margin
+  const PW = 210 - ML - MR;  // printable width = 182 mm
 
-  const SCALE = 194 / 126.2;
-  const wB = Math.round(23.22 * SCALE * 10) / 10;
-  const wC = Math.round(16.44 * SCALE * 10) / 10;
-  const wD = Math.round(20.78 * SCALE * 10) / 10;
-  const wE = Math.round(15.0 * SCALE * 10) / 10;
-  const wF = Math.round(9.44 * SCALE * 10) / 10;
-  const wG = Math.round(17.44 * SCALE * 10) / 10;
-  const wH = Math.round(5.44 * SCALE * 10) / 10;
-  const wI = 194 - wB - wC - wD - wE - wF - wG - wH;
+  // ── 5-column body widths (matches screenshot proportions exactly) ──────────
+  const cA = 40;                          // Earning Head
+  const cB = 30;                          // Gross Salary
+  const cC = 30;                          // Gross Salary (d)
+  const cD = 54;                          // Deduction Head
+  const cE = PW - cA - cB - cC - cD;     // Amount ≈ 28 mm
+  const xA = ML;
+  const xB = xA + cA;
+  const xC = xB + cB;
+  const xD = xC + cC;
+  const xE = xD + cD;
 
-  const xB = MARGIN_L;
-  const xC = xB + wB;
-  const xD = xC + wC;
-  const xE = xD + wD;
-  const xF = xE + wE;
-  const xG = xF + wF;
-  const xH = xG + wG;
-  const xI = xH + wH;
+  // ── Header: 1/3 logo | 2/3 company info ───────────────────────────────────
+  const HDR_LW = Math.round(PW * 0.34);  // logo block width ≈ 62 mm
+  const HDR_RW = PW - HDR_LW;            // company info width ≈ 120 mm
+  const HDR_RX = ML + HDR_LW;
 
-  const pt2mm = 0.3528;
-  const H_HDR_ROW = 28.5 * pt2mm;
-  const H_HDR = H_HDR_ROW * 3;
-  const H_BANNER = 38.25 * pt2mm;
-  const H_EMP = 28.5 * pt2mm;
-  const H_R16 = 28.5 * pt2mm;
-  const H_R17 = 28.5 * pt2mm;
-  const H_R18 = 32.25 * pt2mm;
-  const H_R19 = 31.5 * pt2mm;
-  const H_R20 = 28.5 * pt2mm;
-  const H_R21 = 28.5 * pt2mm;
-  const H_R22 = 31.2 * pt2mm;
-  const H_R23 = 45.0 * pt2mm;
-  const H_R24 = 28.5 * pt2mm;
-  const H_R25 = 28.5 * pt2mm;
-  const H_R26 = 28.5 * pt2mm;
-
-  const cHdr = [231, 230, 230];
-  const cDarkBg = [68, 84, 106];
-  const cWhite = [255, 255, 255];
-  const cBlack = [0, 0, 0];
-  const cThin = [110, 110, 110];
-  const cMed = [50, 50, 50];
-  const cBlue = [26, 60, 110];
-  const cLink = [5, 99, 193];
-  const cGray = [90, 90, 90];
-  const cDark = [30, 30, 30];
-
-  const fillR = (x, y, w, h, rgb) => {
-    doc.setFillColor(...rgb);
-    doc.rect(x, y, w, h, "F");
-  };
-  const strokeR = (x, y, w, h, rgb, lw) => {
-    doc.setDrawColor(...rgb);
-    doc.setLineWidth(lw);
-    doc.rect(x, y, w, h, "S");
-  };
-  const thinBox = (x, y, w, h) => strokeR(x, y, w, h, cThin, 0.18);
-  const medBox = (x, y, w, h) => strokeR(x, y, w, h, cMed, 0.5);
-
-  const cell = (x, y, w, h, bg, isMed = false) => {
-    fillR(x, y, w, h, bg);
-    if (isMed) medBox(x, y, w, h);
-    else thinBox(x, y, w, h);
+  // ── Row heights ───────────────────────────────────────────────────────────
+  const RH = {
+    hdr:    32,
+    banner:  8,
+    emp:     6.8,
+    thdr:    7.5,
+    row:     7,
+    tot:     7,
+    perf:    8,
+    pot:     8,
+    dark:    7,
+    spc:     2,
+    ftr:     7,
   };
 
-  const txt = (s, x, y, w, h, bold, sz, col, align = "left") => {
-    if (s === null || s === undefined) return;
+  // ── Colours ───────────────────────────────────────────────────────────────
+  const cWHITE  = [255, 255, 255];
+  const cLGREY  = [231, 230, 230];
+  const cDARK   = [68,  84,  106];
+// Professional soft borders
+const cOUTER = [70, 70, 70];     // outer frame
+const cSECT  = [110, 110, 110];  // section borders
+const cINNER = [160, 160, 160];  // inner cell borders
+const cDIV   = [140, 140, 140];  // header divider
+  const cBLUE   = [26,  60,  110];
+  const cGREY   = [100, 100, 100];
+  const cLINK   = [5,   99,  193];
+  const cBLACK  = [0,   0,   0];
+  const cTXT    = [40,  40,  40];
+  const cWHT    = [255, 255, 255];
+
+  // ── Drawing helpers ───────────────────────────────────────────────────────
+  const fillR  = (x, y, w, h, rgb) => { doc.setFillColor(...rgb); doc.rect(x, y, w, h, "F"); };
+  const strokeR = (x, y, w, h, rgb, lw) => { doc.setDrawColor(...rgb); doc.setLineWidth(lw); doc.rect(x, y, w, h, "S"); };
+
+ const cell = (x, y, w, h, bg, borderC = cINNER, lw = 0.55) => {
+  // Background
+  doc.setFillColor(...bg);
+  doc.rect(x, y, w, h, "F");
+
+  // Border settings
+  doc.setDrawColor(...borderC);
+  doc.setLineWidth(lw);
+
+  // Draw all borders properly
+  doc.line(x, y, x + w, y);           // top
+  doc.line(x, y + h, x + w, y + h);  // bottom
+  doc.line(x, y, x, y + h);          // left
+  doc.line(x + w, y, x + w, y + h);  // right
+};
+
+  const txt = (s, x, y, w, h, bold, sz, col, align = "left", pad = 2.2) => {
+    if (s == null || s === "") return;
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(sz);
     doc.setTextColor(...col);
-    const ty = y + h * 0.63;
-    const str = String(s);
-    if (align === "center") doc.text(str, x + w / 2, ty, { align: "center" });
-    else if (align === "right")
-      doc.text(str, x + w - 1.5, ty, { align: "right" });
-    else doc.text(str, x + 2.2, ty);
+    const ty = y + h * 0.64;
+    const st = String(s);
+    if (align === "center") doc.text(st, x + w / 2, ty, { align: "center" });
+    else if (align === "right") doc.text(st, x + w - 1.5, ty, { align: "right" });
+    else doc.text(st, x + pad, ty);
   };
 
   const mtxt = (lines, x, y, w, h, bold, sz, col, align = "left") => {
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(sz);
     doc.setTextColor(...col);
-    const lh = sz * 0.42;
+    const lh  = sz * 0.44;
     const tot = (lines.length - 1) * lh;
-    let ty = y + (h - tot) / 2;
-    lines.forEach((line) => {
-      const s = String(line ?? "");
-      if (align === "center") doc.text(s, x + w / 2, ty, { align: "center" });
-      else if (align === "right")
-        doc.text(s, x + w - 1.5, ty, { align: "right" });
-      else doc.text(s, x + 2.2, ty);
+    let ty    = y + (h - tot) / 2 + sz * 0.18;
+    for (const ln of lines) {
+      const st = String(ln ?? "");
+      if (align === "center") doc.text(st, x + w / 2, ty, { align: "center" });
+      else if (align === "right") doc.text(st, x + w - 1.5, ty, { align: "right" });
+      else doc.text(st, x + 2.2, ty);
       ty += lh;
-    });
+    }
   };
 
-  const inrTxt = (val, x, y, w, h, bold, sz, col = cDark) =>
-    txt(inr(val), x, y, w, h, bold, sz, col, "center");
+  const inrT = (v, x, y, w, h, bold, sz, col = cTXT) =>
+    txt(inr(v), x, y, w, h, bold, sz, col, "center");
 
-  let Y = 8;
+  let Y = 10;
+  const YTOP = Y;
 
-  // HEADER BLOCK (rows 2-4)
-  const wLogoZone = wB + wC;
-  const wInfoZone = wD + wE + wF + wG + wH + wI;
+  /* ── HEADER ──────────────────────────────────────────────────────────────── */
+  fillR(ML, Y, PW, RH.hdr, cWHITE);
 
-  fillR(xB, Y, CONTENT_W, H_HDR, cWhite);
-  medBox(xB, Y, CONTENT_W, H_HDR);
+  // outer header box
+  strokeR(ML, Y, PW, RH.hdr, cOUTER, 0.45);
+  // vertical divider between logo and company info
+  doc.setDrawColor(...cDIV);
+  doc.setLineWidth(0.35);
+  doc.line(HDR_RX, Y, HDR_RX, Y + RH.hdr);
 
+  // LOGO — aspect-ratio fit, centred in left block with padding
   if (logoInfo) {
-    const padX = 5,
-      padY = 3;
-    const maxW = wLogoZone - padX * 2;
-    const maxH = H_HDR - padY * 2;
+    const px = 4, py = 3;
+    const mw = HDR_LW - px * 2;
+    const mh = RH.hdr - py * 2;
     const asp = logoInfo.w / logoInfo.h;
-    let iw = maxW,
-      ih = iw / asp;
-    if (ih > maxH) {
-      ih = maxH;
-      iw = ih * asp;
-    }
-    const ix = xB + (wLogoZone - iw) / 2;
-    const iy = Y + (H_HDR - ih) / 2;
+    let iw = mw, ih = iw / asp;
+    if (ih > mh) { ih = mh; iw = ih * asp; }
+    const ix = ML + (HDR_LW - iw) / 2;
+    const iy = Y  + (RH.hdr - ih) / 2;
     doc.addImage(logoInfo.dataUrl, "PNG", ix, iy, iw, ih, undefined, "FAST");
   } else {
-    txt("LOGO", xB, Y, wLogoZone, H_HDR, true, 10, [180, 180, 180], "center");
+    txt("LOGO", ML, Y, HDR_LW, RH.hdr, true, 9, [180, 180, 180], "center");
   }
 
-  const rxOff = xD + 2;
-  const rxW = wInfoZone - 3;
-  txt(
-    "Insta ICT Solutions Pvt. Ltd.",
-    rxOff,
-    Y,
-    rxW,
-    H_HDR_ROW,
-    true,
-    10.5,
-    cBlue,
-    "left",
-  );
-  txt(
-    "201 - 202, Imperial Plaza, Jijai Nagar, Kothrud, Pune - 411 038.",
-    rxOff,
-    Y + H_HDR_ROW,
-    rxW,
-    H_HDR_ROW,
-    false,
-    7.8,
-    cGray,
-    "left",
-  );
-  txt(
-    "Website: www.instagrp.com.",
-    rxOff,
-    Y + H_HDR_ROW * 2,
-    rxW,
-    H_HDR_ROW,
-    false,
-    8.0,
-    cLink,
-    "left",
-  );
-  Y += H_HDR;
+  // COMPANY INFO — 3 lines evenly spaced in right 2/3 block
+  const rx  = HDR_RX + 4;
+  const ly1 = Y + RH.hdr * 0.23;
+  const ly2 = Y + RH.hdr * 0.52;
+  const ly3 = Y + RH.hdr * 0.79;
 
-  // BANNER row 5
-  fillR(xB, Y, CONTENT_W, H_BANNER, cWhite);
-  medBox(xB, Y, CONTENT_W, H_BANNER);
-  txt(
-    `Payslip: ${d.forMonth}`,
-    xB,
-    Y,
-    CONTENT_W,
-    H_BANNER,
-    true,
-    11,
-    cBlack,
-    "center",
-  );
-  Y += H_BANNER;
+  doc.setFont("helvetica", "bold");   doc.setFontSize(11);  doc.setTextColor(...cBLUE);
+  doc.text("Insta ICT Solutions Pvt. Ltd.", rx, ly1);
 
-  // EMPLOYEE INFO rows 6–14
-  const empRows = [
-    ["Employee Id", d.employeeId, "Name", d.name],
-    ["Joining Date", d.joiningDate, "Current Location", d.currentLocation],
-    ["P Days", d.pDays, "Project", d.project],
-    ["A Days", d.aDays, "Designation", d.designation],
-    ["Month Days", d.monthDays, "Grade", d.grade],
-    ["EPF No", d.epfNo, "ESIC No", d.esicNo],
-    ["UAN No", d.uanNo, "Aadhar No", d.aadharNo],
-    ["PAN No", d.panNo, "For Month", d.forMonth],
-    ["Bank Name", d.bankName, "Bank A/c No", d.bankAccountNo],
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8);   doc.setTextColor(...cGREY);
+  doc.text("201 - 202, Imperial Plaza, Jijai Nagar, Kothrud, Pune - 411 038.", rx, ly2);
+
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8);   doc.setTextColor(...cLINK);
+  doc.text("Website: www.instagrp.com", rx, ly3);
+
+  Y += RH.hdr;
+
+  /* ── BANNER ──────────────────────────────────────────────────────────────── */
+  cell(ML, Y, PW, RH.banner, cWHITE, cSECT, 0.5);
+  txt(`Payslip: ${d.forMonth}`, ML, Y, PW, RH.banner, true, 11, cBLACK, "center");
+  Y += RH.banner;
+
+  /* ── EMPLOYEE INFO ───────────────────────────────────────────────────────── */
+  // cols: label1=40, value1=51, label2=50, value2=41
+  const eL1 = 40, eV1 = 51, eL2 = 50, eV2 = PW - eL1 - eV1 - eL2;
+  const eX1 = ML, eX2 = eX1 + eL1, eX3 = eX2 + eV1, eX4 = eX3 + eL2;
+
+  const empInfo = [
+    ["Employee Id",  d.employeeId,    "Name",             d.name],
+    ["Joining Date", d.joiningDate,   "Current Location", d.currentLocation],
+    ["P Days",       d.pDays,         "Project",          d.project],
+    ["A Days",       d.aDays,         "Designation",      d.designation],
+    ["Month Days",   d.monthDays,     "Grade",            d.grade],
+    ["UAN No",       d.uanNo,         "Aadhar No",        d.aadharNo],
+    ["PAN No",       d.panNo,         "For Month",        d.forMonth],
+    ["Bank Name",    d.bankName,      "Bank A/c No",      d.bankAccountNo],
   ];
 
-  empRows.forEach(([l1, v1, l2, v2], i) => {
-    const bg = i === 0 ? cHdr : cWhite;
-    const vBold = i === 0;
-    const isMed = i === 0;
-
-    cell(xB, Y, wB, H_EMP, bg, isMed);
-    txt(l1, xB, Y, wB, H_EMP, true, 8, cBlack, "center");
-    cell(xC, Y, wC + wD, H_EMP, bg, isMed);
-    txt(String(v1 ?? ""), xC, Y, wC + wD, H_EMP, vBold, 8, cDark, "center");
-    cell(xE, Y, wE + wF, H_EMP, bg, isMed);
-    txt(l2, xE, Y, wE + wF, H_EMP, true, 8, cBlack, "center");
-    cell(xG, Y, wG + wH + wI, H_EMP, bg, isMed);
-    txt(
-      String(v2 ?? ""),
-      xG,
-      Y,
-      wG + wH + wI,
-      H_EMP,
-      vBold,
-      8,
-      cDark,
-      "center",
-    );
-    Y += H_EMP;
+  empInfo.forEach(([l1, v1, l2, v2], i) => {
+    const bg = i === 0 ? cLGREY : cWHITE;
+    const bc = i === 0 ? cSECT  : cINNER;
+    const bw = i === 0 ? 0.4    : 0.4;
+    cell(eX1, Y, eL1, RH.emp, bg, bc, bw); txt(l1,            eX1, Y, eL1, RH.emp, true,  7.5, cBLACK, "left");
+    cell(eX2, Y, eV1, RH.emp, bg, bc, bw); txt(String(v1??""),eX2, Y, eV1, RH.emp, i===0, 7.5, cTXT,   "center");
+    cell(eX3, Y, eL2, RH.emp, bg, bc, bw); txt(l2,            eX3, Y, eL2, RH.emp, true,  7.5, cBLACK, "left");
+    cell(eX4, Y, eV2, RH.emp, bg, bc, bw); txt(String(v2??""),eX4, Y, eV2, RH.emp, i===0, 7.5, cTXT,   "center");
+    Y += RH.emp;
   });
 
-  // TABLE HEADER row 15
-  cell(xB, Y, wB, H_EMP, cHdr, true);
-  txt("Earning Head", xB, Y, wB, H_EMP, true, 8, cBlack, "center");
-  cell(xC, Y, wC, H_EMP, cHdr, true);
-  txt("Gross Salary", xC, Y, wC, H_EMP, true, 8, cBlack, "center");
-  cell(xD, Y, wD, H_EMP, cHdr, true);
-  txt("Gross Salary (d)", xD, Y, wD, H_EMP, true, 7.5, cBlack, "center");
-  cell(xE, Y, wE + wF + wG, H_EMP, cHdr, true);
-  txt("Deduction Head", xE, Y, wE + wF + wG, H_EMP, true, 8, cBlack, "center");
-  cell(xH, Y, wH + wI, H_EMP, cHdr, true);
-  txt("Amount", xH, Y, wH + wI, H_EMP, true, 8, cBlack, "center");
-  Y += H_EMP;
+  /* ── TABLE COLUMN HEADERS ────────────────────────────────────────────────── */
+  cell(xA, Y, cA, RH.thdr, cLGREY, cSECT, 0.5); txt("Earning Head",     xA, Y, cA, RH.thdr, true, 8,   cBLACK, "center");
+  cell(xB, Y, cB, RH.thdr, cLGREY, cSECT, 0.5); txt("Gross Salary",     xB, Y, cB, RH.thdr, true, 8,   cBLACK, "center");
+  cell(xC, Y, cC, RH.thdr, cLGREY, cSECT, 0.5); txt("Gross Salary (d)", xC, Y, cC, RH.thdr, true, 7.5, cBLACK, "center");
+  cell(xD, Y, cD, RH.thdr, cLGREY, cSECT, 0.5); txt("Deduction Head",   xD, Y, cD, RH.thdr, true, 8,   cBLACK, "center");
+  cell(xE, Y, cE, RH.thdr, cLGREY, cSECT, 0.5); txt("Amount",           xE, Y, cE, RH.thdr, true, 8,   cBLACK, "center");
+  Y += RH.thdr;
 
-  // DATA ROWS 16–20
+  /* ── DATA ROWS ───────────────────────────────────────────────────────────── */
   const earnRows = [
-    ["Basic", d.basic, d.basicD, H_R16],
-    ["HRA", d.hra, d.hraD, H_R17],
-    ["Organization Allowance", d.organisationAllowance, d.oaD, H_R18],
-    ["Medical\nAllowance", d.medicalAllowance, d.maD, H_R19],
-    ["", null, null, H_R20],
+    ["Basic",                  d.basic,                d.basicD],
+    ["HRA",                    d.hra,                  d.hraD],
+    ["Organization Allowance", d.organisationAllowance,d.oaD],
   ];
   const dedRows = [
     ["PF (Employee + Employer)", d.pfEmp + d.pfCo],
-    ["PT", d.pt],
-    ["Other", d.other],
-    ["TDS", d.tds],
-    ["Advance", d.advance],
+    ["PT",                       d.pt],
+    ["Gratuity",                 d.gratuity],
   ];
 
-  for (let i = 0; i < 5; i++) {
-    const [eL, eG, eGd, hRow] = earnRows[i];
-    const [dL, dA] = dedRows[i];
-
-    cell(xB, Y, wB, hRow, cWhite);
-    if (eL) {
-      const lines = eL.split("\n");
-      if (lines.length > 1)
-        mtxt(lines, xB, Y, wB, hRow, false, 7.5, cBlack, "center");
-      else txt(eL, xB, Y, wB, hRow, false, 7.5, cBlack, "center");
-    }
-    cell(xC, Y, wC, hRow, cWhite);
-    if (eG !== null) inrTxt(eG, xC, Y, wC, hRow, false, 7.5);
-    cell(xD, Y, wD, hRow, cWhite);
-    if (eGd !== null) inrTxt(eGd, xD, Y, wD, hRow, false, 7.5);
-
-    cell(xE, Y, wE + wF + wG, hRow, cWhite);
-    if (dL) txt(dL, xE, Y, wE + wF + wG, hRow, false, 7.5, cBlack, "center");
-    cell(xH, Y, wH + wI, hRow, cWhite);
-    if (dA !== null) inrTxt(dA, xH, Y, wH + wI, hRow, false, 7.5);
-
-    Y += hRow;
+  for (let i = 0; i < 3; i++) {
+    const [eL, eG, eGd] = earnRows[i];
+    const [dL, dA]      = dedRows[i];
+    cell(xA, Y, cA, RH.row, cWHITE, cINNER, 0.25); txt(eL,     xA, Y, cA, RH.row, false, 7.5, cBLACK, "left");
+    cell(xB, Y, cB, RH.row, cWHITE, cINNER, 0.25); inrT(eG,    xB, Y, cB, RH.row, false, 7.5);
+    cell(xC, Y, cC, RH.row, cWHITE, cINNER, 0.25); inrT(eGd,   xC, Y, cC, RH.row, false, 7.5);
+    cell(xD, Y, cD, RH.row, cWHITE, cINNER, 0.25); txt(dL,     xD, Y, cD, RH.row, false, 7.5, cBLACK, "center");
+    cell(xE, Y, cE, RH.row, cWHITE, cINNER, 0.25); inrT(dA,    xE, Y, cE, RH.row, false, 7.5);
+    Y += RH.row;
   }
 
-  // ROW 21 — Total Earning / Total Deduction
-  cell(xB, Y, wB, H_R21, cWhite);
-  txt("Total Earning", xB, Y, wB, H_R21, true, 7.5, cBlack, "center");
-  cell(xC, Y, wC, H_R21, cWhite);
-  inrTxt(d.grossSalary, xC, Y, wC, H_R21, true, 7.5);
-  cell(xD, Y, wD, H_R21, cWhite);
-  inrTxt(d.grossSalaryD, xD, Y, wD, H_R21, true, 7.5);
-  cell(xE, Y, wE + wF + wG, H_R21, cWhite);
-  txt(
-    "Total Deduction",
-    xE,
-    Y,
-    wE + wF + wG,
-    H_R21,
-    false,
-    7.5,
-    cBlack,
-    "center",
-  );
-  cell(xH, Y, wH + wI, H_R21, cWhite);
-  inrTxt(d.totalDeduction, xH, Y, wH + wI, H_R21, false, 7.5);
-  const Y_AFTER_R21 = Y + H_R21;
-  Y += H_R21;
+  /* ── TOTAL EARNING / TOTAL DEDUCTION ─────────────────────────────────────── */
+  cell(xA, Y, cA, RH.tot, cLGREY, cSECT, 0.5); txt("Total Earning",     xA, Y, cA, RH.tot, true, 7.5, cBLACK, "left");
+  cell(xB, Y, cB, RH.tot, cLGREY, cSECT, 0.5); inrT(d.grossSalary,     xB, Y, cB, RH.tot, true, 7.5);
+  cell(xC, Y, cC, RH.tot, cLGREY, cSECT, 0.5); inrT(d.grossSalaryD,    xC, Y, cC, RH.tot, true, 7.5);
+  cell(xD, Y, cD, RH.tot, cLGREY, cSECT, 0.5); txt("Total Deduction",  xD, Y, cD, RH.tot, true, 7.5, cBLACK, "center");
+  cell(xE, Y, cE, RH.tot, cLGREY, cSECT, 0.5); inrT(d.totalDeduction,  xE, Y, cE, RH.tot, true, 7.5);
+  Y += RH.tot;
 
-  // ROW 22 — Performance Pay / Net Salary
-  cell(xB, Y, wB, H_R22, cWhite);
-  mtxt(
-    ["Performance Pay", "Variable pay"],
-    xB,
-    Y,
-    wB,
-    H_R22,
-    false,
-    7,
-    cBlack,
-    "center",
-  );
-  cell(xC, Y, wC, H_R22, cWhite);
-  inrTxt(d.performancePay, xC, Y, wC, H_R22, false, 7.5);
-  cell(xD, Y, wD, H_R22, cWhite);
-  inrTxt(d.perfD, xD, Y, wD, H_R22, false, 7.5);
-  cell(xE, Y, wE + wF + wG, H_R22, cWhite, true);
-  txt("Net Salary", xE, Y, wE + wF + wG, H_R22, true, 8, cBlack, "center");
-  cell(xH, Y, wH + wI, H_R22, cWhite, true);
-  inrTxt(d.netSalary, xH, Y, wH + wI, H_R22, true, 7.5);
-  Y += H_R22;
+  /* ── PERFORMANCE PAY / NET SALARY ────────────────────────────────────────── */
+  cell(xA, Y, cA, RH.perf, cWHITE, cINNER, 0.25);
+  mtxt(["Performance Pay /", "Variable pay"], xA, Y, cA, RH.perf, false, 7, cBLACK);
+  cell(xB, Y, cB, RH.perf, cWHITE, cINNER, 0.25); inrT(d.performancePay, xB, Y, cB, RH.perf, false, 7.5);
+  cell(xC, Y, cC, RH.perf, cWHITE, cINNER, 0.25); inrT(d.perfD,          xC, Y, cC, RH.perf, false, 7.5);
+  cell(xD, Y, cD, RH.perf, cWHITE, cSECT,  0.5);  txt("Net Salary",       xD, Y, cD, RH.perf, true, 9, cBLACK, "left");
+  cell(xE, Y, cE, RH.perf, cWHITE, cSECT,  0.5);  inrT(d.netSalary,       xE, Y, cE, RH.perf, true, 7.5);
+  Y += RH.perf;
 
-  // ROW 23 — Total Earning Potential / Performance Pay (Variable)
-  cell(xB, Y, wB, H_R23, cWhite);
-  mtxt(
-    ["Total Earning", " Potential"],
-    xB,
-    Y,
-    wB,
-    H_R23,
-    true,
-    7.5,
-    cBlack,
-    "center",
-  );
-  cell(xC, Y, wC, H_R23, cWhite);
-  inrTxt(d.totalEarning, xC, Y, wC, H_R23, true, 7.5);
-  cell(xD, Y, wD, H_R23, cWhite);
-  inrTxt(d.totalEarningD, xD, Y, wD, H_R23, true, 7.5);
-  cell(xE, Y, wE + wF + wG, H_R23, cWhite);
-  mtxt(
-    ["Performance Pay", "Variable pay"],
-    xE,
-    Y,
-    wE + wF + wG,
-    H_R23,
-    false,
-    7,
-    cBlack,
-    "center",
-  );
-  cell(xH, Y, wH + wI, H_R23, cWhite);
-  inrTxt(d.perfD, xH, Y, wH + wI, H_R23, false, 7.5);
-  Y += H_R23;
+  /* ── TOTAL EARNING POTENTIAL ──────────────────────────────────────────────── */
+  cell(xA, Y, cA, RH.pot, cWHITE, cINNER, 0.25);
+  mtxt(["Total Earning", "Potential"], xA, Y, cA, RH.pot, true, 7.5, cBLACK);
+  cell(xB, Y, cB, RH.pot, cWHITE, cINNER, 0.25); inrT(d.totalEarning,  xB, Y, cB, RH.pot, true, 7.5);
+  cell(xC, Y, cC, RH.pot, cWHITE, cINNER, 0.25); inrT(d.totalEarningD, xC, Y, cC, RH.pot, true, 7.5);
+  cell(xD, Y, cD, RH.pot, cWHITE, cINNER, 0.25);
+  mtxt(["Performance Pay /", "Variable pay"], xD, Y, cD, RH.pot, false, 7, cBLACK, "center");
+  cell(xE, Y, cE, RH.pot, cWHITE, cINNER, 0.25); inrT(d.perfD,         xE, Y, cE, RH.pot, false, 7.5);
+  Y += RH.pot;
 
-  // ROW 24 — Total Earning DARK SECTION
-  cell(xB, Y, wB, H_R24, cWhite);
-  cell(xC, Y, wC, H_R24, cWhite);
-  cell(xD, Y, wD, H_R24, cWhite);
-  cell(xE, Y, wE + wF + wG, H_R24, cDarkBg, true);
-  txt("Total Earning", xE, Y, wE + wF + wG, H_R24, true, 8, cWhite, "center");
-  cell(xH, Y, wH + wI, H_R24, cDarkBg, true);
-  inrTxt(d.totalWithPerf, xH, Y, wH + wI, H_R24, true, 7.5, cWhite);
-  Y += H_R24;
+  /* ── DARK "TOTAL EARNING" ROW ────────────────────────────────────────────── */
+  cell(xA, Y, cA, RH.dark, cWHITE, cINNER, 0.25);
+  cell(xB, Y, cB, RH.dark, cWHITE, cINNER, 0.25);
+  cell(xC, Y, cC, RH.dark, cWHITE, cINNER, 0.25);
+  cell(xD, Y, cD, RH.dark, cDARK,  cSECT,  0.5);  txt("Total Earning",    xD, Y, cD, RH.dark, true, 8, cWHT, "left");
+  cell(xE, Y, cE, RH.dark, cDARK,  cSECT,  0.5);  inrT(d.totalWithPerf,   xE, Y, cE, RH.dark, true, 7.5, cWHT);
+  Y += RH.dark;
 
-  // ROW 25 — Spacer
-  fillR(xB, Y, CONTENT_W, H_R25, cWhite);
-  medBox(xB, Y, CONTENT_W, H_R25);
-  Y += H_R25;
+  /* ── SPACER ──────────────────────────────────────────────────────────────── */
+  fillR(ML, Y, PW, RH.spc, cWHITE);
+  Y += RH.spc;
 
-  // ROW 26 — Footer
-  fillR(xB, Y, CONTENT_W, H_R26, cHdr);
-  medBox(xB, Y, CONTENT_W, H_R26);
-  txt(
-    '"This is computer generated payslip"',
-    xB,
-    Y,
-    CONTENT_W,
-    H_R26,
-    true,
-    8.5,
-    cBlack,
-    "center",
-  );
+  /* ── FOOTER ──────────────────────────────────────────────────────────────── */
+  cell(ML, Y, PW, RH.ftr, cLGREY, cSECT, 0.5);
+  txt('"This is computer generated payslip"', ML, Y, PW, RH.ftr, true, 9, cBLACK, "center");
+  Y += RH.ftr;
 
-  // REDRAW KEY BORDER LINES last
-  doc.setDrawColor(...cMed);
-  doc.setLineWidth(0.6);
-  doc.line(xB, Y_AFTER_R21, xB + CONTENT_W, Y_AFTER_R21);
+  /* ── OUTER FRAME — drawn last, sits over everything ─────────────────────── */
+doc.setDrawColor(...cOUTER);
+doc.setLineWidth(0.45);
+doc.rect(ML, YTOP, PW, Y - YTOP, "S");
 
-  doc.save(
-    `Payslip_${d.name.replace(/\s+/g, "_")}_${d.forMonth?.replace(/\s+/g, "_") || "payslip"}.pdf`,
-  );
+  doc.save(`Payslip_${d.name.replace(/\s+/g,"_")}_${(d.forMonth||"payslip").replace(/\s+/g,"_")}.pdf`);
 };
 
 /* =============================================================================
-   EXCEL PAYSLIP — exact replica of PDF / Salary_slip_format.xlsx
-   All values, formulas, merges, borders, fonts, fills match the PDF line-by-line.
+   EXCEL PAYSLIP — mirrors PDF layout
    ============================================================================= */
 export const downloadPayslipExcel = async (employee) => {
+  const d = _buildData(_normalizeEmployee(employee));
+
   if (!window.ExcelJS) {
-    await new Promise((resolve, reject) => {
+    await new Promise((res, rej) => {
       const s = document.createElement("script");
-      s.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
-      s.onload = resolve;
-      s.onerror = reject;
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+      s.onload = res; s.onerror = rej;
       document.head.appendChild(s);
     });
   }
 
-  const d = _buildData(employee);
   const wb = new window.ExcelJS.Workbook();
   const ws = wb.addWorksheet("Payslip");
 
   ws.pageSetup = {
-    paperSize: 9,
-    orientation: "portrait",
-    fitToPage: true,
-    fitToWidth: 1,
-    fitToHeight: 0,
+    paperSize: 9, orientation: "portrait",
+    fitToPage: true, fitToWidth: 1, fitToHeight: 0,
     horizontalCentered: true,
-    verticalCentered: false,
-    margins: {
-      left: 0.15,
-      right: 0.15,
-      top: 0.15,
-      bottom: 0.15,
-      header: 0.1,
-      footer: 0.1,
-    },
+    margins: { left: 0.2, right: 0.2, top: 0.2, bottom: 0.2, header: 0.1, footer: 0.1 },
   };
-  ws.views = [{ showGridLines: false, zoomScale: 70 }];
+  ws.views = [{ showGridLines: false, zoomScale: 80 }];
 
-  // ── Column widths (exact from template) ──────────────────────────────────
+  // ─── Column layout ─────────────────────────────────────────────────────────
+  //  A  = gutter (hidden)
+  //  B  = Earning Head label      [logo col 1/3]
+  //  C  = Gross Salary            [logo col 2/3]
+  //  D  = Gross Salary (d)        [logo col 3/3 — end of 1/3 logo block]
+  //  E  = Deduction Head          [company info — wider]
+  //  F  = Amount                  [company info]
+  //  G  = company info
+  //  H  = company info
+  //  I  = company info
+  //
+  // Header: B:D merged = logo, E:I = company info (3 rows)
+  // Body: B=label, C=gross, D=gross(d), E:F merged=ded label, G:I merged=amount
   ws.columns = [
-    { width: 4.55 }, // A spacer
-    { width: 23.22 }, // B — Earning Head / emp label-left
-    { width: 16.44 }, // C — Gross Salary / emp value-left pt1
-    { width: 20.78 }, // D — Gross Salary (d) / emp value-left pt2
-    { width: 15.0 }, // E — Deduction Head pt1 / emp label-right pt1
-    { width: 9.44 }, // F — Deduction Head pt2 / emp label-right pt2
-    { width: 17.44 }, // G — Amount span / emp value-right pt1
-    { width: 5.44 }, // H — Amount pt1 / emp value-right pt2
-    { width: 18.44 }, // I — Amount pt2 / emp value-right pt3
+    { width: 1   }, // A gutter
+    { width: 22  }, // B
+    { width: 15  }, // C
+    { width: 15  }, // D  ← end of logo 1/3
+    { width: 28  }, // E  (deduction head / company info — wider for long text)
+    { width: 13  }, // F
+    { width: 13  }, // G
+    { width: 13  }, // H
+    { width: 13  }, // I
   ];
 
-  // ── Row heights (exact from template in pt) ───────────────────────────────
-  ws.getRow(1).height = 28.5; // top spacer
-  ws.getRow(2).height = 28.5; // company name     — matches H_HDR_ROW
-  ws.getRow(3).height = 28.5; // address          — matches H_HDR_ROW
-  ws.getRow(4).height = 28.5; // website          — matches H_HDR_ROW (PDF uses H_HDR_ROW*3 total for rows 2-4)
-  ws.getRow(5).height = 38.25; // banner           — matches H_BANNER
-  for (let r = 6; r <= 15; r++) ws.getRow(r).height = 28.5; // emp rows + table hdr — matches H_EMP
-  ws.getRow(16).height = 28.5; // Basic / PF       — matches H_R16
-  ws.getRow(17).height = 28.5; // HRA / PT         — matches H_R17
-  ws.getRow(18).height = 32.25; // Org Allow / Other — matches H_R18
-  ws.getRow(19).height = 31.5; // Medical / TDS    — matches H_R19
-  ws.getRow(20).height = 28.5; // blank / Advance  — matches H_R20
-  ws.getRow(21).height = 28.5; // Total Earning / Total Deduction — matches H_R21
-  ws.getRow(22).height = 31.2; // Perf Pay / Net Salary — matches H_R22
-  ws.getRow(23).height = 45.0; // Total Earning Potential / Perf Pay Variable — matches H_R23
-  ws.getRow(24).height = 28.5; // dark section     — matches H_R24
-  ws.getRow(25).height = 28.5; // spacer           — matches H_R25
-  ws.getRow(26).height = 28.5; // footer           — matches H_R26
+  // ─── Row heights ───────────────────────────────────────────────────────────
+  ws.getRow(1).height  = 4;
+  ws.getRow(2).height  = 44;  // logo / company name
+  ws.getRow(3).height  = 26;  // address
+  ws.getRow(4).height  = 26;  // website
+  ws.getRow(5).height  = 22;  // banner
+  for (let r = 6;  r <= 13; r++) ws.getRow(r).height = 20;
+  ws.getRow(14).height = 22;
+  for (let r = 15; r <= 17; r++) ws.getRow(r).height = 20;
+  ws.getRow(18).height = 22;
+  ws.getRow(19).height = 22;
+  ws.getRow(20).height = 22;
+  ws.getRow(21).height = 22;
+  ws.getRow(22).height = 6;
+  ws.getRow(23).height = 20;
 
-  ws.pageSetup.printArea = "B2:I26";
+  ws.pageSetup.printArea = "B2:I23";
 
-  // ── Border / Fill / Alignment / Font constants ────────────────────────────
-  // Matches PDF: cThin=[110,110,110] → ARGB FF6E6E6E; cMed=[50,50,50] → ARGB FF323232
-  const thin = { style: "thin", color: { argb: "FF6E6E6E" } };
-  const medium = { style: "medium", color: { argb: "FF323232" } };
-  const thinB = { top: thin, left: thin, bottom: thin, right: thin };
-  const medB = { top: medium, left: medium, bottom: medium, right: medium };
+  // ─── Border definitions ────────────────────────────────────────────────────
+  const OUTER = { style: "medium", color: { argb: "FF1E1E1E" } };
+  const SECT  = { style: "medium", color: { argb: "FF3C3C3C" } };
+  const INNER = { style: "thin",   color: { argb: "FF707070" } };
+  const HDIV  = { style: "thin",   color: { argb: "FFAAAAAA" } };
 
-  // Matches PDF: cHdr=[231,230,230]=E7E6E6; cDarkBg=[68,84,106]=44546A; cWhite=FFFFFF
-  const sf = (argb) => ({
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb },
-  });
-  const fillHdr = sf("FFE7E6E6"); // lt2 — header bg, table-header bg, row-6 bg, footer
-  const fillDark = sf("FF44546A"); // dk2 — Total Earning dark row
-  const fillW = sf("FFFFFFFF"); // white
+  const bOuter = { top: OUTER, left: OUTER, bottom: OUTER, right: OUTER };
+  const bSect  = { top: SECT,  left: SECT,  bottom: SECT,  right: SECT  };
+  const bInner = { top: INNER, left: INNER, bottom: INNER, right: INNER };
 
-  const cM = { horizontal: "center", vertical: "middle", wrapText: true };
-  const lM = {
-    horizontal: "left",
-    vertical: "middle",
-    wrapText: true,
-    indent: 1,
-  };
+  // ─── Fill definitions ──────────────────────────────────────────────────────
+  const sf    = (a) => ({ type: "pattern", pattern: "solid", fgColor: { argb: a } });
+  const fW    = sf("FFFFFFFF");
+  const fG    = sf("FFE7E6E6");
+  const fDark = sf("FF44546A");
 
-  // numFmt matches inr() function: "Rs. " prefix + Indian locale formatting
+  // ─── Alignment ─────────────────────────────────────────────────────────────
+  const aL = { horizontal: "left",   vertical: "middle", wrapText: true, indent: 1 };
+  const aC = { horizontal: "center", vertical: "middle", wrapText: true };
+
+  // ─── Fonts ─────────────────────────────────────────────────────────────────
+  const fN    = { name: "Calibri", size: 9 };
+  const fB    = { name: "Calibri", size: 9,  bold: true };
+  const fB11  = { name: "Calibri", size: 11, bold: true };
+  const fWht  = { name: "Calibri", size: 9,  bold: true, color: { argb: "FFFFFFFF" } };
   const numFmt = '"Rs. "#,##0.00';
 
-  // Fonts — match PDF font sizes and bold states
-  // PDF uses helvetica; Excel uses Calibri (closest match)
-  const fN = { size: 9, name: "Calibri" }; // normal — matches PDF sz 7.5–8, normal
-  const fB = { bold: true, size: 9, name: "Calibri" }; // bold   — matches PDF bold cells
-  const fB11 = { bold: true, size: 11, name: "Calibri" }; // banner
-  const fB14 = { bold: true, size: 14, name: "Calibri" }; // company name
-  const fGray = { size: 9, name: "Calibri", color: { argb: "FF5A5A5A" } }; // cGray=[90,90,90] — address
-  const fWeb = { size: 9, name: "Calibri", color: { argb: "FF0563C1" } }; // cLink=[5,99,193] — website
-  const fWht = {
-    bold: true,
-    size: 9,
-    name: "Calibri",
-    color: { argb: "FFFFFFFF" },
-  }; // cWhite — dark row text
-  const fBBlue = {
-    bold: true,
-    size: 14,
-    name: "Calibri",
-    color: { argb: "FF1A3C6E" },
-  }; // cBlue=[26,60,110] — company name
-
-  // ── Cell helper ───────────────────────────────────────────────────────────
-  const set = (coord, value, opts = {}) => {
-    const c = ws.getCell(coord);
-    if (value !== undefined && value !== null) c.value = value;
-    if (opts.font) c.font = opts.font;
-    if (opts.fill) c.fill = opts.fill;
-    if (opts.alignment) c.alignment = opts.alignment;
-    if (opts.border) c.border = opts.border;
-    if (opts.numFmt) c.numFmt = opts.numFmt;
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+  const SC = (addr, val, o = {}) => {
+    const c = ws.getCell(addr);
+    if (val !== undefined && val !== null) c.value = val;
+    if (o.font)      c.font      = o.font;
+    if (o.fill)      c.fill      = o.fill;
+    if (o.alignment) c.alignment = o.alignment;
+    if (o.border)    c.border    = o.border;
+    if (o.numFmt)    c.numFmt    = o.numFmt;
     return c;
   };
 
-  // ── Load logo ─────────────────────────────────────────────────────────────
+  const MC = (rng, val, o = {}) => {
+    try { ws.mergeCells(rng); } catch(_) {}
+    return SC(rng.split(":")[0], val, o);
+  };
+
+  // ─── Load logo ─────────────────────────────────────────────────────────────
   const logoInfo = await loadImageBase64("/assets/Insta-logo1.png");
 
-  // ==========================================================================
-  // HEADER BLOCK rows 2–4
-  // PDF: one medBox around entire header block (rows 2–4 combined = H_HDR)
-  // Excel replicates with per-cell medium borders on outer edges only.
-  //
-  // PDF structure: B:C = logo zone (wB+wC), D:I = company info (wD:wI)
-  // Excel: rows 2,3,4 — B:C hold logo image, D:I merged per row for text
-  // ==========================================================================
-  for (let r = 2; r <= 4; r++) {
-    for (const col of ["B", "C", "D", "E", "F", "G", "H", "I"]) {
-      ws.getCell(`${col}${r}`).fill = fillW;
-    }
-    // Left edge: medium on B (left side of logo zone)
-    ws.getCell(`B${r}`).border = {
-      top: r === 2 ? medium : undefined,
-      bottom: r === 4 ? medium : undefined,
-      left: medium,
-      right: undefined,
-    };
-    // C spans logo zone — no right divider inside logo zone
-    ws.getCell(`C${r}`).border = {
-      top: r === 2 ? medium : undefined,
-      bottom: r === 4 ? medium : undefined,
-      left: undefined,
-      right: undefined,
-    };
-    // D–H interior — only top/bottom outer edges
-    for (const col of ["D", "E", "F", "G", "H"]) {
-      ws.getCell(`${col}${r}`).border = {
-        top: r === 2 ? medium : undefined,
-        bottom: r === 4 ? medium : undefined,
-        left: undefined,
-        right: undefined,
-      };
-    }
-    // Right edge: medium on I
-    ws.getCell(`I${r}`).border = {
-      top: r === 2 ? medium : undefined,
-      bottom: r === 4 ? medium : undefined,
-      left: undefined,
-      right: medium,
-    };
-  }
+  /* ════════════════════════════════════════════════════
+     ROWS 2–4: HEADER  (logo left 1/3, company info right 2/3)
+  ════════════════════════════════════════════════════ */
 
-  // Logo image — same aspect-ratio logic as PDF, placed in B:C zone (cols 1–2 = indices 1.1–2.9)
+  // Logo block — B2:D4
+  MC("B2:D4", null, {
+    fill:   fW,
+    border: { top: OUTER, left: OUTER, bottom: OUTER, right: HDIV },
+  });
+
   if (logoInfo) {
-    const b64 = logoInfo.dataUrl.split(",")[1];
+    const b64   = logoInfo.dataUrl.split(",")[1];
     const imgId = wb.addImage({ base64: b64, extension: "png" });
     ws.addImage(imgId, {
-      tl: { col: 1.1, row: 1.45 },
-      br: { col: 2.9, row: 3.55 },
-      editAs: "absolute",
+      tl:     { col: 1.12, row: 1.12 },  // B2 + inset (col index 0-based: B=1)
+      br:     { col: 3.88, row: 3.88 },  // D4 − inset
+      editAs: "oneCell",
     });
   }
 
-  // Row 2 — Company name: D2:I2 merged — matches PDF: fBBlue, bold, left-aligned
-  ws.mergeCells("D2:I2");
-  set("D2", "Insta ICT Solutions Pvt. Ltd.", {
-    font: fBBlue,
-    fill: fillW,
-    alignment: lM,
-    border: { top: medium, left: undefined, bottom: undefined, right: medium },
+  // Company name — E2:I2
+  MC("E2:I2", "Insta ICT Solutions Pvt. Ltd.", {
+    font:      { name: "Calibri", bold: true, size: 11.5, color: { argb: "FF1A3C6E" } },
+    fill:      fW,
+    alignment: aL,
+    border:    { top: OUTER, left: HDIV, bottom: HDIV, right: OUTER },
   });
 
-  // Row 3 — Address: D3:I3 merged — matches PDF: fGray, normal, left-aligned
-  ws.mergeCells("D3:I3");
-  set(
-    "D3",
-    "201 - 202, Imperial Plaza, Jijai Nagar, Kothrud, Pune - 411 038.",
-    {
-      font: fGray,
-      fill: fillW,
-      alignment: lM,
-      border: {
-        top: undefined,
-        left: undefined,
-        bottom: undefined,
-        right: medium,
-      },
-    },
-  );
-
-  // Row 4 — Website: D4:I4 merged — matches PDF: fWeb (blue link color), normal, left-aligned
-  ws.mergeCells("D4:I4");
-  set("D4", "Website: www.instagrp.com.", {
-    font: fWeb,
-    fill: fillW,
-    alignment: lM,
-    border: { top: undefined, left: undefined, bottom: medium, right: medium },
+  // Address — E3:I3
+  MC("E3:I3", "201 - 202, Imperial Plaza, Jijai Nagar, Kothrud, Pune - 411 038.", {
+    font:      { name: "Calibri", size: 8.5, color: { argb: "FF555555" } },
+    fill:      fW,
+    alignment: aL,
+    border:    { top: HDIV, left: HDIV, bottom: HDIV, right: OUTER },
   });
 
-  // ==========================================================================
-  // BANNER row 5 — B5:I5 merged
-  // PDF: fillW bg, medBox border, bold 11pt, center, "Payslip: {forMonth}"
-  // ==========================================================================
-  ws.mergeCells("B5:I5");
-  set("B5", `Payslip: ${d.forMonth}`, {
-    font: fB11,
-    fill: fillW,
-    alignment: cM,
-    border: medB,
+  // Website — E4:I4
+  MC("E4:I4", "Website: www.instagrp.com", {
+    font:      { name: "Calibri", size: 8.5, color: { argb: "FF0563C1" } },
+    fill:      fW,
+    alignment: aL,
+    border:    { top: HDIV, left: HDIV, bottom: OUTER, right: OUTER },
   });
 
-  // ==========================================================================
-  // EMPLOYEE INFO rows 6–14 (9 rows)
-  // PDF per row:
-  //   B  = label-left  (bold, center, cBlack) — bg cHdr on row 0 else cWhite; isMed on row 0
-  //   C:D merged = value-left (center, cDark) — bold only on row 0 (vBold)
-  //   E:F merged = label-right (bold, center, cBlack)
-  //   G:I merged = value-right (center, cDark) — bold only on row 0
-  //
-  // NOTE: PDF uses E:F for label-right (wE+wF), G:I for value-right (wG+wH+wI)
-  // Excel: E:F merged = label-right, G:I merged = value-right
-  // ==========================================================================
-  const empRows = [
-    ["Employee Id", d.employeeId, "Name", d.name],
-    ["Joining Date", d.joiningDate, "Current Location", d.currentLocation],
-    ["P Days", d.pDays, "Project", d.project],
-    ["A Days", d.aDays, "Designation", d.designation],
-    ["Month Days", d.monthDays, "Grade", d.grade],
-    ["EPF No", d.epfNo, "ESIC No", d.esicNo],
-    ["UAN No", d.uanNo, "Aadhar No", d.aadharNo],
-    ["PAN No", d.panNo, "For Month", d.forMonth],
-    ["Bank Name", d.bankName, "Bank A/c No", d.bankAccountNo],
+  /* ════════════════════════════════════════════════════
+     ROW 5: BANNER
+  ════════════════════════════════════════════════════ */
+  MC("B5:I5", `Payslip: ${d.forMonth}`, {
+    font: fB11, fill: fW, alignment: aC, border: bSect,
+  });
+
+  /* ════════════════════════════════════════════════════
+     ROWS 6–13: EMPLOYEE INFO
+     B = label1 | C:D = value1 | E:F = label2 | G:I = value2
+  ════════════════════════════════════════════════════ */
+  const empInfo = [
+    ["Employee Id",  d.employeeId,    "Name",             d.name],
+    ["Joining Date", d.joiningDate,   "Current Location", d.currentLocation],
+    ["P Days",       d.pDays,         "Project",          d.project],
+    ["A Days",       d.aDays,         "Designation",      d.designation],
+    ["Month Days",   d.monthDays,     "Grade",            d.grade],
+    ["UAN No",       d.uanNo,         "Aadhar No",        d.aadharNo],
+    ["PAN No",       d.panNo,         "For Month",        d.forMonth],
+    ["Bank Name",    d.bankName,      "Bank A/c No",      d.bankAccountNo],
   ];
 
-  empRows.forEach(([l1, v1, l2, v2], i) => {
-    const r = 6 + i;
-    // Row 6 (i=0): bg=cHdr, vBold=true, isMed=true — matches PDF exactly
-    const bg = i === 0 ? fillHdr : fillW;
-    const fv = i === 0 ? fB : fN; // value bold only on row 6
-    const brd = i === 0 ? medB : thinB; // medium border on row 6, thin on rest
-
-    // B = label-left — bold, center
-    set(`B${r}`, l1, { font: fB, fill: bg, alignment: cM, border: brd });
-
-    // C:D merged = value-left — center; bold on row 6 only
-    ws.mergeCells(`C${r}:D${r}`);
-    set(`C${r}`, v1 ?? "", { font: fv, fill: bg, alignment: cM, border: brd });
-
-    // E:F merged = label-right — bold, center
-    // PDF: xE to wE+wF (cols E and F merged)
-    ws.mergeCells(`E${r}:F${r}`);
-    set(`E${r}`, l2, { font: fB, fill: bg, alignment: cM, border: brd });
-
-    // G:I merged = value-right — center; bold on row 6 only
-    // PDF: xG to wG+wH+wI (cols G, H, I merged)
-    ws.mergeCells(`G${r}:I${r}`);
-    set(`G${r}`, v2 ?? "", { font: fv, fill: bg, alignment: cM, border: brd });
+  empInfo.forEach(([l1, v1, l2, v2], i) => {
+    const r  = 6 + i;
+    const bg = i === 0 ? fG  : fW;
+    const fv = i === 0 ? fB  : fN;
+    SC(`B${r}`,        l1,        { font: fB, fill: bg, alignment: aL, border: bInner });
+    MC(`C${r}:D${r}`,  v1 ?? "",  { font: fv, fill: bg, alignment: aC, border: bInner });
+    MC(`E${r}:F${r}`,  l2,        { font: fB, fill: bg, alignment: aL, border: bInner });
+    MC(`G${r}:I${r}`,  v2 ?? "",  { font: fv, fill: bg, alignment: aC, border: bInner });
   });
 
-  // ==========================================================================
-  // TABLE HEADER row 15
-  // PDF: B=Earning Head | C=Gross Salary | D=Gross Salary(d) | E:G=Deduction Head | H:I=Amount
-  // All cells: fillHdr bg, bold, center, medB border
-  // ==========================================================================
-  set("B15", "Earning Head", {
-    font: fB,
-    fill: fillHdr,
-    alignment: cM,
-    border: medB,
-  });
-  set("C15", "Gross Salary", {
-    font: fB,
-    fill: fillHdr,
-    alignment: cM,
-    border: medB,
-  });
-  set("D15", "Gross Salary (d)", {
-    font: fB,
-    fill: fillHdr,
-    alignment: cM,
-    border: medB,
-  });
-  // E:G merged = Deduction Head — matches PDF xE to wE+wF+wG
-  ws.mergeCells("E15:G15");
-  set("E15", "Deduction Head", {
-    font: fB,
-    fill: fillHdr,
-    alignment: cM,
-    border: medB,
-  });
-  // H:I merged = Amount — matches PDF xH to wH+wI
-  ws.mergeCells("H15:I15");
-  set("H15", "Amount", {
-    font: fB,
-    fill: fillHdr,
-    alignment: cM,
-    border: medB,
-  });
+  /* ════════════════════════════════════════════════════
+     ROW 14: TABLE COLUMN HEADERS
+  ════════════════════════════════════════════════════ */
+  SC("B14",     "Earning Head",     { font: fB, fill: fG, alignment: aC, border: bSect });
+  SC("C14",     "Gross Salary",     { font: fB, fill: fG, alignment: aC, border: bSect });
+  SC("D14",     "Gross Salary (d)", { font: fB, fill: fG, alignment: aC, border: bSect });
+  MC("E14:F14", "Deduction Head",   { font: fB, fill: fG, alignment: aC, border: bSect });
+  MC("G14:I14", "Amount",           { font: fB, fill: fG, alignment: aC, border: bSect });
 
-  // ==========================================================================
-  // DATA ROWS 16–20
-  // PDF earning cols: B=label | C=grossSalary(full) | D=grossSalary(d)
-  // PDF deduction cols: E:G merged=label | H:I merged=amount
-  // All cells: fillW, thinB, fN (normal)
-  //
-  // Earning labels match PDF earnRows exactly:
-  //   16=Basic | 17=HRA | 18=Organization Allowance | 19=Medical\nAllowance | 20=(blank)
-  //
-  // Deduction labels match PDF dedRows exactly:
-  //   16=PF (Employee + Employer) | 17=PT | 18=Other | 19=TDS | 20=Advance
-  //
-  // Values match _buildData exactly:
-  //   C col = gross (full month): basic, hra, oA, mA, null
-  //   D col = gross (d, pro-rated): basicD, hraD, oaD, maD, null
-  //   H col (deduction amount): pfEmp+pfCo, pt, other, tds, advance
-  // ==========================================================================
+  /* ════════════════════════════════════════════════════
+     ROWS 15–17: DATA ROWS
+  ════════════════════════════════════════════════════ */
   const earnData = [
-    // [label, grossFull, grossD]
-    ["Basic", d.basic, d.basicD], // row 16
-    ["HRA", d.hra, d.hraD], // row 17
-    ["Organization Allowance", d.organisationAllowance, d.oaD], // row 18
-    ["Medical\nAllowance", d.medicalAllowance, d.maD], // row 19
-    ["", null, null], // row 20 — blank earning
+    ["Basic",                  d.basic,                d.basicD],
+    ["HRA",                    d.hra,                  d.hraD],
+    ["Organization Allowance", d.organisationAllowance,d.oaD],
   ];
   const dedData = [
-    // [label, amount] — matches PDF dedRows
-    ["PF (Employee + Employer)", d.pfEmp + d.pfCo], // row 16
-    ["PT", d.pt], // row 17
-    ["Other", d.other], // row 18
-    ["TDS", d.tds], // row 19
-    ["Advance", d.advance], // row 20
+    ["PF (Employee + Employer)", d.pfEmp + d.pfCo],
+    ["PT",                       d.pt],
+    ["Gratuity",                 d.gratuity],
   ];
 
-  for (let i = 0; i < 5; i++) {
-    const r = 16 + i;
+  for (let i = 0; i < 3; i++) {
+    const r = 15 + i;
     const [eL, eG, eGD] = earnData[i];
-    const [dL, dA] = dedData[i];
-
-    // B = earning label — matches PDF: normal, center, white bg, thin border
-    set(`B${r}`, eL || "", {
-      font: fN,
-      fill: fillW,
-      alignment: cM,
-      border: thinB,
-    });
-
-    // C = gross salary (full month) — matches PDF inrTxt(eG, ...)
-    // Use actual value (not formula) to match PDF computed values
-    set(`C${r}`, eG !== null ? eG : null, {
-      font: fN,
-      fill: fillW,
-      alignment: cM,
-      border: thinB,
-      numFmt,
-    });
-
-    // D = gross salary (pro-rated/d) — matches PDF inrTxt(eGd, ...)
-    set(`D${r}`, eGD !== null ? eGD : null, {
-      font: fN,
-      fill: fillW,
-      alignment: cM,
-      border: thinB,
-      numFmt,
-    });
-
-    // E:G merged = deduction label — matches PDF: xE to wE+wF+wG, center, normal
-    ws.mergeCells(`E${r}:G${r}`);
-    set(`E${r}`, dL || "", {
-      font: fN,
-      fill: fillW,
-      alignment: cM,
-      border: thinB,
-    });
-
-    // H:I merged = deduction amount — matches PDF: xH to wH+wI, inrTxt center
-    ws.mergeCells(`H${r}:I${r}`);
-    set(`H${r}`, dA !== null ? dA : null, {
-      font: fN,
-      fill: fillW,
-      alignment: cM,
-      border: thinB,
-      numFmt,
-    });
+    const [dL, dA]      = dedData[i];
+    SC(`B${r}`,    eL,  { font: fN, fill: fW, alignment: aL, border: bInner });
+    SC(`C${r}`,    eG,  { font: fN, fill: fW, alignment: aC, border: bInner, numFmt });
+    SC(`D${r}`,    eGD, { font: fN, fill: fW, alignment: aC, border: bInner, numFmt });
+    MC(`E${r}:F${r}`, dL, { font: fN, fill: fW, alignment: aC, border: bInner });
+    MC(`G${r}:I${r}`, dA, { font: fN, fill: fW, alignment: aC, border: bInner, numFmt });
   }
 
-  // ==========================================================================
-  // ROW 21 — Total Earning / Total Deduction
-  // PDF: B=bold "Total Earning" | C=grossSalary(bold) | D=grossSalaryD(bold)
-  //      E:G merged=normal "Total Deduction" | H:I merged=totalDeduction(normal)
-  // Medium bottom border (PDF redraws a thick line at Y_AFTER_R21)
-  // ==========================================================================
-  // Border: thin top/sides, medium bottom — matches PDF's medium redraw line after R21
-  const r21bot = { top: thin, left: thin, bottom: medium, right: thin };
-  const r21botL = { top: thin, left: medium, bottom: medium, right: thin }; // B21 left=medium (outer edge)
-  const r21botR = { top: thin, left: thin, bottom: medium, right: medium }; // H21 right=medium (outer edge)
+  /* ════════════════════════════════════════════════════
+     ROW 18: TOTAL EARNING / TOTAL DEDUCTION
+  ════════════════════════════════════════════════════ */
+  SC("B18",     "Total Earning",    { font: fB, fill: fG, alignment: aL, border: bSect });
+  SC("C18",     d.grossSalary,      { font: fB, fill: fG, alignment: aC, border: bSect, numFmt });
+  SC("D18",     d.grossSalaryD,     { font: fB, fill: fG, alignment: aC, border: bSect, numFmt });
+  MC("E18:F18", "Total Deduction",  { font: fB, fill: fG, alignment: aC, border: bSect });
+  MC("G18:I18", d.totalDeduction,   { font: fB, fill: fG, alignment: aC, border: bSect, numFmt });
 
-  // B21 — bold "Total Earning", matches PDF: txt("Total Earning", bold=true)
-  set("B21", "Total Earning", {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: r21botL,
-  });
-  // C21 — grossSalary (bold), matches PDF: inrTxt(d.grossSalary, bold=true)
-  set("C21", d.grossSalary, {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: r21bot,
-    numFmt,
-  });
-  // D21 — grossSalaryD (bold), matches PDF: inrTxt(d.grossSalaryD, bold=true)
-  set("D21", d.grossSalaryD, {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: r21bot,
-    numFmt,
-  });
-  // E:G merged — "Total Deduction" (normal), matches PDF: txt("Total Deduction", bold=false)
-  ws.mergeCells("E21:G21");
-  set("E21", "Total Deduction", {
-    font: fN,
-    fill: fillW,
-    alignment: cM,
-    border: r21bot,
-  });
-  // H:I merged — totalDeduction (normal), matches PDF: inrTxt(d.totalDeduction, bold=false)
-  ws.mergeCells("H21:I21");
-  set("H21", d.totalDeduction, {
-    font: fN,
-    fill: fillW,
-    alignment: cM,
-    border: r21botR,
-    numFmt,
-  });
+  /* ════════════════════════════════════════════════════
+     ROW 19: PERFORMANCE PAY / NET SALARY
+  ════════════════════════════════════════════════════ */
+  SC("B19",     "Performance Pay\nVariable pay", { font: fN, fill: fW, alignment: aL, border: bInner });
+  SC("C19",     d.performancePay || 0,           { font: fN, fill: fW, alignment: aC, border: bInner, numFmt });
+  SC("D19",     d.perfD,                         { font: fN, fill: fW, alignment: aC, border: bInner, numFmt });
+  MC("E19:F19", "Net Salary",                    { font: fB, fill: fW, alignment: aL, border: bSect });
+  MC("G19:I19", d.netSalary,                     { font: fB, fill: fW, alignment: aC, border: bSect, numFmt });
 
-  // ==========================================================================
-  // ROW 22 — Performance Pay / Net Salary
-  // PDF:
-  //   B  = normal, mtxt(["Performance Pay","Variable pay"])
-  //   C  = normal, inrTxt(d.performancePay)
-  //   D  = normal, inrTxt(d.perfD)          ← perfD = performancePay * (pDays/monthDays)
-  //   E:G merged = bold, "Net Salary", medB
-  //   H:I merged = bold, inrTxt(d.netSalary) where netSalary = grossSalaryD - totalDeduction
-  //
-  // FIX vs original: D22 was formula with hardcoded monthDays/pDays — now uses d.perfD directly
-  // FIX vs original: C22 was `d.performancePay || null` — now always shows value (matches PDF)
-  // Net Salary cell: medB (medium all sides) — matches PDF isMed=true for that cell
-  // ==========================================================================
-  set("B22", "Performance Pay\nVariable pay", {
-    font: fN,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-  });
-  // C22 — performancePay (full month), matches PDF: inrTxt(d.performancePay, bold=false)
-  set("C22", d.performancePay, {
-    font: fN,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-    numFmt,
-  });
-  // D22 — perfD (pro-rated), matches PDF: inrTxt(d.perfD, bold=false)
-  // perfD = performancePay * ratio = performancePay * (pDays/monthDays)
-  set("D22", d.perfD, {
-    font: fN,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-    numFmt,
-  });
-  // E:G merged — "Net Salary", bold, medB — matches PDF: cell(... cWhite, true) + txt("Net Salary", bold=true)
-  ws.mergeCells("E22:G22");
-  set("E22", "Net Salary", {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: medB,
-  });
-  // H:I merged — netSalary, bold, medB — matches PDF: cell(... cWhite, true) + inrTxt(d.netSalary, bold=true)
-  // netSalary = grossSalaryD - totalDeduction = D21 - H21 in Excel terms
-  ws.mergeCells("H22:I22");
-  set("H22", d.netSalary, {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: medB,
-    numFmt,
+  /* ════════════════════════════════════════════════════
+     ROW 20: TOTAL EARNING POTENTIAL
+  ════════════════════════════════════════════════════ */
+  SC("B20",     "Total Earning\nPotential",       { font: fB, fill: fW, alignment: aL, border: bInner });
+  SC("C20",     d.totalEarning,                   { font: fB, fill: fW, alignment: aC, border: bInner, numFmt });
+  SC("D20",     d.totalEarningD,                  { font: fB, fill: fW, alignment: aC, border: bInner, numFmt });
+  MC("E20:F20", "Performance Pay\nVariable pay",  { font: fN, fill: fW, alignment: aC, border: bInner });
+  MC("G20:I20", d.perfD,                          { font: fN, fill: fW, alignment: aC, border: bInner, numFmt });
+
+  /* ════════════════════════════════════════════════════
+     ROW 21: DARK TOTAL EARNING
+  ════════════════════════════════════════════════════ */
+  SC("B21",     null, { fill: fW, border: bInner });
+  SC("C21",     null, { fill: fW, border: bInner });
+  SC("D21",     null, { fill: fW, border: bInner });
+  MC("E21:F21", "Total Earning",   { font: fWht, fill: fDark, alignment: aL, border: bSect });
+  MC("G21:I21", d.totalWithPerf,   { font: fWht, fill: fDark, alignment: aC, border: bSect, numFmt });
+
+  /* ════════════════════════════════════════════════════
+     ROW 22: SPACER
+  ════════════════════════════════════════════════════ */
+  for (let c = 2; c <= 9; c++) {
+    const cel = ws.getRow(22).getCell(c);
+    cel.fill   = fW;
+    cel.border = bInner;
+  }
+
+  /* ════════════════════════════════════════════════════
+     ROW 23: FOOTER
+  ════════════════════════════════════════════════════ */
+  MC("B23:I23", '"This is computer generated payslip"', {
+    font:      { name: "Calibri", size: 9.5, bold: true },
+    fill:      fG,
+    alignment: aC,
+    border:    bSect,
   });
 
-  // ==========================================================================
-  // ROW 23 — Total Earning Potential / Performance Pay (Variable)
-  // PDF:
-  //   B  = bold, mtxt(["Total Earning"," Potential"])
-  //   C  = bold, inrTxt(d.totalEarning)     ← totalEarning = grossSalary + performancePay
-  //   D  = bold, inrTxt(d.totalEarningD)    ← totalEarningD = grossSalaryD + perfD
-  //   E:G merged = normal, mtxt(["Performance Pay","Variable pay"])
-  //   H:I merged = normal, inrTxt(d.perfD)  ← same perfD as D22
-  // ==========================================================================
-  set("B23", "Total Earning\n Potential", {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-  });
-  // C23 — totalEarning = grossSalary + performancePay, matches PDF: inrTxt(d.totalEarning, bold=true)
-  set("C23", d.totalEarning, {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-    numFmt,
-  });
-  // D23 — totalEarningD = grossSalaryD + perfD, matches PDF: inrTxt(d.totalEarningD, bold=true)
-  set("D23", d.totalEarningD, {
-    font: fB,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-    numFmt,
-  });
-  // E:G merged — "Performance Pay / Variable pay" (normal), matches PDF: mtxt(["Performance Pay","Variable pay"], bold=false)
-  ws.mergeCells("E23:G23");
-  set("E23", "Performance Pay\nVariable pay", {
-    font: fN,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-  });
-  // H:I merged — perfD (normal), matches PDF: inrTxt(d.perfD, bold=false)
-  ws.mergeCells("H23:I23");
-  set("H23", d.perfD, {
-    font: fN,
-    fill: fillW,
-    alignment: cM,
-    border: thinB,
-    numFmt,
-  });
-
-  // ==========================================================================
-  // ROW 24 — Total Earning DARK SECTION
-  // PDF:
-  //   B  = cell(cWhite) — white, thin border
-  //   C  = cell(cWhite) — white, thin border
-  //   D  = cell(cWhite) — white, thin border
-  //   E:G merged = cDarkBg (44546A), bold white "Total Earning", medB
-  //   H:I merged = cDarkBg (44546A), bold white inrTxt(d.totalWithPerf) where totalWithPerf = netSalary + perfD
-  //
-  // FIX vs original: B24 left border should be medium (outer edge), not mixed
-  // ==========================================================================
-  // B24 — white, outer left=medium
-  set("B24", null, {
-    fill: fillW,
-    border: { top: thin, left: medium, bottom: thin, right: thin },
-  });
-  // C24, D24 — white, thin all sides
-  set("C24", null, { fill: fillW, border: thinB });
-  set("D24", null, { fill: fillW, border: thinB });
-  // E:G merged — dark bg, white bold "Total Earning", matches PDF: cell(cDarkBg, true) + txt("Total Earning", bold=true, cWhite)
-  ws.mergeCells("E24:G24");
-  set("E24", "Total Earning", {
-    font: fWht,
-    fill: fillDark,
-    alignment: cM,
-    border: { top: thin, left: thin, bottom: thin, right: thin },
-  });
-  // H:I merged — dark bg, white bold totalWithPerf, matches PDF: cell(cDarkBg, true) + inrTxt(d.totalWithPerf, bold=true, cWhite)
-  // totalWithPerf = netSalary + perfD = H22 + H23
-  ws.mergeCells("H24:I24");
-  set("H24", d.totalWithPerf, {
-    font: fWht,
-    fill: fillDark,
-    alignment: cM,
-    border: { top: thin, left: thin, bottom: thin, right: medium }, // right=medium (outer edge)
-    numFmt,
-  });
-
-  // ==========================================================================
-  // ROW 25 — Spacer
-  // PDF: fillR(cWhite) + medBox — one clean empty box, no internal vertical lines
-  // Excel: merge B25:I25 so there are zero internal vertical dividers, just outer medium border
-  // ==========================================================================
-  ws.mergeCells("B25:I25");
-  set("B25", null, {
-    fill: fillW,
-    border: medB,
-  });
-
-  // ==========================================================================
-  // ROW 26 — Footer
-  // PDF: fillR(cHdr=E7E6E6) + medBox + bold center '"This is computer generated payslip"'
-  // Excel: B26:I26 merged, fillHdr, medB, bold center — exact match
-  // ==========================================================================
-  ws.mergeCells("B26:I26");
-  set("B26", '"This is computer generated payslip"', {
-    font: fB,
-    fill: fillHdr,
-    alignment: cM,
-    border: medB,
-  });
-
-  // ==========================================================================
-  // OUTER BORDER PASS — enforce outermost medium edges without overwriting inner borders
-  // Matches PDF's overall medBox drawn around the entire document
-  // ==========================================================================
-  for (let r = 2; r <= 26; r++) {
-    for (let ci = 2; ci <= 9; ci++) {
-      const cell = ws.getRow(r).getCell(ci);
-      const b = Object.assign({}, cell.border || {});
-      if (r === 2 && !b.top) b.top = medium;
-      if (r === 26 && !b.bottom) b.bottom = medium;
-      if (ci === 2 && !b.left) b.left = medium;
-      if (ci === 9 && !b.right) b.right = medium;
-      cell.border = b;
+  /* ════════════════════════════════════════════════════
+     FINAL PASS — Re-stamp OUTER (medium dark) border on all boundary cells
+     Rows 2–23, cols B(2)–I(9)  — runs last, cannot be overridden
+  ════════════════════════════════════════════════════ */
+  for (let r = 2; r <= 23; r++) {
+    for (let c = 2; c <= 9; c++) {
+      const cel = ws.getRow(r).getCell(c);
+      // Deep-copy to avoid mutating the ExcelJS border object reference
+      const b = JSON.parse(JSON.stringify(cel.border || {}));
+      if (r === 2)  b.top    = OUTER;
+      if (r === 23) b.bottom = OUTER;
+      if (c === 2)  b.left   = OUTER;
+      if (c === 9)  b.right  = OUTER;
+      cel.border = b;
     }
   }
 
-  // ── Write & trigger download ──────────────────────────────────────────────
+  /* ── Write & download ─────────────────────────────────────────────────────── */
   const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer], {
+  const blob   = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `Payslip_${d.name || "Employee"}_${d.forMonth?.replace(/\s+/g, "_") || "payslip"}.xlsx`;
+  const a   = document.createElement("a");
+  a.href     = url;
+  a.download = `Payslip_${d.name||"Employee"}_${(d.forMonth||"payslip").replace(/\s+/g,"_")}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 };
