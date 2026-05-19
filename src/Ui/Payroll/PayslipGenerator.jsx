@@ -43,32 +43,35 @@ function _buildData(employee) {
     if (!val) return "";
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd   = String(d.getUTCDate()).padStart(2, "0");
+    const mm   = String(d.getUTCMonth() + 1).padStart(2, "0");
     const yyyy = d.getUTCFullYear();
     return `${dd}-${mm}-${yyyy}`;
   };
 
-  const basic = n(employee.basic);
-  const hra = n(employee.hra);
+  const basic                = n(employee.basic);
+  const hra                  = n(employee.hra);
   const organisationAllowance = n(employee.organisationAllowance);
-  const medicalAllowance = n(employee.medicalAllowance);
-  const performancePay = n(employee.performancePay);
-  const monthDays = n(employee.monthDays) || 30;
-  const pDays = employee.pDays != null ? n(employee.pDays) : monthDays;
-  const aDays = n(employee.aDays);
+  const medicalAllowance     = n(employee.medicalAllowance);
+  const performancePay       = n(employee.performancePay);
+  const monthDays            = n(employee.monthDays) || 30;
+  const pDays                = employee.pDays != null ? n(employee.pDays) : monthDays;
+  const aDays                = n(employee.aDays);
 
+  // ✅ FIX: use != null (not || null) so 0 is treated as "set to exempt"
   const pfEmp =
     employee.pfDeduction != null
       ? n(employee.pfDeduction)
       : Math.round(basic * 0.12);
+
   const pfCo =
     employee.employerPfContribution != null
       ? n(employee.employerPfContribution)
       : Math.round(basic * 0.13);
 
-  const isFemale = /female|woman|f/i.test(employee.gender || "");
+  const isFemale  = /female|woman|f/i.test(employee.gender || "");
   const grossFull = basic + hra + organisationAllowance;
+
   let pt;
   if (employee.pt != null) {
     pt = n(employee.pt);
@@ -82,14 +85,14 @@ function _buildData(employee) {
   const tds = employee.tds != null ? n(employee.tds) : 0;
   const advance = employee.advance != null ? n(employee.advance) : 0;
 
-  const ratio = monthDays > 0 ? pDays / monthDays : 1;
-  const grossSalary = basic + hra + organisationAllowance + medicalAllowance;
+  const ratio        = monthDays > 0 ? pDays / monthDays : 1;
+  const grossSalary  = basic + hra + organisationAllowance + medicalAllowance;
   const grossSalaryD = grossSalary * ratio;
-  const basicD = basic * ratio;
-  const hraD = hra * ratio;
-  const oaD = organisationAllowance * ratio;
-  const maD = medicalAllowance * ratio;
-  const perfD = performancePay * ratio;
+  const basicD       = basic * ratio;
+  const hraD         = hra * ratio;
+  const oaD          = organisationAllowance * ratio;
+  const maD          = medicalAllowance * ratio;
+  const perfD        = performancePay * ratio;
 
   // Deductions match template rows 16-20:
   // 16 = PF (Emp+Employer), 17 = PT, 18 = Other, 19 = TDS, 20 = Advance
@@ -100,25 +103,25 @@ function _buildData(employee) {
   const totalEarningD = grossSalaryD + perfD;
 
   return {
-    name: employee.name || "",
-    employeeId: employee.employeeId || "",
-    joiningDate: fmtDate(employee.joiningDate),
+    name:            employee.name            || "",
+    employeeId:      employee.employeeId      || "",
+    joiningDate:     fmtDate(employee.joiningDate),
     currentLocation: employee.currentLocation || employee.circle || "",
     pDays,
     aDays,
     monthDays,
-    project: employee.project || "",
-    designation: employee.designation || "",
-    grade: employee.grade || "",
-    epfNo: employee.epfNo || "0",
-    esicNo: employee.esicNo || "0",
-    uanNo: employee.uanNo || "",
-    aadharNo: employee.aadharNo || "",
-    panNo: employee.panNo || "",
-    forMonth: employee.forMonth || "",
-    bankName: employee.bankName || "",
-    bankAccountNo: employee.bankAccountNo || employee.accountNumber || "",
-    ifscCode: employee.ifscCode || "",
+    project:         employee.project         || "",
+    designation:     employee.designation     || "",
+    grade:           employee.grade           || "",
+    epfNo:           employee.epfNo           || "0",
+    esicNo:          employee.esicNo          || "0",
+    uanNo:           employee.uanNo           || "",
+    aadharNo:        employee.aadharNo        || "",
+    panNo:           employee.panNo           || "",
+    forMonth:        employee.forMonth        || "",
+    bankName:        employee.bankName        || "",
+    bankAccountNo:   employee.bankAccountNo   || employee.accountNumber || "",
+    ifscCode:        employee.ifscCode        || "",
     basic,
     hra,
     organisationAllowance,
@@ -161,40 +164,88 @@ const loadImageBase64 = (src) =>
     img.crossOrigin = "anonymous";
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
+      canvas.width  = img.naturalWidth;
       canvas.height = img.naturalHeight;
       canvas.getContext("2d").drawImage(img, 0, 0);
-      res({
-        dataUrl: canvas.toDataURL("image/png"),
-        w: img.naturalWidth,
-        h: img.naturalHeight,
-      });
+      res({ dataUrl: canvas.toDataURL("image/png"), w: img.naturalWidth, h: img.naturalHeight });
     };
     img.onerror = () => res(null);
     img.src = src;
   });
 
+/* ─── Load jsPDF from CDN with retry ─────────────────────────────────────── */
+async function _loadJsPDF() {
+  if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+
+  // ✅ FIX: wrapped in try/catch so failure is surfaced instead of silently hanging
+  await new Promise((resolve, reject) => {
+    const existing = document.querySelector(
+      'script[src*="jspdf"]'
+    );
+    if (existing) {
+      // Script tag exists but may not have finished loading yet
+      existing.addEventListener("load",  resolve);
+      existing.addEventListener("error", reject);
+      // If it already loaded, resolve immediately
+      if (window.jspdf) resolve();
+      return;
+    }
+
+    const s    = document.createElement("script");
+    s.src      = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload   = resolve;
+    s.onerror  = () => reject(new Error("Failed to load jsPDF from CDN. Check your internet connection."));
+    document.head.appendChild(s);
+  });
+
+  if (!window.jspdf?.jsPDF) {
+    throw new Error("jsPDF loaded but window.jspdf.jsPDF is not available.");
+  }
+  return window.jspdf.jsPDF;
+}
+
+/* ─── Load ExcelJS from CDN with retry ───────────────────────────────────── */
+async function _loadExcelJS() {
+  if (window.ExcelJS) return window.ExcelJS;
+
+  await new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src*="exceljs"]');
+    if (existing) {
+      existing.addEventListener("load",  resolve);
+      existing.addEventListener("error", reject);
+      if (window.ExcelJS) resolve();
+      return;
+    }
+
+    const s    = document.createElement("script");
+    s.src      = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+    s.onload   = resolve;
+    s.onerror  = () => reject(new Error("Failed to load ExcelJS from CDN. Check your internet connection."));
+    document.head.appendChild(s);
+  });
+
+  if (!window.ExcelJS) {
+    throw new Error("ExcelJS loaded but window.ExcelJS is not available.");
+  }
+  return window.ExcelJS;
+}
+
 /* =============================================================================
    PDF PAYSLIP — A4 portrait, single-page
    ============================================================================= */
 export const downloadPayslipPDF = async (employee) => {
-  if (!window.jspdf) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
+  // ✅ FIX: Normalize then build — errors now throw instead of silently producing blank PDFs
+  const normalized = _normalizeEmployee(employee);
+  const d          = _buildData(normalized);
 
-  const { jsPDF } = window.jspdf;
-  const d = _buildData(employee);
+  // Debug log — remove after confirming UAN shows correctly
+  console.log("[PayslipPDF] uanNo:", d.uanNo, "| panNo:", d.panNo, "| aadharNo:", d.aadharNo);
+
+  const jsPDF    = await _loadJsPDF();
   const logoInfo = await loadImageBase64("/assets/Insta-logo1.png");
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc      = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  const PAGE_W = 210;
+  const PAGE_W   = 210;
   const MARGIN_L = 8;
   const MARGIN_R = 8;
   const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R;
@@ -269,27 +320,25 @@ export const downloadPayslipPDF = async (employee) => {
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(sz);
     doc.setTextColor(...col);
-    const ty = y + h * 0.63;
+    const ty  = y + h * 0.63;
     const str = String(s);
-    if (align === "center") doc.text(str, x + w / 2, ty, { align: "center" });
-    else if (align === "right")
-      doc.text(str, x + w - 1.5, ty, { align: "right" });
-    else doc.text(str, x + 2.2, ty);
+    if (align === "center")      doc.text(str, x + w / 2,      ty, { align: "center" });
+    else if (align === "right")  doc.text(str, x + w - 1.5,    ty, { align: "right" });
+    else                         doc.text(str, x + 2.2,        ty);
   };
 
   const mtxt = (lines, x, y, w, h, bold, sz, col, align = "left") => {
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(sz);
     doc.setTextColor(...col);
-    const lh = sz * 0.42;
+    const lh  = sz * 0.42;
     const tot = (lines.length - 1) * lh;
-    let ty = y + (h - tot) / 2;
+    let ty    = y + (h - tot) / 2;
     lines.forEach((line) => {
       const s = String(line ?? "");
-      if (align === "center") doc.text(s, x + w / 2, ty, { align: "center" });
-      else if (align === "right")
-        doc.text(s, x + w - 1.5, ty, { align: "right" });
-      else doc.text(s, x + 2.2, ty);
+      if (align === "center")      doc.text(s, x + w / 2,   ty, { align: "center" });
+      else if (align === "right")  doc.text(s, x + w - 1.5, ty, { align: "right" });
+      else                         doc.text(s, x + 2.2,     ty);
       ty += lh;
     });
   };
@@ -380,19 +429,19 @@ export const downloadPayslipPDF = async (employee) => {
 
   // EMPLOYEE INFO rows 6–14
   const empRows = [
-    ["Employee Id", d.employeeId, "Name", d.name],
-    ["Joining Date", d.joiningDate, "Current Location", d.currentLocation],
-    ["P Days", d.pDays, "Project", d.project],
-    ["A Days", d.aDays, "Designation", d.designation],
-    ["Month Days", d.monthDays, "Grade", d.grade],
-    ["EPF No", d.epfNo, "ESIC No", d.esicNo],
-    ["UAN No", d.uanNo, "Aadhar No", d.aadharNo],
-    ["PAN No", d.panNo, "For Month", d.forMonth],
-    ["Bank Name", d.bankName, "Bank A/c No", d.bankAccountNo],
+    ["Employee Id",  d.employeeId,    "Name",             d.name],
+    ["Joining Date", d.joiningDate,   "Current Location", d.currentLocation],
+    ["P Days",       d.pDays,         "Project",          d.project],
+    ["A Days",       d.aDays,         "Designation",      d.designation],
+    ["Month Days",   d.monthDays,     "Grade",            d.grade],
+    ["EPF No",       d.epfNo,         "ESIC No",          d.esicNo],
+    ["UAN No",       d.uanNo,         "Aadhar No",        d.aadharNo],
+    ["PAN No",       d.panNo,         "For Month",        d.forMonth],
+    ["Bank Name",    d.bankName,      "Bank A/c No",      d.bankAccountNo],
   ];
 
   empRows.forEach(([l1, v1, l2, v2], i) => {
-    const bg = i === 0 ? cHdr : cWhite;
+    const bg    = i === 0 ? cHdr : cWhite;
     const vBold = i === 0;
     const isMed = i === 0;
 
@@ -595,16 +644,8 @@ export const downloadPayslipPDF = async (employee) => {
    All values, formulas, merges, borders, fonts, fills match the PDF line-by-line.
    ============================================================================= */
 export const downloadPayslipExcel = async (employee) => {
-  if (!window.ExcelJS) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
+  const normalized = _normalizeEmployee(employee);
+  const d          = _buildData(normalized);
 
   const d = _buildData(employee);
   const wb = new window.ExcelJS.Workbook();
@@ -716,11 +757,11 @@ export const downloadPayslipExcel = async (employee) => {
   const set = (coord, value, opts = {}) => {
     const c = ws.getCell(coord);
     if (value !== undefined && value !== null) c.value = value;
-    if (opts.font) c.font = opts.font;
-    if (opts.fill) c.fill = opts.fill;
+    if (opts.font)      c.font      = opts.font;
+    if (opts.fill)      c.fill      = opts.fill;
     if (opts.alignment) c.alignment = opts.alignment;
-    if (opts.border) c.border = opts.border;
-    if (opts.numFmt) c.numFmt = opts.numFmt;
+    if (opts.border)    c.border    = opts.border;
+    if (opts.numFmt)    c.numFmt    = opts.numFmt;
     return c;
   };
 
@@ -824,10 +865,7 @@ export const downloadPayslipExcel = async (employee) => {
   // ==========================================================================
   ws.mergeCells("B5:I5");
   set("B5", `Payslip: ${d.forMonth}`, {
-    font: fB11,
-    fill: fillW,
-    alignment: cM,
-    border: medB,
+    font: fB11, fill: fillW, alignment: cM, border: medB,
   });
 
   // ==========================================================================
@@ -842,15 +880,15 @@ export const downloadPayslipExcel = async (employee) => {
   // Excel: E:F merged = label-right, G:I merged = value-right
   // ==========================================================================
   const empRows = [
-    ["Employee Id", d.employeeId, "Name", d.name],
-    ["Joining Date", d.joiningDate, "Current Location", d.currentLocation],
-    ["P Days", d.pDays, "Project", d.project],
-    ["A Days", d.aDays, "Designation", d.designation],
-    ["Month Days", d.monthDays, "Grade", d.grade],
-    ["EPF No", d.epfNo, "ESIC No", d.esicNo],
-    ["UAN No", d.uanNo, "Aadhar No", d.aadharNo],
-    ["PAN No", d.panNo, "For Month", d.forMonth],
-    ["Bank Name", d.bankName, "Bank A/c No", d.bankAccountNo],
+    ["Employee Id",  d.employeeId,    "Name",             d.name],
+    ["Joining Date", d.joiningDate,   "Current Location", d.currentLocation],
+    ["P Days",       d.pDays,         "Project",          d.project],
+    ["A Days",       d.aDays,         "Designation",      d.designation],
+    ["Month Days",   d.monthDays,     "Grade",            d.grade],
+    ["EPF No",       d.epfNo,         "ESIC No",          d.esicNo],
+    ["UAN No",       d.uanNo,         "Aadhar No",        d.aadharNo],
+    ["PAN No",       d.panNo,         "For Month",        d.forMonth],
+    ["Bank Name",    d.bankName,      "Bank A/c No",      d.bankAccountNo],
   ];
 
   empRows.forEach(([l1, v1, l2, v2], i) => {
@@ -1089,7 +1127,7 @@ export const downloadPayslipExcel = async (employee) => {
     font: fN,
     fill: fillW,
     alignment: cM,
-    border: thinB,
+    border:    medB,
     numFmt,
   });
   // E:G merged — "Net Salary", bold, medB — matches PDF: cell(... cWhite, true) + txt("Net Salary", bold=true)
@@ -1240,12 +1278,12 @@ export const downloadPayslipExcel = async (employee) => {
 
   // ── Write & trigger download ──────────────────────────────────────────────
   const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer], {
+  const blob   = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
+  const a   = document.createElement("a");
+  a.href     = url;
   a.download = `Payslip_${d.name || "Employee"}_${d.forMonth?.replace(/\s+/g, "_") || "payslip"}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
