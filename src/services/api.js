@@ -2,7 +2,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: "https://api-fin.instagrp.com/api",
+  // baseURL: "http://192.168.1.22:5000/api",
+  baseURL:"https://api-fin.instagrp.com/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -12,7 +13,7 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // ✅ CRITICAL FIX: Get token from 'authToken' instead of 'token'
+    //  CRITICAL FIX: Get token from 'authToken' instead of 'token'
     const token = localStorage.getItem('authToken');
     
     if (token) {
@@ -24,7 +25,7 @@ api.interceptors.request.use(
       delete config.headers['Content-Type'];
     }
     
-    console.log('🚀 API Request:', {
+    console.log(' API Request:', {
       method: config.method,
       url: config.url,
       baseURL: config.baseURL,
@@ -35,7 +36,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('❌ Request Error:', error);
+    console.error(' Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -43,7 +44,7 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', {
+    console.log(' API Response:', {
       url: response.config.url,
       status: response.status,
       data: response.data
@@ -51,7 +52,7 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('❌ API Error:', {
+    console.error(' API Error:', {
       url: error.config?.url,
       status: error.response?.status,
       message: error.response?.data?.message || error.message,
