@@ -1,179 +1,350 @@
 // src/Ui/EmployeeMng/Linkgen/RegistrationForm.jsx
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  AlertCircle, CheckCircle, Loader, User, Briefcase, Building,
-  CreditCard, Phone, Mail, Calendar, Upload, FileText, Image, Check, ChevronLeft, ChevronRight
-} from 'lucide-react';
-import employeeService from '../../../services/employeeService';
-import { departments, employmentTypes, genders } from '../../../data/empmockdata';
+// ✅ UPDATED: uanNumber added to emptyForm, mapPrefillToForm, handleInputChange, handleSubmit payload
 
-// ─── Document Upload Card ─────────────────────────────────────────────────────
-const DocCard = ({ title, fieldName, required, documents, handleDocChange, errors }) => {
-  const doc = documents[fieldName];
-  const getFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  AlertCircle, CheckCircle, Loader, User, Mail, Check,
+  ChevronLeft, ChevronRight, AlertTriangle, UserCheck,
+  RefreshCw, Info, History, ShieldAlert, Clock,
+} from "lucide-react";
+import employeeService from "../../../services/employeeService";
+import PersonalInfo      from "./PersonalInfo";
+import EmploymentDetails from "./EmploymentDetails";
+import BankDetailsinfo   from "./BankDetailsinfo";
+import Documents         from "./Documents";
+
+const RegistrationForm = () => {
+  const { linkId, token } = useParams();
+  const navigate          = useNavigate();
+  const isResubmit        = Boolean(token);
+
+  const [linkStatus,      setLinkStatus]      = useState("validating");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [currentStep,     setCurrentStep]     = useState(1);
+  const [isSubmitting,    setIsSubmitting]     = useState(false);
+  const [isSubmitted,     setIsSubmitted]      = useState(false);
+  const [errors,          setErrors]           = useState({});
+
+  // ── Aadhaar check / rejoin state ──────────────────────────────────────────
+  const [aadharCheck,    setAadharCheck]    = useState(null);
+  const [isRejoin,       setIsRejoin]       = useState(false);
+  const [aadharChecking, setAadharChecking] = useState(false);
+  const [isRejoinLink,   setIsRejoinLink]   = useState(false);
+  const [oldEmployeeId,  setOldEmployeeId]  = useState(null);
+  const aadharDebounceRef = useRef(null);
+
+  // ── Empty form template ──────────────────────────────────────────────────
+  const emptyForm = {
+    firstName: "", fatherHusbandName: "", lastName: "",
+    dob: "", gender: "", maritalStatus: "",
+    educationalQualification: "", bloodGroup: "",
+    email: "", phone: "", altPhone: "",
+    panNumber: "", nameOnPan: "",
+    aadhar: "", nameOnAadhar: "",
+    // ✅ UAN Number added — optional, digits-only, max 12
+    uanNumber: "",
+    familyMemberName: "", familyContactNo: "",
+    familyWorkingStatus: "", familyEmployerName: "", familyEmployerContact: "",
+    emergencyContactName: "", emergencyContactNo: "",
+    emergencyContactAddress: "", emergencyContactRelation: "",
+    permanentAddress: "", permanentPhone: "",
+    permanentLandmark: "", permanentLatLong: "",
+    localSameAsPermanent: false,
+    localAddress: "", localPhone: "", localLandmark: "", localLatLong: "",
+    ref1Name: "", ref1Designation: "", ref1Organization: "",
+    ref1Address: "", ref1CityStatePin: "", ref1ContactNo: "", ref1Email: "",
+    ref2Name: "", ref2Designation: "", ref2Organization: "",
+    ref2Address: "", ref2CityStatePin: "", ref2ContactNo: "", ref2Email: "",
+    ref3Name: "", ref3Designation: "", ref3Organization: "",
+    ref3Address: "", ref3CityStatePin: "", ref3ContactNo: "", ref3Email: "",
+    department: "", position: "",
+    joiningDate: "", employmentType: "",
+    reportingManager: "", projectName: "", circle: "",
+    bankName: "", accountNumber: "", confirmAccountNumber: "",
+    ifscCode: "", accountHolderName: "", bankBranch: "",
   };
 
-  return (
-    <div>
-      <div className={`border-2 rounded-xl p-4 text-center transition-all ${
-        doc ? 'border-green-400 bg-green-50' :
-        errors[fieldName] ? 'border-red-300 bg-red-50' :
-        'border-dashed border-gray-300 hover:border-blue-400 bg-white'
-      }`}>
-        {doc ? (
-          <div className="space-y-2">
-            <div className="w-12 h-12 mx-auto bg-green-500 rounded-full flex items-center justify-center">
-              <Check className="w-6 h-6 text-white" />
-            </div>
-            <p className="text-sm font-semibold text-gray-800">{title}</p>
-            <p className="text-xs text-gray-500 truncate">{doc.name}</p>
-            <p className="text-xs text-gray-400">{getFileSize(doc.size)}</p>
-            <div className="flex gap-2 justify-center">
-              <label className="cursor-pointer text-xs text-blue-600 font-medium hover:underline">
-                Replace
-                <input type="file" accept="image/*,application/pdf" onChange={(e) => handleDocChange(fieldName, e.target.files[0])} className="hidden" />
-              </label>
-              <button type="button" onClick={() => handleDocChange(fieldName, null)} className="text-xs text-red-500 font-medium hover:underline">Remove</button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2 py-2">
-            <FileText className="w-10 h-10 mx-auto text-gray-400" />
-            <p className="text-sm font-semibold text-gray-700">
-              {title}{required && <span className="text-red-500 ml-1">*</span>}
-            </p>
-            <p className="text-xs text-gray-500">PNG, JPG, PDF • Max 5MB</p>
-            <label className="cursor-pointer">
-              <span className="inline-block px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-all">
-                Choose File
-              </span>
-              <input type="file" accept="image/*,application/pdf" onChange={(e) => handleDocChange(fieldName, e.target.files[0])} className="hidden" />
-            </label>
-          </div>
-        )}
-      </div>
-      {errors[fieldName] && (
-        <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" />{errors[fieldName]}
-        </p>
-      )}
-    </div>
-  );
-};
-
-// ─── Main Registration Form ───────────────────────────────────────────────────
-const RegistrationForm = () => {
-  const { linkId } = useParams();
-  const navigate = useNavigate();
-
-  const [linkStatus, setLinkStatus] = useState('validating'); // validating | valid | invalid | expired | used
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [errors, setErrors] = useState({});
-
-  const [formData, setFormData] = useState({
-    firstName: '', middleName: '', lastName: '',
-    email: '', phone: '', dateOfBirth: '', gender: '',
-    address: '', city: '', state: '', zipCode: '',
-    department: '', position: '', joiningDate: '',
-    employmentType: '', reportingManager: '',
-    bankName: '', accountNumber: '', ifscCode: '',
-    accountHolderName: '', bankBranch: '',
-  });
+  const [formData,  setFormData]  = useState(emptyForm);
 
   const [documents, setDocuments] = useState({
-    idPhoto: null,
-    aadharCard: null,
-    bankPassbook: null,
-    panCard: null,
+    idPhoto: null, aadharCard: null, panCard: null, resume: null,
+    medicalCertificate: null, academicRecords: null,
+    bankPassbook: null, payslip: null, otherCertificates: null,
+    farmToCli: null,
   });
 
-  // Validate link on mount
-  useEffect(() => {
-    const validateLink = async () => {
-      try {
-        const res = await employeeService.validateLink(linkId);
-        if (res.success && res.valid) {
-          setLinkStatus('valid');
-        } else {
-          setLinkStatus('invalid');
-        }
-      } catch (err) {
-        if (err.expired) setLinkStatus('expired');
-        else if (err.used) setLinkStatus('used');
-        else setLinkStatus('invalid');
-      }
-    };
-    validateLink();
-  }, [linkId]);
+  // ── Map API data → form fields ───────────────────────────────────────────
+  // ✅ uanNumber mapped from both snake_case (uan_number) and camelCase (uanNumber)
+  const mapPrefillToForm = (d) => ({
+    firstName:                d.firstName                || d.first_name                || "",
+    fatherHusbandName:        d.fatherHusbandName        || d.father_husband_name        || "",
+    lastName:                 d.lastName                 || d.last_name                 || "",
+    dob:                      d.dob                      || d.date_of_birth              || "",
+    gender:                   d.gender                   || "",
+    maritalStatus:            d.maritalStatus            || d.marital_status             || "",
+    educationalQualification: d.educationalQualification || d.educational_qualification  || "",
+    bloodGroup:               d.bloodGroup               || d.blood_group                || "",
+    email:                    d.email                    || "",
+    phone:                    d.phone                    || "",
+    altPhone:                 d.altPhone                 || d.alt_phone                  || "",
+    panNumber:                d.panNumber                || d.pan_number                 || "",
+    nameOnPan:                d.nameOnPan                || d.name_on_pan                || "",
+    aadhar:                   d.aadhar                   || d.aadhar_number              || "",
+    nameOnAadhar:             d.nameOnAadhar             || d.name_on_aadhar             || "",
+    // ✅ Prefill UAN — reads from snake_case DB field OR camelCase
+    uanNumber:                d.uanNumber                || d.uan_number                 || "",
+    familyMemberName:         d.familyMemberName         || d.family_member_name         || "",
+    familyContactNo:          d.familyContactNo          || d.family_contact_no          || "",
+    familyWorkingStatus:      d.familyWorkingStatus      || d.family_working_status      || "",
+    familyEmployerName:       d.familyEmployerName       || d.family_employer_name       || "",
+    familyEmployerContact:    d.familyEmployerContact    || d.family_employer_contact    || "",
+    emergencyContactName:     d.emergencyContactName     || d.emergency_contact_name     || "",
+    emergencyContactNo:       d.emergencyContactNo       || d.emergency_contact_no       || "",
+    emergencyContactAddress:  d.emergencyContactAddress  || d.emergency_contact_address  || "",
+    emergencyContactRelation: d.emergencyContactRelation || d.emergency_contact_relation || "",
+    permanentAddress:         d.permanentAddress         || d.permanent_address          || "",
+    permanentPhone:           d.permanentPhone           || d.permanent_phone            || "",
+    permanentLandmark:        d.permanentLandmark        || d.permanent_landmark         || "",
+    permanentLatLong:         d.permanentLatLong         || d.permanent_lat_long         || "",
+    localSameAsPermanent:     d.localSameAsPermanent     || d.local_same_as_permanent    || false,
+    localAddress:             d.localAddress             || d.local_address              || "",
+    localPhone:               d.localPhone               || d.local_phone                || "",
+    localLandmark:            d.localLandmark            || d.local_landmark             || "",
+    localLatLong:             d.localLatLong             || d.local_lat_long             || "",
+    ref1Name:         d.ref1Name         || d.ref1_name         || "",
+    ref1Designation:  d.ref1Designation  || d.ref1_designation  || "",
+    ref1Organization: d.ref1Organization || d.ref1_organization || "",
+    ref1Address:      d.ref1Address      || d.ref1_address      || "",
+    ref1CityStatePin: d.ref1CityStatePin || d.ref1_city_state_pin || "",
+    ref1ContactNo:    d.ref1ContactNo    || d.ref1_contact_no   || "",
+    ref1Email:        d.ref1Email        || d.ref1_email        || "",
+    ref2Name:         d.ref2Name         || d.ref2_name         || "",
+    ref2Designation:  d.ref2Designation  || d.ref2_designation  || "",
+    ref2Organization: d.ref2Organization || d.ref2_organization || "",
+    ref2Address:      d.ref2Address      || d.ref2_address      || "",
+    ref2CityStatePin: d.ref2CityStatePin || d.ref2_city_state_pin || "",
+    ref2ContactNo:    d.ref2ContactNo    || d.ref2_contact_no   || "",
+    ref2Email:        d.ref2Email        || d.ref2_email        || "",
+    ref3Name:         d.ref3Name         || d.ref3_name         || "",
+    ref3Designation:  d.ref3Designation  || d.ref3_designation  || "",
+    ref3Organization: d.ref3Organization || d.ref3_organization || "",
+    ref3Address:      d.ref3Address      || d.ref3_address      || "",
+    ref3CityStatePin: d.ref3CityStatePin || d.ref3_city_state_pin || "",
+    ref3ContactNo:    d.ref3ContactNo    || d.ref3_contact_no   || "",
+    ref3Email:        d.ref3Email        || d.ref3_email        || "",
+    department:        d.department        || "",
+    position:          d.position          || "",
+    joiningDate:       d.joiningDate       || d.joining_date    || "",
+    employmentType:    d.employmentType    || d.employment_type || "",
+    reportingManager:  d.reportingManager  || d.reporting_manager || "",
+    projectName:       d.projectName       || d.project_name    || "",
+    circle:            d.circle            || "",
+    bankName:          d.bankName          || d.bank_name        || "",
+    accountNumber:     d.accountNumber     || d.account_number   || "",
+    confirmAccountNumber: d.accountNumber  || d.account_number   || "",
+    ifscCode:          d.ifscCode          || d.ifsc_code        || "",
+    accountHolderName: d.accountHolderName || d.account_holder_name || "",
+    bankBranch:        d.bankBranch        || d.bank_branch      || "",
+  });
 
+  // ── On mount: validate link OR load resubmit prefill ────────────────────
+  useEffect(() => {
+    if (isResubmit) {
+      (async () => {
+        try {
+          const res = await employeeService.getPrefillData(token);
+          if (res.success && res.data) {
+            setFormData(prev => ({ ...prev, ...mapPrefillToForm(res.data) }));
+            setRejectionReason(res.data.rejectionReason || res.data.rejection_reason || "");
+            setLinkStatus("valid");
+          } else {
+            setLinkStatus("invalid");
+          }
+        } catch {
+          setLinkStatus("invalid");
+        }
+      })();
+    } else {
+      (async () => {
+        try {
+         const res = await employeeService.validateLink(linkId);
+          if (!res.success || (!res.valid && !res.isRejoin)) {
+            if (res.used)         setLinkStatus("used");
+            else if (res.expired) setLinkStatus("expired");
+            else                  setLinkStatus("invalid");
+            return;
+          }
+          if (res.isRejoin && res.prefillData) {
+            const p = res.prefillData;
+            setIsRejoinLink(true);
+            setIsRejoin(true);
+            setOldEmployeeId(p.oldEmployeeId || p.old_employee_id || null);
+            setFormData(prev => ({ ...prev, ...mapPrefillToForm(p) }));
+          }
+          setLinkStatus("valid");
+        } catch (err) {
+          if (err.expired)   setLinkStatus("expired");
+          else if (err.used) setLinkStatus("used");
+          else               setLinkStatus("invalid");
+        }
+      })();
+    }
+  }, [linkId, token, isResubmit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Aadhaar live-check ────────────────────────────────────────────────────
+  const checkAadhar = useCallback(async (aadharVal) => {
+    const clean = aadharVal.replace(/\s/g, '');
+    if (clean.length !== 12) { setAadharCheck(null); setIsRejoin(false); return; }
+    setAadharChecking(true);
+    try {
+      const res = await employeeService.checkAadhar(clean);
+      setAadharCheck(res);
+      if (!res.exists) setIsRejoin(false);
+    } catch {
+      setAadharCheck(null);
+    } finally {
+      setAadharChecking(false);
+    }
+  }, []);
+
+  // ── Input handler ─────────────────────────────────────────────────────────
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
-  };
 
-  const handlePhoneChange = (e) => {
-    const value = e.target.value;
-    if (/^\d*$/.test(value) && value.length <= 10) {
-      setFormData(prev => ({ ...prev, phone: value }));
-      if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
-    }
-  };
-
-  const handleDocChange = (field, file) => {
-    if (!file) {
-      setDocuments(prev => ({ ...prev, [field]: null }));
+    // ✅ UAN must be digits only, max 12 characters
+    if (name === "uanNumber") {
+      const cleaned = value.replace(/\D/g, "").slice(0, 12);
+      setFormData(prev => ({ ...prev, uanNumber: cleaned }));
+      if (errors.uanNumber) setErrors(prev => ({ ...prev, uanNumber: "" }));
       return;
     }
+
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+  };
+
+  // ── Rejoin toggle ─────────────────────────────────────────────────────────
+  const handleRejoinToggle = (checked) => {
+    setIsRejoin(checked);
+    if (checked && aadharCheck?.exists && aadharCheck?.data) {
+      setFormData(prev => ({ ...mapPrefillToForm(aadharCheck.data), aadhar: prev.aadhar }));
+    } else if (!checked) {
+      const currentAadhar = formData.aadhar;
+      setFormData({ ...emptyForm, aadhar: currentAadhar });
+    }
+  };
+
+  // ── File change ───────────────────────────────────────────────────────────
+  const handleDocChange = (field, file) => {
+    if (!file) { setDocuments(prev => ({ ...prev, [field]: null })); return; }
     if (file.size > 5 * 1024 * 1024) {
-      setErrors(prev => ({ ...prev, [field]: 'File must be less than 5MB' }));
+      setErrors(prev => ({ ...prev, [field]: "File must be less than 5MB" }));
       return;
     }
     setDocuments(prev => ({ ...prev, [field]: file }));
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
   };
 
+  // ── Step validation ───────────────────────────────────────────────────────
   const validateStep = (step) => {
     const newErrors = {};
 
     if (step === 1) {
-      if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-      if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-      if (!formData.email.trim()) newErrors.email = 'Email is required';
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email format';
-      if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
-      else if (!/^[6-9]\d{9}$/.test(formData.phone)) newErrors.phone = 'Enter a valid 10-digit Indian phone number';
-      if (!formData.dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
+      if (!formData.firstName.trim())                newErrors.firstName = "First name is required";
+      if (!formData.fatherHusbandName.trim())        newErrors.fatherHusbandName = "Father / Husband name is required";
+      if (!formData.lastName.trim())                 newErrors.lastName = "Last name is required";
+      if (!formData.email.trim())                    newErrors.email = "Email is required";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "Invalid email format";
+      if (!formData.phone.trim())                    newErrors.phone = "Phone number is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.phone)) newErrors.phone = "Enter a valid 10-digit Indian phone number";
+      if (!formData.dob)                             newErrors.dob = "Date of birth is required";
       else {
-        const age = Math.floor((new Date() - new Date(formData.dateOfBirth)) / 31557600000);
-        if (age < 18) newErrors.dateOfBirth = 'You must be at least 18 years old';
+        const age = Math.floor((new Date() - new Date(formData.dob)) / 31557600000);
+        if (age < 18) newErrors.dob = "You must be at least 18 years old";
       }
-      if (!formData.gender) newErrors.gender = 'Gender is required';
+      if (!formData.gender)                          newErrors.gender = "Gender is required";
+      if (!formData.maritalStatus)                   newErrors.maritalStatus = "Marital status is required";
+      if (!formData.educationalQualification.trim()) newErrors.educationalQualification = "Educational qualification is required";
+      if (!formData.bloodGroup)                      newErrors.bloodGroup = "Blood group is required";
+      if (!formData.panNumber.trim())                newErrors.panNumber = "PAN number is required";
+      else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase())) newErrors.panNumber = "Enter a valid PAN (e.g. ABCDE1234F)";
+      if (!formData.nameOnPan.trim())                newErrors.nameOnPan = "Name on PAN is required";
+      if (!formData.aadhar.trim())                   newErrors.aadhar = "Aadhaar number is required";
+      else if (formData.aadhar.replace(/\s/g, "").length !== 12) newErrors.aadhar = "Aadhaar must be 12 digits";
+      if (!formData.nameOnAadhar.trim())             newErrors.nameOnAadhar = "Name on Aadhaar is required";
+
+      // ✅ UAN validation — optional but must be exactly 12 digits if provided
+      if (formData.uanNumber && formData.uanNumber.trim() !== "") {
+        const cleanUan = formData.uanNumber.replace(/\D/g, "");
+        if (cleanUan.length !== 12) {
+          newErrors.uanNumber = "UAN must be exactly 12 digits";
+        }
+      }
+
+      if (!isResubmit && !isRejoinLink && aadharCheck?.exists && !isRejoin) {
+        const s = aadharCheck.status;
+        if (s === 'blacklisted')
+          newErrors.aadhar = "This Aadhaar is blacklisted. Contact HR.";
+        else if (s === 'active')
+          newErrors.aadhar = "This employee is currently active. Contact HR if this is an error.";
+        else if (s === 'pending' || s === 'pending_rejoin')
+          newErrors.aadhar = "A pending application already exists for this Aadhaar.";
+        else
+          newErrors.aadhar = "Aadhaar already registered. Please tick 'I am a returning employee' below.";
+      }
+
+      if (!formData.familyMemberName.trim())         newErrors.familyMemberName = "Family member name is required";
+      if (!formData.familyContactNo.trim())          newErrors.familyContactNo = "Family contact number is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.familyContactNo)) newErrors.familyContactNo = "Enter a valid 10-digit phone number";
+      if (!formData.familyWorkingStatus)             newErrors.familyWorkingStatus = "Working status is required";
+      if (!formData.emergencyContactName.trim())     newErrors.emergencyContactName = "Emergency contact name is required";
+      if (!formData.emergencyContactNo.trim())       newErrors.emergencyContactNo = "Emergency contact number is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.emergencyContactNo)) newErrors.emergencyContactNo = "Enter a valid 10-digit phone number";
+      if (!formData.emergencyContactAddress.trim())  newErrors.emergencyContactAddress = "Emergency contact address is required";
+      if (!formData.emergencyContactRelation)        newErrors.emergencyContactRelation = "Relation is required";
+      if (!formData.permanentAddress.trim())         newErrors.permanentAddress = "Permanent address is required";
+      if (!formData.permanentPhone.trim())           newErrors.permanentPhone = "Permanent address phone is required";
+      else if (!/^[6-9]\d{9}$/.test(formData.permanentPhone)) newErrors.permanentPhone = "Enter a valid 10-digit phone number";
+      if (!formData.localSameAsPermanent) {
+        if (!formData.localAddress.trim()) newErrors.localAddress = "Local address is required";
+        if (!formData.localPhone.trim())   newErrors.localPhone = "Local address phone is required";
+        else if (!/^[6-9]\d{9}$/.test(formData.localPhone)) newErrors.localPhone = "Enter a valid 10-digit phone number";
+      }
     }
 
     if (step === 2) {
-      if (!formData.department) newErrors.department = 'Department is required';
-      if (!formData.position.trim()) newErrors.position = 'Position is required';
-      if (!formData.joiningDate) newErrors.joiningDate = 'Joining date is required';
-      if (!formData.employmentType) newErrors.employmentType = 'Employment type is required';
+      if (!formData.department)     newErrors.department = "Department is required";
+      if (!formData.position)       newErrors.position = "Designation is required";
+      if (!formData.joiningDate)    newErrors.joiningDate = "Joining date is required";
+      if (!formData.employmentType) newErrors.employmentType = "Employment type is required";
+      if (formData.department === "Telecom") {
+        if (!formData.projectName)  newErrors.projectName = "Project name is required for Telecom";
+        if (!formData.circle)       newErrors.circle = "Circle is required for Telecom";
+      }
     }
 
     if (step === 3) {
-      if (!formData.bankName.trim()) newErrors.bankName = 'Bank name is required';
-      if (!formData.accountNumber.trim()) newErrors.accountNumber = 'Account number is required';
-      if (!formData.ifscCode.trim()) newErrors.ifscCode = 'IFSC code is required';
+      if (!formData.bankName.trim())              newErrors.bankName = "Bank name is required";
+      if (!formData.accountHolderName.trim())     newErrors.accountHolderName = "Account holder name is required";
+      if (!formData.accountNumber.trim())         newErrors.accountNumber = "Account number is required";
+      if (!formData.confirmAccountNumber.trim())  newErrors.confirmAccountNumber = "Please confirm your account number";
+      else if (formData.accountNumber !== formData.confirmAccountNumber) newErrors.confirmAccountNumber = "Account numbers do not match";
+      if (!formData.ifscCode.trim())              newErrors.ifscCode = "IFSC code is required";
+      else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode.toUpperCase())) newErrors.ifscCode = "Enter a valid IFSC code (e.g. SBIN0001234)";
     }
 
     if (step === 4) {
-      if (!documents.idPhoto) newErrors.idPhoto = 'ID photo is required';
-      if (!documents.aadharCard) newErrors.aadharCard = 'Aadhar card is required';
-      if (!documents.bankPassbook) newErrors.bankPassbook = 'Bank passbook is required';
+      const isTelecom = formData.department?.toLowerCase() === "telecom";
+      if (!documents.idPhoto)      newErrors.idPhoto      = "Employee photo is required";
+      if (!documents.aadharCard)   newErrors.aadharCard   = "Aadhaar card is required";
+      if (!documents.resume)       newErrors.resume       = "Resume is required";
+      if (!documents.bankPassbook) newErrors.bankPassbook = "Bank passbook / cancelled cheque is required";
+      if (isTelecom) {
+        if (!documents.medicalCertificate) newErrors.medicalCertificate = "Medical certificate is required for Telecom employees";
+        if (!documents.academicRecords)    newErrors.academicRecords    = "Academic records are required for Telecom employees";
+        if (!documents.farmToCli)          newErrors.farmToCli          = "FARM-ToCli Certificate is required for Telecom employees";
+      }
     }
 
     setErrors(newErrors);
@@ -181,65 +352,99 @@ const RegistrationForm = () => {
   };
 
   const handleNext = () => {
-    if (validateStep(currentStep)) setCurrentStep(prev => prev + 1);
+    if (validateStep(currentStep)) {
+      setCurrentStep(p => p + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+  const handleBack = () => {
+    setCurrentStep(p => p - 1);
+    setErrors({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleBack = () => setCurrentStep(prev => prev - 1);
-
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateStep(4)) return;
-
     setIsSubmitting(true);
     try {
-      await employeeService.submitRegistration(
-        { ...formData, linkId },
-        documents
-      );
+      // ✅ uanNumber is included in formData and will be sent via employeeService.submitRegistration
+      const payload = { ...formData };
+      if (isResubmit)    { payload.resubmitToken = token; }
+      else if (isRejoin) { payload.linkId = linkId; payload.isRejoin = true; }
+      else               { payload.linkId = linkId; }
+
+      await employeeService.submitRegistration(payload, documents);
+
+      const emailPayload = {
+        firstName: formData.firstName, fatherHusbandName: formData.fatherHusbandName,
+        lastName: formData.lastName, email: formData.email, phone: formData.phone,
+        dob: formData.dob, gender: formData.gender, maritalStatus: formData.maritalStatus,
+        educationalQualification: formData.educationalQualification, bloodGroup: formData.bloodGroup,
+        panNumber: formData.panNumber, aadhar: formData.aadhar,
+        uanNumber: formData.uanNumber || "",   // ✅ include in email payload
+        permanentAddress: formData.permanentAddress,
+        localAddress: formData.localSameAsPermanent ? formData.permanentAddress : formData.localAddress,
+        emergencyContactName: formData.emergencyContactName, emergencyContactNo: formData.emergencyContactNo,
+        department: formData.department, position: formData.position,
+        joiningDate: formData.joiningDate, employmentType: formData.employmentType,
+        reportingManager: formData.reportingManager, projectName: formData.projectName,
+        circle: formData.circle, bankName: formData.bankName, accountNumber: formData.accountNumber,
+        ifscCode: formData.ifscCode, accountHolderName: formData.accountHolderName, bankBranch: formData.bankBranch,
+      };
+      if (formData.email) {
+        employeeService.sendFormSubmissionConfirmation({ to: formData.email, formData: emailPayload, isRejoin })
+          .catch(e => console.error("Confirmation email failed:", e));
+      }
+      employeeService.sendHRSubmissionNotification({ formData: emailPayload, isRejoin })
+        .catch(e => console.error("HR notification failed:", e));
+
       setIsSubmitted(true);
     } catch (err) {
-      console.error('Submission error:', err);
-      if (err.used) {
-        setLinkStatus('used');
-      } else if (err.expired) {
-        setLinkStatus('expired');
-      } else {
-        setErrors({ submit: err.message || 'Submission failed. Please try again.' });
-      }
+      if (err.used)         setLinkStatus("used");
+      else if (err.expired) setLinkStatus("expired");
+      else setErrors({ submit: err.message || "Submission failed. Please try again." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const steps = ['Personal Info', 'Employment', 'Bank Details', 'Documents'];
+  const steps = ["Personal Info", "Employment", "Bank Details", "Documents"];
+  const showRejoinOption   = !isResubmit && !isRejoinLink && aadharCheck?.exists && aadharCheck?.canRejoin;
+  const showBlockedWarning = !isResubmit && !isRejoinLink && aadharCheck?.exists && !aadharCheck?.canRejoin;
 
-  // ─── Link invalid / expired / used states ──────────────────────────────────
-  if (linkStatus === 'validating') {
+  // ── Status screens ────────────────────────────────────────────────────────
+  if (linkStatus === "validating") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Validating your registration link...</p>
+          <p className="text-gray-600 font-medium">
+            {isResubmit ? "Loading your saved form data…" : "Validating your registration link…"}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (linkStatus === 'expired') {
+  if (linkStatus === "expired") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full text-center">
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-10 h-10 text-red-500" />
+            <Clock className="w-10 h-10 text-red-500" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Link Expired</h2>
-          <p className="text-gray-600">This registration link has expired. Please contact HR to get a new link.</p>
+          <p className="text-gray-600">
+            This {isResubmit ? "resubmission" : "registration"} link has expired. Please contact HR for a new link.
+          </p>
         </div>
       </div>
     );
   }
 
-  if (linkStatus === 'used') {
+  if (linkStatus === "used") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-amber-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full text-center">
@@ -247,13 +452,15 @@ const RegistrationForm = () => {
             <AlertCircle className="w-10 h-10 text-yellow-500" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Link Already Used</h2>
-          <p className="text-gray-600">This registration link has already been used. Please contact HR if you have any questions.</p>
+          <p className="text-gray-600">
+            This registration link has already been used. Please contact HR if you have questions.
+          </p>
         </div>
       </div>
     );
   }
 
-  if (linkStatus === 'invalid') {
+  if (linkStatus === "invalid") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full text-center">
@@ -261,30 +468,64 @@ const RegistrationForm = () => {
             <AlertCircle className="w-10 h-10 text-gray-500" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Invalid Link</h2>
-          <p className="text-gray-600">This registration link is not valid. Please contact HR for assistance.</p>
+          <p className="text-gray-600">
+            This {isResubmit ? "resubmission" : "registration"} link is not valid or has expired. Please contact HR.
+          </p>
         </div>
       </div>
     );
   }
 
-  // ─── Success state ─────────────────────────────────────────────────────────
+  // ── Success screen ────────────────────────────────────────────────────────
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full text-center">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-14 h-14 text-green-500" />
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${
+            isRejoin ? 'bg-indigo-100' : 'bg-green-100'
+          }`}>
+            {isRejoin
+              ? <UserCheck className="w-14 h-14 text-indigo-500" />
+              : <CheckCircle className="w-14 h-14 text-green-500" />}
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">Registration Submitted!</h2>
-          <p className="text-gray-600 mb-6">
-            Your registration has been submitted successfully. HR will review your application and you will be notified once it's approved.
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">
+            {isRejoin ? "Rejoin Request Submitted!" : isResubmit ? "Resubmission Successful!" : "Registration Submitted!"}
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {isRejoin
+              ? "Your rejoin request has been submitted. HR will verify your previous record and notify you once a decision is made."
+              : isResubmit
+              ? "Your updated registration has been submitted. HR will review your corrections and notify you."
+              : "Your registration has been submitted. HR will review your application and notify you once approved."}
           </p>
-          <div className="bg-blue-50 rounded-xl p-4 text-left">
-            <p className="text-sm font-semibold text-blue-800 mb-2">What happens next?</p>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>✓ HR reviews your submitted information</li>
-              <li>✓ Documents are verified</li>
-              <li>✓ You receive your Employee ID on approval</li>
+          {formData.email && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-left">
+              <p className="text-sm font-semibold text-blue-800 mb-1 flex items-center gap-2">
+                <Mail className="w-4 h-4" /> Confirmation Email Sent
+              </p>
+              <p className="text-xs text-blue-700">
+                A confirmation email has been sent to <strong>{formData.email}</strong>
+              </p>
+            </div>
+          )}
+          <div className={`rounded-xl p-4 text-left ${isRejoin ? 'bg-indigo-50' : 'bg-blue-50'}`}>
+            <p className={`text-sm font-semibold mb-2 ${isRejoin ? 'text-indigo-800' : 'text-blue-800'}`}>
+              What happens next?
+            </p>
+            <ul className={`text-sm space-y-1 ${isRejoin ? 'text-indigo-700' : 'text-blue-700'}`}>
+              {isRejoin ? (
+                <>
+                  <li>✓ HR verifies your previous employment record</li>
+                  <li>✓ Rejoin request is reviewed and processed</li>
+                  <li>✓ You receive a brand-new Employee ID on approval</li>
+                </>
+              ) : (
+                <>
+                  <li>✓ HR reviews your submitted information</li>
+                  <li>✓ Documents are verified</li>
+                  <li>✓ You receive your Employee ID on approval</li>
+                </>
+              )}
             </ul>
           </div>
         </div>
@@ -292,46 +533,243 @@ const RegistrationForm = () => {
     );
   }
 
-  // ─── Main form ─────────────────────────────────────────────────────────────
+  // ── Main form ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
 
-        {/* Header */}
+        {/* Page header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full mb-4 shadow-lg">
-            <User className="w-8 h-8 text-white" />
+          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 shadow-lg ${
+            isRejoin ? 'bg-gradient-to-br from-indigo-600 to-violet-600' : 'bg-gradient-to-br from-blue-600 to-indigo-600'
+          }`}>
+            {isRejoin ? <UserCheck className="w-8 h-8 text-white" /> : <User className="w-8 h-8 text-white" />}
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Employee Registration</h1>
-          <p className="text-gray-600 mt-2">Please fill in your details accurately</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isRejoin ? "Rejoin Registration" : isResubmit ? "Update Your Registration" : "Employee Registration"}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            {isRejoin
+              ? "Your previous details have been auto-filled. Please update anything that has changed."
+              : isResubmit
+              ? "Correct the highlighted issue and resubmit your form"
+              : "Please fill in your details accurately to complete registration"}
+          </p>
         </div>
 
-        {/* Progress */}
+        {/* Rejection reason banner */}
+        {isResubmit && rejectionReason && (
+          <div className="bg-red-50 border-l-4 border-red-500 rounded-r-2xl p-5 mb-6 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-red-800 mb-1 uppercase tracking-wide">Reason for Rejection</p>
+                <p className="text-sm text-red-700 leading-relaxed">{rejectionReason}</p>
+                <p className="text-xs text-red-500 mt-2 font-medium">Please correct the above issue and resubmit your form.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* HR Rejoin Link Banner */}
+        {isRejoinLink && (
+          <div className="mb-6 rounded-2xl border-2 border-indigo-300 bg-white overflow-hidden shadow-md">
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 to-violet-500" />
+            <div className="p-5">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <History className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-indigo-800 mb-1">Rejoin Registration — Previous Data Loaded</p>
+                  <p className="text-sm text-indigo-700 leading-relaxed mb-4">
+                    HR has invited you to rejoin. Your previous employment details have been pre-filled into the form.
+                    Please review every section and update anything that has changed since your last employment before submitting.
+                    {oldEmployeeId && <span className="ml-1 font-semibold">Your previous Employee ID was: {oldEmployeeId}.</span>}
+                  </p>
+                  {formData.firstName && (
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+                      <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5" /> Pre-filled from your previous record
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          ["Name",        `${formData.firstName} ${formData.lastName}`.trim()],
+                          ["Previous ID", oldEmployeeId || "—"],
+                          ["Department",  formData.department  || "—"],
+                          ["Designation", formData.position    || "—"],
+                          ["Email",       formData.email       || "—"],
+                          ["Phone",       formData.phone       || "—"],
+                          // ✅ Show UAN in the pre-filled summary if it exists
+                          ...(formData.uanNumber ? [["UAN", formData.uanNumber]] : []),
+                        ].map(([label, val]) => (
+                          <div key={label} className="bg-white rounded-lg px-3 py-2 border border-indigo-100">
+                            <p className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
+                            <p className="text-xs font-bold text-indigo-900 truncate">{val}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                    <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      <span className="font-semibold">All fields are fully editable.</span> Scroll through each step
+                      and update any information that has changed before submitting your rejoin request.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Manual rejoin option */}
+        {currentStep === 1 && showRejoinOption && (
+          <div className="mb-6">
+            <div className={`rounded-2xl border-2 shadow-md overflow-hidden transition-all duration-300 ${
+              isRejoin ? 'border-indigo-400 bg-white' : 'border-amber-300 bg-amber-50'
+            }`}>
+              <div className={`h-1.5 w-full ${isRejoin ? 'bg-gradient-to-r from-indigo-500 to-violet-500' : 'bg-amber-400'}`} />
+              {!isRejoin && (
+                <div className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <History className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-amber-800 mb-1">Returning Employee Detected</p>
+                      <p className="text-sm text-amber-700 leading-relaxed mb-4">
+                        This Aadhaar number is linked to a previous employee record
+                        {aadharCheck?.employeeId && <span className="font-semibold"> (ID: {aadharCheck.employeeId})</span>}.
+                        If you are rejoining, tick the box below to auto-fill your saved details.
+                      </p>
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <div
+                          className="w-5 h-5 mt-0.5 rounded border-2 border-amber-400 group-hover:border-indigo-500 bg-white flex items-center justify-center flex-shrink-0 transition-colors"
+                          onClick={() => handleRejoinToggle(true)}
+                        />
+                        <input type="checkbox" className="sr-only" onChange={() => handleRejoinToggle(true)} />
+                        <span className="text-sm font-semibold text-amber-900 leading-tight">
+                          Yes, I am a returning employee and I want to rejoin Insta ICT Solutions
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {isRejoin && (
+                <div className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                        <p className="text-sm font-bold text-indigo-800">Form Auto-filled from Previous Record</p>
+                        <button type="button" onClick={() => handleRejoinToggle(false)}
+                          className="text-xs text-indigo-500 hover:text-indigo-700 underline font-medium">
+                          Clear &amp; start fresh
+                        </button>
+                      </div>
+                      <p className="text-sm text-indigo-700 leading-relaxed mb-4">
+                        Your saved information has been pre-loaded. Please review and update anything that has changed.
+                      </p>
+                      <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                        <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-blue-700 leading-relaxed">
+                          <span className="font-semibold">All form fields are fully editable.</span> Update any information that has changed before submitting.
+                        </p>
+                      </div>
+                      <label className="flex items-start gap-3 mt-4 cursor-pointer" onClick={() => handleRejoinToggle(false)}>
+                        <div className="w-5 h-5 mt-0.5 rounded border-2 border-indigo-600 bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                        <span className="text-sm font-semibold text-indigo-800 leading-tight">
+                          Yes, I am a returning employee and I want to rejoin Insta ICT Solutions
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Blocked warning */}
+        {currentStep === 1 && showBlockedWarning && (
+          <div className="mb-6 rounded-2xl border-2 border-red-300 bg-red-50 overflow-hidden shadow-sm">
+            <div className="h-1.5 w-full bg-red-500" />
+            <div className="p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <ShieldAlert className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-800 mb-1">
+                    {aadharCheck.status === 'blacklisted' ? 'Aadhaar Blacklisted'
+                      : aadharCheck.status === 'active' ? 'Already an Active Employee'
+                      : 'Application Already Pending'}
+                  </p>
+                  <p className="text-sm text-red-700 leading-relaxed">
+                    {aadharCheck.status === 'blacklisted'
+                      ? 'This Aadhaar number has been blacklisted. Please contact HR for clarification.'
+                      : aadharCheck.status === 'active'
+                      ? 'An active employee record already exists for this Aadhaar. Please contact HR immediately.'
+                      : 'There is already a pending application for this Aadhaar. Please wait or contact HR directly.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Persistent rejoin banner (steps 2-4) */}
+        {isRejoin && currentStep > 1 && (
+          <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <UserCheck className="w-4 h-4 text-indigo-600" />
+            </div>
+            <p className="text-sm text-indigo-800">
+              <span className="font-bold">Rejoin Request Mode</span>
+              {isRejoinLink ? " — Pre-filled from your previous record via HR invite." : " — Auto-filled from your previous record."}
+              {" "}Please review and update any fields that have changed before submitting.
+            </p>
+          </div>
+        )}
+
+        {/* Progress stepper */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between">
             {steps.map((step, idx) => (
               <React.Fragment key={idx}>
                 <div className="flex flex-col items-center">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${
-                    currentStep > idx + 1 ? 'bg-green-500 text-white' :
-                    currentStep === idx + 1 ? 'bg-blue-600 text-white ring-4 ring-blue-100' :
-                    'bg-gray-200 text-gray-500'
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                    currentStep > idx + 1 ? "bg-green-500 text-white"
+                      : currentStep === idx + 1
+                      ? isRejoin ? "bg-indigo-600 text-white ring-4 ring-indigo-100" : "bg-blue-600 text-white ring-4 ring-blue-100"
+                      : "bg-gray-200 text-gray-500"
                   }`}>
                     {currentStep > idx + 1 ? <Check className="w-4 h-4" /> : idx + 1}
                   </div>
                   <span className={`mt-1.5 text-xs font-medium hidden sm:block ${
-                    currentStep >= idx + 1 ? 'text-gray-800' : 'text-gray-400'
+                    currentStep >= idx + 1 ? "text-gray-800" : "text-gray-400"
                   }`}>{step}</span>
                 </div>
                 {idx < steps.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 rounded-full ${currentStep > idx + 1 ? 'bg-green-500' : 'bg-gray-200'}`} />
+                  <div className={`flex-1 h-1 mx-2 rounded-full transition-all ${
+                    currentStep > idx + 1 ? isRejoin ? "bg-indigo-500" : "bg-green-500" : "bg-gray-200"
+                  }`} />
                 )}
               </React.Fragment>
             ))}
           </div>
         </div>
 
-        {/* Form Card */}
+        {/* Form card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {errors.submit && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
@@ -340,145 +778,59 @@ const RegistrationForm = () => {
             </div>
           )}
 
-          {/* Step 1: Personal Info */}
           {currentStep === 1 && (
-            <div className="space-y-5">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-600" />Personal Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field label="First Name" name="firstName" value={formData.firstName} onChange={handleInputChange} error={errors.firstName} required placeholder="John" />
-                <Field label="Middle Name" name="middleName" value={formData.middleName} onChange={handleInputChange} placeholder="Kumar" />
-                <Field label="Last Name" name="lastName" value={formData.lastName} onChange={handleInputChange} error={errors.lastName} required placeholder="Doe" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Email" name="email" type="email" value={formData.email} onChange={handleInputChange} error={errors.email} required placeholder="john@example.com" />
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-700">Phone <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">+91</span>
-                    <input type="tel" name="phone" value={formData.phone} onChange={handlePhoneChange}
-                      className={`w-full pl-12 pr-4 py-2.5 rounded-lg border-2 ${errors.phone ? 'border-red-500 bg-red-50' : 'border-gray-300'} focus:border-blue-500 outline-none font-mono`}
-                      placeholder="9876543210" />
-                  </div>
-                  {errors.phone && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.phone}</p>}
-                </div>
-                <Field label="Date of Birth" name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleInputChange} error={errors.dateOfBirth} required max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]} />
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-700">Gender <span className="text-red-500">*</span></label>
-                  <select name="gender" value={formData.gender} onChange={handleInputChange}
-                    className={`w-full px-4 py-2.5 rounded-lg border-2 ${errors.gender ? 'border-red-500 bg-red-50' : 'border-gray-300'} focus:border-blue-500 outline-none bg-white cursor-pointer appearance-none`}>
-                    <option value="">Select Gender</option>
-                    {genders.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                  {errors.gender && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.gender}</p>}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Address" name="address" value={formData.address} onChange={handleInputChange} placeholder="123 Main Street" />
-                <Field label="City" name="city" value={formData.city} onChange={handleInputChange} placeholder="Mumbai" />
-                <Field label="State" name="state" value={formData.state} onChange={handleInputChange} placeholder="Maharashtra" />
-                <Field label="Pin Code" name="zipCode" value={formData.zipCode} onChange={handleInputChange} placeholder="400001" />
-              </div>
-            </div>
+            <PersonalInfo
+              formData={formData} errors={errors}
+              onChange={handleInputChange}
+              aadharChecking={aadharChecking} isRejoin={isRejoin}
+            />
           )}
-
-          {/* Step 2: Employment */}
           {currentStep === 2 && (
-            <div className="space-y-5">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-indigo-600" />Employment Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-700">Department <span className="text-red-500">*</span></label>
-                  <select name="department" value={formData.department} onChange={handleInputChange}
-                    className={`w-full px-4 py-2.5 rounded-lg border-2 ${errors.department ? 'border-red-500 bg-red-50' : 'border-gray-300'} focus:border-blue-500 outline-none bg-white cursor-pointer appearance-none`}>
-                    <option value="">Select Department</option>
-                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                  {errors.department && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.department}</p>}
-                </div>
-                <Field label="Position / Designation" name="position" value={formData.position} onChange={handleInputChange} error={errors.position} required placeholder="e.g. Software Engineer" />
-                <Field label="Joining Date" name="joiningDate" type="date" value={formData.joiningDate} onChange={handleInputChange} error={errors.joiningDate} required />
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-700">Employment Type <span className="text-red-500">*</span></label>
-                  <select name="employmentType" value={formData.employmentType} onChange={handleInputChange}
-                    className={`w-full px-4 py-2.5 rounded-lg border-2 ${errors.employmentType ? 'border-red-500 bg-red-50' : 'border-gray-300'} focus:border-blue-500 outline-none bg-white cursor-pointer appearance-none`}>
-                    <option value="">Select Type</option>
-                    {employmentTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                  {errors.employmentType && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.employmentType}</p>}
-                </div>
-                <Field label="Reporting Manager" name="reportingManager" value={formData.reportingManager} onChange={handleInputChange} placeholder="Manager's name" />
-              </div>
-            </div>
+            <EmploymentDetails formData={formData} errors={errors} onChange={handleInputChange} />
           )}
-
-          {/* Step 3: Bank */}
           {currentStep === 3 && (
-            <div className="space-y-5">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Building className="w-5 h-5 text-green-600" />Bank Account Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Bank Name" name="bankName" value={formData.bankName} onChange={handleInputChange} error={errors.bankName} required placeholder="State Bank of India" />
-                <Field label="Branch Name" name="bankBranch" value={formData.bankBranch} onChange={handleInputChange} placeholder="Main Branch, Mumbai" />
-                <Field label="Account Number" name="accountNumber" value={formData.accountNumber} onChange={handleInputChange} error={errors.accountNumber} required placeholder="Enter account number" mono />
-                <Field label="IFSC Code" name="ifscCode" value={formData.ifscCode} onChange={handleInputChange} error={errors.ifscCode} required placeholder="SBIN0001234" mono uppercase />
-                <Field label="Account Holder Name" name="accountHolderName" value={formData.accountHolderName} onChange={handleInputChange} placeholder="Full name as per bank" />
-              </div>
-            </div>
+            <BankDetailsinfo formData={formData} errors={errors} onChange={handleInputChange} />
           )}
-
-          {/* Step 4: Documents */}
           {currentStep === 4 && (
-            <div className="space-y-5">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-purple-600" />Document Upload
-              </h2>
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg text-sm text-blue-800">
-                <strong>Required:</strong> ID Photo, Aadhar Card, Bank Passbook. PAN Card is optional.
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DocCard title="ID Photo" fieldName="idPhoto" required documents={documents} handleDocChange={handleDocChange} errors={errors} />
-                <DocCard title="Aadhar Card" fieldName="aadharCard" required documents={documents} handleDocChange={handleDocChange} errors={errors} />
-                <DocCard title="Bank Passbook / Cancelled Cheque" fieldName="bankPassbook" required documents={documents} handleDocChange={handleDocChange} errors={errors} />
-                <DocCard title="PAN Card (Optional)" fieldName="panCard" required={false} documents={documents} handleDocChange={handleDocChange} errors={errors} />
-              </div>
-            </div>
+            <Documents
+              formData={documents}
+              errors={errors}
+              onFileChange={handleDocChange}
+              department={formData.department}
+            />
           )}
 
           {/* Navigation */}
           <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleBack}
-              disabled={currentStep === 1}
+            <button type="button" onClick={handleBack} disabled={currentStep === 1}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
-                currentStep === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100 border border-gray-300'
-              }`}
-            >
-              <ChevronLeft className="w-4 h-4" />Back
+                currentStep === 1 ? "text-gray-400 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100 border border-gray-300"
+              }`}>
+              <ChevronLeft className="w-4 h-4" /> Back
             </button>
 
             <span className="text-sm text-gray-500">Step {currentStep} of {steps.length}</span>
 
             {currentStep < steps.length ? (
-              <button type="button" onClick={handleNext} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all">
-                Next<ChevronRight className="w-4 h-4" />
+              <button type="button" onClick={handleNext}
+                className={`flex items-center gap-2 px-5 py-2.5 text-white rounded-lg font-medium transition-all shadow-sm ${
+                  isRejoin ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'
+                }`}>
+                Next <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all disabled:opacity-50"
-              >
+              <button type="button" onClick={handleSubmit} disabled={isSubmitting}
+                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-lg font-medium transition-all disabled:opacity-50 shadow-sm ${
+                  isRejoin ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-green-600 hover:bg-green-700'
+                }`}>
                 {isSubmitting ? (
-                  <><Loader className="w-4 h-4 animate-spin" />Submitting...</>
+                  <><Loader className="w-4 h-4 animate-spin" /> Submitting…</>
+                ) : isRejoin ? (
+                  <><UserCheck className="w-4 h-4" /> Submit Rejoin Request</>
+                ) : isResubmit ? (
+                  <><Check className="w-4 h-4" /> Resubmit Registration</>
                 ) : (
-                  <><Check className="w-4 h-4" />Submit Registration</>
+                  <><Check className="w-4 h-4" /> Submit Registration</>
                 )}
               </button>
             )}
@@ -488,28 +840,5 @@ const RegistrationForm = () => {
     </div>
   );
 };
-
-// ─── Reusable Field Component ─────────────────────────────────────────────────
-const Field = ({ label, name, type = 'text', value, onChange, error, required, placeholder, max, mono, uppercase }) => (
-  <div className="space-y-1.5">
-    <label className="block text-sm font-semibold text-gray-700">
-      {label}{required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    <input
-      type={type}
-      name={name}
-      value={value}
-      onChange={onChange}
-      max={max}
-      placeholder={placeholder}
-      className={`w-full px-4 py-2.5 rounded-lg border-2 ${
-        error ? 'border-red-500 bg-red-50' : 'border-gray-300'
-      } focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all ${
-        mono ? 'font-mono tracking-wide' : ''
-      } ${uppercase ? 'uppercase' : ''}`}
-    />
-    {error && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>}
-  </div>
-);
 
 export default RegistrationForm;

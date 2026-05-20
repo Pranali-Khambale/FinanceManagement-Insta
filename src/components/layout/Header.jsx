@@ -10,6 +10,8 @@ const Header = ({ user, onToggle }) => {
     return () => window.removeEventListener("resize", handle);
   }, []);
 
+  const firstName = user?.name?.split(" ")[0];
+
   return (
     <header
       style={{
@@ -114,7 +116,7 @@ const Header = ({ user, onToggle }) => {
           {user?.initials}
         </div>
 
-        {/* Name — hidden on mobile */}
+        {/* First name — hidden on mobile */}
         {!isMobile && (
           <span
             style={{
@@ -127,7 +129,7 @@ const Header = ({ user, onToggle }) => {
               textOverflow: "ellipsis",
             }}
           >
-            {user?.name}
+            {firstName}
           </span>
         )}
       </div>

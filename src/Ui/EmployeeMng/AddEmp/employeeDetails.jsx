@@ -1,32 +1,57 @@
 // src/Ui/EmployeeMng/AddEmp/employeeDetails.jsx
 import React from 'react';
-import { Calendar, Building2, Users, AlertCircle } from 'lucide-react';
+import { Calendar, Building2, Users, AlertCircle, MapPin } from 'lucide-react';
 import { departments, employmentTypes } from '../../../data/empmockdata';
 
+const telecomDesignations = [
+  'Corporate Office Manager', 'Coordinator', 'Report Maker', 'DT Engineer',
+  'Service Engineer', 'HR & Admin', 'HSW Lead', 'Intern', 'IT Manager',
+  'Manager', 'Operations Head', 'Project Manager', 'Operations Lead',
+  'Rigger', 'Software Engineer', 'Store Manager', 'Technician', 'Accountant',
+];
+
+const generalDesignations = [
+  'HR & Admin', 'Intern', 'IT Manager', 'Manager', 'Operations Head',
+  'Project Manager', 'Operations Lead', 'Software Engineer', 'Accountant',
+];
+
+const telecomProjectOptions = [
+  'Corporate', 'E// JIO', 'E// JIO EMF', 'E// JIO TI', 'E// JIO UBR',
+  'E// VIL', 'IGR', 'IT', 'Smart Intelligent Villege', 'VIL MM',
+];
+
+const telecomCircleOptions = [
+  'Gujarat', 'HP (Himachal Pradesh)', 'MH (Maharashtra)', 'MH (Pune Office)',
+  'MH Nagpur', 'MH_Ahilyanagar', 'MH_Nagpur', 'MH_Pen', 'MPCG',
+  'Mumbai', 'Punjab', 'Pune',
+];
+
 const EmploymentDetails = ({ formData, handleInputChange, errors = {} }) => {
+  const isTelecom = formData.department === 'Telecom';
+  const availableDesignations = isTelecom ? telecomDesignations : generalDesignations;
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Employee ID */}
+
+        {/* ── Employee ID — server-assigned, no badge ── */}
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-gray-700">Employee ID</label>
-          <div className="relative">
-            <input
-              type="text"
-              name="employeeId"
-              value={formData.employeeId}
-              readOnly
-              className="w-full px-4 py-2.5 rounded-lg border-2 border-gray-200 bg-gray-50 outline-none font-mono tracking-wide text-gray-700"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
-                Auto-generated
-              </span>
-            </div>
-          </div>
+          <label className="block text-sm font-semibold text-gray-700">
+            Employee ID
+          </label>
+          <input
+            type="text"
+            name="employeeId"
+            value="Will be assigned on save"
+            readOnly
+            className="w-full px-4 py-2.5 rounded-lg border-2 border-gray-200 bg-gray-50 outline-none font-mono tracking-wide text-gray-400 cursor-not-allowed"
+          />
+          <p className="text-xs text-gray-400">
+            Format: <span className="font-mono">Insta-YYMMxxxx</span> — auto-assigned by the server
+          </p>
         </div>
 
-        {/* Joining Date */}
+        {/* ── Joining Date ── */}
         <div className="space-y-2">
           <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
             <Calendar className="w-4 h-4 text-gray-500" />
@@ -48,7 +73,7 @@ const EmploymentDetails = ({ formData, handleInputChange, errors = {} }) => {
           )}
         </div>
 
-        {/* Department */}
+        {/* ── Department ── */}
         <div className="space-y-2">
           <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
             <Building2 className="w-4 h-4 text-gray-500" />
@@ -72,30 +97,91 @@ const EmploymentDetails = ({ formData, handleInputChange, errors = {} }) => {
           )}
         </div>
 
-        {/* Designation */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-            <Users className="w-4 h-4 text-gray-500" />
-            Designation <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="designation"
-            value={formData.designation}
-            onChange={handleInputChange}
-            className={`w-full px-4 py-2.5 rounded-lg border-2 ${
-              errors.designation ? 'border-red-500 bg-red-50' : 'border-gray-300'
-            } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none`}
-            placeholder="e.g., Software Engineer"
-          />
-          {errors.designation && (
-            <p className="text-xs text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />{errors.designation}
-            </p>
-          )}
-        </div>
+        {/* ── Designation ── */}
+        {formData.department && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <Users className="w-4 h-4 text-gray-500" />
+              Designation <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="designation"
+              value={formData.designation}
+              onChange={handleInputChange}
+              className={`w-full px-4 py-2.5 rounded-lg border-2 ${
+                errors.designation ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none bg-white cursor-pointer`}
+            >
+              <option value="">Select Designation</option>
+              {availableDesignations.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            {errors.designation && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />{errors.designation}
+              </p>
+            )}
+          </div>
+        )}
 
-        {/* Employment Type */}
+        {/* ── Project (Telecom only) ── */}
+        {isTelecom && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <MapPin className="w-4 h-4 text-gray-500" />
+              Project <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="project"
+              value={formData.project || ''}
+              onChange={handleInputChange}
+              className={`w-full px-4 py-2.5 rounded-lg border-2 ${
+                errors.project ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none bg-white cursor-pointer`}
+            >
+              <option value="">Select Project</option>
+              {telecomProjectOptions.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            {errors.project && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />{errors.project}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── Circle (Telecom only) ── */}
+        {isTelecom && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <MapPin className="w-4 h-4 text-gray-500" />
+              Circle <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="circle"
+              value={formData.circle || ''}
+              onChange={handleInputChange}
+              className={`w-full px-4 py-2.5 rounded-lg border-2 ${
+                errors.circle ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none bg-white cursor-pointer`}
+            >
+              <option value="">Select Circle</option>
+              {telecomCircleOptions.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {errors.circle && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />{errors.circle}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── Employment Type ── */}
         <div className="space-y-2 md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-3">
             Employment Type <span className="text-red-500">*</span>
@@ -139,6 +225,7 @@ const EmploymentDetails = ({ formData, handleInputChange, errors = {} }) => {
             </p>
           )}
         </div>
+
       </div>
     </div>
   );
