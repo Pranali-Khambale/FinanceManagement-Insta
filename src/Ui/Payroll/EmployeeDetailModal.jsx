@@ -1119,7 +1119,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
                   fontSize: 12, color: "#dc2626",
                 }}
               >
-                {saveError}
+                {saveError} 
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

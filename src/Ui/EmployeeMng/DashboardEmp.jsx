@@ -18,13 +18,8 @@ import { DocsModal }        from "./ReviewedDocsSection";
 import employeeService      from "../../services/employeeService";
 import { useNavigate }      from "react-router-dom";
 
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
-
-const BASE_API =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+// ── Single source of truth — comes from api.js ────────────────────────────────
+import { BASE_URL } from "../../services/api";
 
 // ── Full name helper ──────────────────────────────────────────────────────────
 const buildFullName = (emp) =>
@@ -57,7 +52,7 @@ const DocsBadgeButton = ({ emp, onClick }) => {
     }
 
     const empId = emp.id || emp.employee_id;
-    fetch(`${BASE_API}/employee-docs/submissions/${empId}`)
+    fetch(`${BASE_URL}/employee-docs/submissions/${empId}`)
       .then(r => r.json())
       .then(data => {
         if (data.success) {
@@ -375,35 +370,30 @@ function normalizeStatus(status) {
 const EmployeeManagement = ({ showToast: parentShowToast }) => {
   const navigate = useNavigate();
 
-  const [employees,          setEmployees]          = useState([]);
-  const [loading,            setLoading]            = useState(true);
-  const [error,              setError]              = useState("");
-  const [showModal,          setShowModal]          = useState(false);
-  const [modalType,          setModalType]          = useState("");
-  const [showImportModal,    setShowImportModal]    = useState(false);
-  const [searchTerm,         setSearchTerm]         = useState("");
-  const [filterStatus,       setFilterStatus]       = useState("all");
-  const [exportLoading,      setExportLoading]      = useState(false);
-  const [viewEmployee,       setViewEmployee]       = useState(null);
-  const [editEmployee,       setEditEmployee]       = useState(null);
-  const [showActivityLog,    setShowActivityLog]    = useState(false);
-  const [toasts,             setToasts]             = useState([]);
-  const [confirm,            setConfirm]            = useState(null);
-  const [pendingCount,       setPendingCount]       = useState(0);
-  const [pendingRejoinCount, setPendingRejoinCount] = useState(0);
-
-  // ── NEW: separate doc-pending count ───────────────────────────────────────
-  const [pendingDocsCount,   setPendingDocsCount]   = useState(0);
-  // ── NEW: separate rejoin-doc pending count (rejoined employees with uploaded
-  //        docs that still need HR review) ──────────────────────────────────
+  const [employees,              setEmployees]              = useState([]);
+  const [loading,                setLoading]                = useState(true);
+  const [error,                  setError]                  = useState("");
+  const [showModal,              setShowModal]              = useState(false);
+  const [modalType,              setModalType]              = useState("");
+  const [showImportModal,        setShowImportModal]        = useState(false);
+  const [searchTerm,             setSearchTerm]             = useState("");
+  const [filterStatus,           setFilterStatus]           = useState("all");
+  const [exportLoading,          setExportLoading]          = useState(false);
+  const [viewEmployee,           setViewEmployee]           = useState(null);
+  const [editEmployee,           setEditEmployee]           = useState(null);
+  const [showActivityLog,        setShowActivityLog]        = useState(false);
+  const [toasts,                 setToasts]                 = useState([]);
+  const [confirm,                setConfirm]                = useState(null);
+  const [pendingCount,           setPendingCount]           = useState(0);
+  const [pendingRejoinCount,     setPendingRejoinCount]     = useState(0);
+  const [pendingDocsCount,       setPendingDocsCount]       = useState(0);
   const [pendingRejoinDocsCount, setPendingRejoinDocsCount] = useState(0);
-
-  const [idCardEmployee,     setIdCardEmployee]     = useState(null);
-  const [docsModalEmployee,  setDocsModalEmployee]  = useState(null);
-  const [updatingStatusId,   setUpdatingStatusId]   = useState(null);
-  const [reasonModal,        setReasonModal]        = useState(null);
-  const [rejoinModal,        setRejoinModal]        = useState(null);
-  const [isSendingInvite,    setIsSendingInvite]    = useState(false);
+  const [idCardEmployee,         setIdCardEmployee]         = useState(null);
+  const [docsModalEmployee,      setDocsModalEmployee]      = useState(null);
+  const [updatingStatusId,       setUpdatingStatusId]       = useState(null);
+  const [reasonModal,            setReasonModal]            = useState(null);
+  const [rejoinModal,            setRejoinModal]            = useState(null);
+  const [isSendingInvite,        setIsSendingInvite]        = useState(false);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const toast = useCallback((message, type = "info") => {
@@ -432,8 +422,8 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
 
   // ── Fetch all badge counts ─────────────────────────────────────────────────
   const fetchCounts = useCallback(async () => {
+    // 1) Pending registrations (new + rejoin awaiting HR approval)
     try {
-      // 1) Pending registrations (new + rejoin awaiting HR approval)
       const r1 = await employeeService.getPendingSubmissions();
       if (r1.success) {
         const all = r1.data || [];
@@ -442,32 +432,27 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       }
     } catch (_) {}
 
+    // 2) Unreviewed docs pending HR review
     try {
-      // 2) Employees who uploaded docs (signed KYE/BGV/screenshot) pending HR review
-      //    GET /api/employee-docs/pending  →  { success, count, data: [...] }
-      const r2 = await fetch(`${BASE_URL}/employee-docs/pending`);
-      const d2 = await r2.json();
+      const token = localStorage.getItem("authToken");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const r2   = await fetch(`${BASE_URL}/employee-docs/pending`, { headers });
+      const d2   = await r2.json();
       if (d2.success) {
         const all = d2.data || [];
-        // Total unreviewed doc count across all employees
-      setPendingDocsCount(all.length); 
-        setPendingDocsCount(totalUnreviewed);
+        setPendingDocsCount(all.length);
 
-        // Subset: rejoined employees (those who have been through the rejoin
-        // flow — identified by the /employees/pending-rejoin-docs endpoint or
-        // we use the /pending-rejoin endpoint to cross-reference).
-        // For the badge we just show the total unreviewed docs count from
-        // /employee-docs/pending that belong to employees whose previous_employee_id
-        // is set. Since the /pending endpoint doesn't expose that field directly,
-        // we use a separate lightweight call:
-        const r3 = await fetch(`${BASE_URL}/employees/pending-rejoin`);
-        const d3 = await r3.json();
-        if (d3.success) {
-          const rejoinIds = new Set((d3.data || []).map(e => String(e.id)));
-         const rejoinDocEmployees = all.filter(e => rejoinIds.has(String(e.id))).length;
-setPendingRejoinDocsCount(rejoinDocEmployees);
-          setPendingRejoinDocsCount(rejoinDocsUnreviewed);
-        }
+        // Rejoin-docs subset — cross-reference with pending-rejoin employees
+        try {
+          const r3 = await fetch(`${BASE_URL}/employees/pending-rejoin`, { headers });
+          const d3 = await r3.json();
+          if (d3.success) {
+            const rejoinIds        = new Set((d3.data || []).map(e => String(e.id)));
+            const rejoinDocCount   = all.filter(e => rejoinIds.has(String(e.id))).length;
+            setPendingRejoinDocsCount(rejoinDocCount);
+          }
+        } catch (_) {}
       }
     } catch (_) {}
   }, []);
@@ -489,22 +474,27 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
   const executeStatusChange = async (emp, newStatus, reason) => {
     const empId      = emp.id || emp.employee_id;
     const prevStatus = emp.status;
+    const token      = localStorage.getItem("authToken");
+    const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
     setReasonModal(null);
     setEmployees(prev => prev.map(e =>
       (e.id === emp.id || e.employee_id === emp.employee_id) ? { ...e, status: newStatus } : e
     ));
     setUpdatingStatusId(empId);
+
     try {
       const sr = await fetch(`${BASE_URL}/employees/${empId}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ status: newStatus, reason }),
       });
       const sd = await sr.json();
       if (!sd.success) throw new Error(sd.message || "Failed to update status");
+
       const nr = await fetch(`${BASE_URL}/employees/${empId}/status-notification`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({
           status: newStatus, email: emp.email,
           firstName: emp.first_name || emp.firstName,
@@ -527,12 +517,16 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
   // ── Rejoin invite ──────────────────────────────────────────────────────────
   const handleSendRejoinInvite = async () => {
     if (!rejoinModal) return;
-    const emp   = rejoinModal;
-    const empId = emp.id || emp.employee_id;
+    const emp    = rejoinModal;
+    const empId  = emp.id || emp.employee_id;
+    const token  = localStorage.getItem("authToken");
+    const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
     setIsSendingInvite(true);
     try {
       const res  = await fetch(`${BASE_URL}/employees/${empId}/send-rejoin-invite`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
       });
       const data = await res.json();
       if (data.success) {
@@ -548,11 +542,16 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
     }
   };
 
-
+  // ── Add / edit / export ────────────────────────────────────────────────────
   const handleAddEmployee = async (data) => {
     const response = await employeeService.addEmployee(data);
-    if (response.success) { toast("Employee added successfully!", "success"); setShowModal(false); fetchEmployees(); }
-    else throw new Error(response.message || "Failed to add employee");
+    if (response.success) {
+      toast("Employee added successfully!", "success");
+      setShowModal(false);
+      fetchEmployees();
+    } else {
+      throw new Error(response.message || "Failed to add employee");
+    }
   };
 
   const handleEditSave = (updated) => {
@@ -563,9 +562,11 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
 
   const handleExportData = async () => {
     setExportLoading(true);
+    const token      = localStorage.getItem("authToken");
+    const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
     try {
       toast("Exporting employee data…", "info");
-      const res  = await fetch(`${BASE_URL}/employees/export/data`);
+      const res  = await fetch(`${BASE_URL}/employees/export/data`, { headers: authHeader });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
@@ -596,11 +597,8 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
     return ok1 && ok2;
   });
 
-  // ── Derived totals for the Pending Approvals button ───────────────────────
-  // Approval badge  = new registrations + pending-rejoin submissions (need HR approve/decline)
-  const approvalBadgeCount  = pendingCount + pendingRejoinCount;
-  // Docs badge      = total unreviewed doc count across ALL employees who uploaded docs
-  const docsBadgeCount      = pendingDocsCount;
+  const approvalBadgeCount = pendingCount + pendingRejoinCount;
+  const docsBadgeCount     = pendingDocsCount;
 
   if (loading) {
     return (
@@ -617,7 +615,7 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
     <div className="p-8">
       <Toast toasts={toasts} removeToast={removeToast} />
 
-      {confirm    && <ConfirmDialog {...confirm} />}
+      {confirm     && <ConfirmDialog {...confirm} />}
       {reasonModal && (
         <StatusReasonModal
           targetStatus={reasonModal.newStatus}
@@ -656,7 +654,7 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
             Activity Log
           </button>
 
-          {/* ── Pending Approvals button with TWO badge pills ─────────────── */}
+          {/* Pending Approvals */}
           <div className="relative flex flex-col items-center gap-1">
             <button
               onClick={() => navigate("/employee/pending")}
@@ -669,17 +667,12 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
                 color: "#fff",
               }}
             >
-              {/* Icon */}
               <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
                 <ClipboardList className="w-4 h-4" />
               </span>
-
               Pending Approvals
-
-              {/* Badge group — sits right of label text */}
               {(approvalBadgeCount > 0 || docsBadgeCount > 0) && (
                 <span className="flex items-center gap-1 ml-0.5">
-                  {/* Yellow pill — pending registrations / rejoin approvals */}
                   {approvalBadgeCount > 0 && (
                     <span
                       title={`${approvalBadgeCount} pending approval${approvalBadgeCount !== 1 ? "s" : ""}`}
@@ -689,7 +682,6 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
                       {approvalBadgeCount > 99 ? "99+" : approvalBadgeCount}
                     </span>
                   )}
-                  {/* Red pill — unreviewed submitted docs */}
                   {docsBadgeCount > 0 && (
                     <span
                       title={`${docsBadgeCount} document${docsBadgeCount !== 1 ? "s" : ""} pending review`}
@@ -702,8 +694,6 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
                 </span>
               )}
             </button>
-
-            {/* Micro legend below the button — only visible when badges are showing */}
             {(approvalBadgeCount > 0 || docsBadgeCount > 0) && (
               <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
                 {approvalBadgeCount > 0 && (
@@ -712,9 +702,7 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
                     approvals
                   </span>
                 )}
-                {approvalBadgeCount > 0 && docsBadgeCount > 0 && (
-                  <span className="text-gray-300">·</span>
-                )}
+                {approvalBadgeCount > 0 && docsBadgeCount > 0 && <span className="text-gray-300">·</span>}
                 {docsBadgeCount > 0 && (
                   <span className="flex items-center gap-1">
                     <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#ef4444" }} />
@@ -724,7 +712,6 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
               </div>
             )}
           </div>
-          {/* ─────────────────────────────────────────────────────────────── */}
         </div>
       </div>
 
@@ -745,7 +732,7 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
         </button>
         <button onClick={() => { setModalType("link"); setShowModal(true); }}
           className="px-6 py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-50 transition-all shadow-sm">
-          <Link2 className="w-5 h-5" />  Generate Registration Link
+          <Link2 className="w-5 h-5" /> Generate Registration Link
         </button>
         <button onClick={() => setShowImportModal(true)}
           className="px-6 py-4 bg-white border-2 border-green-600 text-green-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-50 transition-all shadow-sm">
@@ -827,7 +814,6 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
 
                     return (
                       <tr key={emp.id || emp.employee_id} className="hover:bg-gray-50 transition-colors">
-
                         {/* Employee */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
@@ -840,42 +826,32 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
                             </div>
                           </div>
                         </td>
-
                         {/* ID */}
                         <td className="px-6 py-4">
                           <span className="font-mono text-sm font-medium text-gray-700">{empId}</span>
                         </td>
-
                         {/* Department */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-700">{department || "—"}</span>
                         </td>
-
                         {/* Designation */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-700">{designation || "—"}</span>
                         </td>
-
                         {/* Joining Date */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-500">
                             {joiningDate ? new Date(joiningDate).toLocaleDateString("en-IN") : "—"}
                           </span>
                         </td>
-
                         {/* Status */}
                         <td className="px-6 py-4">
                           <StatusDropdown emp={emp} onStatusChange={handleStatusChange} updatingId={updatingStatusId} />
                         </td>
-
                         {/* Docs */}
                         <td className="px-4 py-4">
-                          <DocsBadgeButton
-                            emp={emp}
-                            onClick={() => setDocsModalEmployee(emp)}
-                          />
+                          <DocsBadgeButton emp={emp} onClick={() => setDocsModalEmployee(emp)} />
                         </td>
-
                         {/* Actions */}
                         <td className="px-4 py-4">
                           <div className="flex flex-col gap-1.5">
@@ -906,7 +882,6 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
                             )}
                           </div>
                         </td>
-
                       </tr>
                     );
                   })}
@@ -942,19 +917,18 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
       </div>
 
       {/* Modals */}
-    {showModal && modalType === "add" && (
-  <AddEmployeeWizard
-    onClose={() => setShowModal(false)}
-    onSubmit={handleAddEmployee}
-    
-  />
-)}
+      {showModal && modalType === "add" && (
+        <AddEmployeeWizard onClose={() => setShowModal(false)} onSubmit={handleAddEmployee} />
+      )}
       {showModal && modalType === "link" && (
         <PublicLinkModal onClose={() => setShowModal(false)} showToast={toast} />
       )}
       {showImportModal && (
-        <ImportExcelModal onClose={() => setShowImportModal(false)} showToast={toast}
-          onImportComplete={() => { fetchEmployees(); setShowImportModal(false); }} />
+        <ImportExcelModal
+          onClose={() => setShowImportModal(false)}
+          showToast={toast}
+          onImportComplete={() => { fetchEmployees(); setShowImportModal(false); }}
+        />
       )}
       {viewEmployee && <ViewEmployee employee={viewEmployee} onClose={() => setViewEmployee(null)} />}
       {editEmployee && <EditEmployee employee={editEmployee} onClose={() => setEditEmployee(null)} onSave={handleEditSave} showToast={toast} />}

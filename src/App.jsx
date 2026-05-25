@@ -1,13 +1,12 @@
+// src/App.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/App.jsx
+// FIXES:
+//   1. ProtectedRoute also checks for 'authToken' — if token is missing the
+//      session is dead even if 'isAuthenticated' flag lingers.
+//   2. Logout helper exported so Sidebar/Header can call it cleanly.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, lazy, Suspense } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar            from "./components/layout/Sidebar";
 import Header             from "./components/layout/Header";
@@ -22,28 +21,32 @@ import PayrollPage        from "./pages/PayrollPage";
 import Reports            from "./pages/Reports";
 import AdvanceRequestForm from "./Ui/AdvancePayment/AdvanceRequestLinkForm";
 import AdvanceResubmitForm from "./pages/AdvanceResubmitForm";
+import EmployeeDocUpload  from "./pages/EmployeeDocUpload";
 
-// ── NEW IMPORT ────────────────────────────────────────────────────────────────
-import EmployeeDocUpload from "./pages/EmployeeDocUpload";
-
-const RegistrationForm = lazy(
-  () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
-);
+const RegistrationForm = lazy(() => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"));
 
 // ─── Loading Spinner ──────────────────────────────────────────────────────────
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
     <div className="text-center">
-      <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
       <p className="text-gray-600">Loading...</p>
     </div>
   </div>
 );
 
 // ─── Protected Route ──────────────────────────────────────────────────────────
+// Checks BOTH the flag AND the actual token.
+// If the token is missing (e.g. cleared by 401 handler) the flag is stale —
+// we treat the session as expired and redirect to login.
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const hasToken        = !!localStorage.getItem("authToken");
+  if (!isAuthenticated || !hasToken) {
+    // Clean up stale flag so next visit goes straight to login
+    localStorage.removeItem("isAuthenticated");
+    return <Navigate to="/login" replace />;
+  }
   return children;
 };
 
@@ -74,89 +77,31 @@ const MainLayout = ({ children }) => {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        width: "100vw",
-        maxWidth: "100vw",
-        overflow: "hidden",
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", maxWidth: "100vw", overflow: "hidden" }}>
       <Header user={user} onToggle={handleToggle} />
-
       <div style={{ display: "flex", flex: 1, overflow: "hidden", minWidth: 0 }}>
 
-        {/* ── Desktop Sidebar ── */}
+        {/* Desktop Sidebar */}
         {!isMobile && (
-          <div
-            style={{
-              width:    collapsed ? 72 : 260,
-              minWidth: collapsed ? 72 : 260,
-              height: "100%",
-              flexShrink: 0,
-              transition: "width .3s, min-width .3s",
-              overflow: "hidden",
-            }}
-          >
-            <Sidebar
-              collapsed={collapsed}
-              setCollapsed={setCollapsed}
-              isMobile={false}
-              mobileOpen={false}
-              setMobileOpen={setMobileOpen}
-            />
+          <div style={{ width: collapsed ? 72 : 260, minWidth: collapsed ? 72 : 260, height: "100%", flexShrink: 0, transition: "width .3s, min-width .3s", overflow: "hidden" }}>
+            <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} isMobile={false} mobileOpen={false} setMobileOpen={setMobileOpen} />
           </div>
         )}
 
-        {/* ── Mobile Sidebar ── */}
+        {/* Mobile Sidebar */}
         {isMobile && (
           <>
             {mobileOpen && (
-              <div
-                onClick={() => setMobileOpen(false)}
-                style={{
-                  position: "fixed",
-                  top: 64, left: 0, right: 0, bottom: 0,
-                  background: "rgba(0,0,0,.5)",
-                  zIndex: 40,
-                }}
-              />
+              <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,.5)", zIndex: 40 }} />
             )}
-            <div
-              style={{
-                position: "fixed",
-                top: 64, left: 0,
-                width: 260,
-                height: "calc(100vh - 64px)",
-                zIndex: 50,
-                transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
-                transition: "transform .3s",
-              }}
-            >
-              <Sidebar
-                collapsed={false}
-                setCollapsed={setCollapsed}
-                isMobile={true}
-                mobileOpen={mobileOpen}
-                setMobileOpen={setMobileOpen}
-              />
+            <div style={{ position: "fixed", top: 64, left: 0, width: 260, height: "calc(100vh - 64px)", zIndex: 50, transform: mobileOpen ? "translateX(0)" : "translateX(-100%)", transition: "transform .3s" }}>
+              <Sidebar collapsed={false} setCollapsed={setCollapsed} isMobile={true} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
             </div>
           </>
         )}
 
-        {/* ── Page Content ── */}
-        <main
-          style={{
-            flex: 1,
-            minWidth: 0,
-            overflowY: "auto",
-            overflowX: "hidden",
-            background: "#f1f5f9",
-            padding: "32px",
-          }}
-        >
+        {/* Page Content */}
+        <main style={{ flex: 1, minWidth: 0, overflowY: "auto", overflowX: "hidden", background: "#f1f5f9", padding: "32px" }}>
           {children}
         </main>
       </div>
@@ -172,106 +117,38 @@ function App() {
     <Router>
       <Routes>
 
-        {/* ══════════════════════════════════════════════════════════════
-            PUBLIC ROUTES — no auth, no layout
-        ══════════════════════════════════════════════════════════════ */}
+        {/* ── PUBLIC ROUTES ── */}
+        <Route path="/login"                 element={<AdminLogin />} />
+        <Route path="/register"              element={<AdminRegistration />} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
-        <Route path="/login"                  element={<AdminLogin />} />
-        <Route path="/register"               element={<AdminRegistration />} />
-        <Route path="/admin/forgot-password"  element={<ForgotPassword />} />
+        <Route path="/registration/:linkId"
+          element={<Suspense fallback={<LoadingSpinner />}><RegistrationForm /></Suspense>} />
+        <Route path="/registration/resubmit/:token"
+          element={<Suspense fallback={<LoadingSpinner />}><RegistrationForm /></Suspense>} />
 
-        {/* Employee registration via invite link */}
-        <Route
-          path="/registration/:linkId"
-          element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <RegistrationForm />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/registration/resubmit/:token"
-          element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <RegistrationForm />
-            </Suspense>
-          }
-        />
+        <Route path="/upload-documents/:token" element={<EmployeeDocUpload />} />
+        <Route path="/advance-request/:paymentTypeKey/:token" element={<AdvanceRequestForm />} />
+        <Route path="/advance-resubmit/:token" element={<AdvanceResubmitForm />} />
 
-        {/* ── NEW: Employee document upload page (post-approval) ────────────
-            Employee receives email with link: /upload-documents/TOKEN
-            No auth required — token acts as the credential
-        ──────────────────────────────────────────────────────────────── */}
-        <Route
-          path="/upload-documents/:token"
-          element={<EmployeeDocUpload />}
-        />
+        {/* ── PROTECTED ROUTES ── */}
+        <Route path="/employee/dashboard"
+          element={<ProtectedRoute><MainLayout><Dashboard /></MainLayout></ProtectedRoute>} />
 
-        {/* Advance payment request form */}
-        <Route
-          path="/advance-request/:paymentTypeKey/:token"
-          element={<AdvanceRequestForm />}
-        />
+        <Route path="/employee/payments"
+          element={<ProtectedRoute><MainLayout><AdvancePayment /></MainLayout></ProtectedRoute>} />
 
-        {/* Advance payment resubmit form */}
-        <Route
-          path="/advance-resubmit/:token"
-          element={<AdvanceResubmitForm />}
-        />
+        <Route path="/employee/payroll"
+          element={<ProtectedRoute><MainLayout><PayrollPage /></MainLayout></ProtectedRoute>} />
 
-        {/* ══════════════════════════════════════════════════════════════
-            PROTECTED ROUTES — require auth + MainLayout
-        ══════════════════════════════════════════════════════════════ */}
+        <Route path="/employee/reports"
+          element={<ProtectedRoute><MainLayout><Reports /></MainLayout></ProtectedRoute>} />
 
-        <Route
-          path="/employee/dashboard"
-          element={
-            <ProtectedRoute>
-              <MainLayout><Dashboard /></MainLayout>
-            </ProtectedRoute>
-          }
-        />
+        {/* Catch-all for /employee/* */}
+        <Route path="/employee/*"
+          element={<ProtectedRoute><MainLayout><EmployeeRoutes /></MainLayout></ProtectedRoute>} />
 
-        <Route
-          path="/employee/payments"
-          element={
-            <ProtectedRoute>
-              <MainLayout><AdvancePayment /></MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/employee/payroll"
-          element={
-            <ProtectedRoute>
-              <MainLayout><PayrollPage /></MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/employee/reports"
-          element={
-            <ProtectedRoute>
-              <MainLayout><Reports /></MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Catch-all for remaining /employee/* sub-routes */}
-        <Route
-          path="/employee/*"
-          element={
-            <ProtectedRoute>
-              <MainLayout><EmployeeRoutes /></MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ══════════════════════════════════════════════════════════════
-            FALLBACK
-        ══════════════════════════════════════════════════════════════ */}
+        {/* Fallback */}
         <Route path="/"  element={<Navigate to="/login" replace />} />
         <Route path="*"  element={<Navigate to="/login" replace />} />
 

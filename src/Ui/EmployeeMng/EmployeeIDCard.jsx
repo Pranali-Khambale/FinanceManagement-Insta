@@ -2,15 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X, Printer, FlipHorizontal, Upload, Loader, ZoomIn, ZoomOut, Move, Check, RotateCcw, Crop, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL)
-    ? import.meta.env.VITE_API_URL.replace("/api", "")
-    : "http://localhost:5000";
-
-const API_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL)
-    ? import.meta.env.VITE_API_URL
-    : "http://localhost:5000/api";
+import { BASE_URL as API_URL } from "../../services/api";
+const BASE_URL = API_URL.replace("/api", "");
 
 const getPhotoUrl = (employee) => {
   const docs = employee?.documents || [];

@@ -16,7 +16,6 @@ const Dashboard = () => {
       <h1 className="text-3xl font-bold text-slate-800 mb-8 tracking-tight">
         Dashboard
       </h1>
-
       <StatsCards stats={stats} />
       <QuickActions />
     </>

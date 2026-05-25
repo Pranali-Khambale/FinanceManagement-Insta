@@ -6,9 +6,7 @@ import {
 import * as XLSX from "xlsx-js-style";
 import employeeService from "../../services/employeeService";
 
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+import { BASE_URL } from "../../services/api";
 
 const SECTIONS = [
   { label: "Basic",                color: "#374151" },

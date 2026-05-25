@@ -17,10 +17,7 @@ import {
   AlertTriangle, CheckCircle2, Upload, X,
   Loader2, RefreshCw, FileText, Info,
 } from "lucide-react";
-
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+import { BASE_URL } from "../services/api";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function inr(n) {

@@ -10,15 +10,8 @@ import {
 } from 'lucide-react';
 import employeeService from '../../services/employeeService';
 import { printKYEForm } from './KYEPrintForm';
-
-const BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL?.replace('/api', '')) ||
-  'http://localhost:5000';
-
-const BASE_API =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
-  'http://localhost:5000/api';
-
+import { BASE_URL as BASE_API } from '../../services/api';
+const BASE_URL = BASE_API.replace('/api', '');
 // ─── Utilities ────────────────────────────────────────────────────────────────
 const formatDate = (d) => {
   if (!d) return '—';
