@@ -9,13 +9,8 @@ import {
   BookOpen, Landmark,
 } from "lucide-react";
 
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL?.replace("/api", "")) ||
-  "http://localhost:5000";
-
-const BASE_API =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+import { BASE_URL as BASE_API } from "../../services/api";
+const BASE_URL = BASE_API.replace("/api", "");
 
 // ── Document type metadata ────────────────────────────────────────────────────
 const DOC_TYPE_META = {

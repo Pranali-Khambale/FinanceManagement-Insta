@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect } from "react";
     Heart, BookOpen, Banknote, Award, Radio, CreditCard, Shield, Hash,
   } from "lucide-react";
   import employeeService from "../../services/employeeService";
+  import { BASE_URL as API_BASE } from "../../services/api";
 
   const maritalStatuses = ["Married", "Unmarried"];
   const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -40,11 +41,9 @@ import React, { useState, useRef, useEffect } from "react";
   const ALL_DOC_TYPES = DOC_SECTIONS.flatMap((s) => s.docs);
 
   // ── Resolve API base URL ──────────────────────────────────────────────────────
-  const API_BASE =
-    (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-    "http://localhost:5000/api";
 
-  const SERVER_ROOT = API_BASE.replace(/\/api\/?$/, "");
+
+const SERVER_ROOT = API_BASE.replace("/api", "");
 
   function resolveFilePath(filePath) {
     if (!filePath) return "";

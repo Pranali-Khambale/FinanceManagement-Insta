@@ -3,7 +3,8 @@
 // =============================================================================
 import { useState, useEffect, useCallback } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { BASE_URL as API_BASE } from '../../services/api';
+
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 export const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

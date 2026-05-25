@@ -21,9 +21,7 @@ import ViewEmployee from "./ViewEmployee";
 import EditEmployee from "./EditEmployee";
 import employeeService from "../../services/employeeService";
 
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+import { BASE_URL } from "../../services/api";
 
 const EmployeeManagement = ({ showToast }) => {
   const [employees, setEmployees] = useState([]);
