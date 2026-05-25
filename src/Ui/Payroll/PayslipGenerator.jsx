@@ -703,3 +703,4 @@ export const downloadPayslipExcel = async (employee) => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
