@@ -3,8 +3,11 @@ import axios from 'axios';
 
 export const BASE_URL = "https://api-fin.instagrp.com/api";
 
+// export const BASE_URL="http://192.168.1.17:5000/api";
+
+
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL:   BASE_URL,
   headers: { "Content-Type": "application/json" },
   timeout: 30000,
 });

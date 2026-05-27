@@ -20,10 +20,12 @@ const authService = {
       throw err;
     }
 
-    if (data.success) {
-      localStorage.setItem('authToken', data.data.token);      // ← key must be 'authToken'
-      localStorage.setItem('user', JSON.stringify(data.data.user));
-      if (credentials.rememberMe) localStorage.setItem('rememberMe', 'true');
+   if (data.success) {
+  localStorage.setItem('authToken', data.data.token);
+  localStorage.setItem('user', JSON.stringify(data.data.user));
+  localStorage.setItem('isAuthenticated', 'true');   // ← ADD THIS
+  if (credentials.rememberMe) localStorage.setItem('rememberMe', 'true');
+
     }
 
     return data;
@@ -50,9 +52,10 @@ const authService = {
     }
 
     if (data.success) {
-      localStorage.setItem('authToken', data.data.token);
-      localStorage.setItem('user', JSON.stringify(data.data.user));
-    }
+  localStorage.setItem('authToken', data.data.token);
+  localStorage.setItem('user', JSON.stringify(data.data.user));
+  localStorage.setItem('isAuthenticated', 'true');   // ← ADD THIS
+}
 
     return data;
   },
