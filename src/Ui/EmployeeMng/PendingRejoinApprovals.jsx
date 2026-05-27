@@ -25,13 +25,9 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+import { BASE_URL } from "../../services/api";
+const BASE_URL_NO_API = BASE_URL.replace("/api", "");
 
-const BASE_URL_NO_API =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL?.replace("/api", "")) ||
-  "http://localhost:5000";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // HELPERS

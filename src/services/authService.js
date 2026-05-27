@@ -1,85 +1,93 @@
 // src/services/authService.js
-import api from './api';
+import { apiFetch, BASE_URL } from './api';
 
 const authService = {
-  // Admin Registration
+
+  login: async (credentials) => {
+    const response = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: credentials.username,
+        password: credentials.password,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const err = new Error(data.message || `HTTP ${response.status}`);
+      err.status = response.status;
+      throw err;
+    }
+
+   if (data.success) {
+  localStorage.setItem('authToken', data.data.token);
+  localStorage.setItem('user', JSON.stringify(data.data.user));
+  localStorage.setItem('isAuthenticated', 'true');   // ← ADD THIS
+  if (credentials.rememberMe) localStorage.setItem('rememberMe', 'true');
+
+    }
+
+    return data;
+  },
+
   register: async (userData) => {
-    try {
-      const response = await api.post('/auth/register', {
+    const response = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         fullName: userData.fullName,
         username: userData.username,
-        email: userData.email,
+        email:    userData.email,
         password: userData.password,
-        role: userData.role || 'hr'
-      });
-      
-      if (response.data.success) {
-        localStorage.setItem('authToken', response.data.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.data.user));
-      }
-      
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || { message: 'Registration failed' };
+        role:     userData.role || 'hr',
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const err = new Error(data.message || `HTTP ${response.status}`);
+      err.status = response.status;
+      throw err;
     }
+
+    if (data.success) {
+  localStorage.setItem('authToken', data.data.token);
+  localStorage.setItem('user', JSON.stringify(data.data.user));
+  localStorage.setItem('isAuthenticated', 'true');   // ← ADD THIS
+}
+
+    return data;
   },
 
-  // Admin Login
-  login: async (credentials) => {
-    try {
-      const response = await api.post('/auth/login', {
-        username: credentials.username,
-        password: credentials.password
-      });
-      
-      if (response.data.success) {
-        localStorage.setItem('authToken', response.data.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.data.user));
-        
-        if (credentials.rememberMe) {
-          localStorage.setItem('rememberMe', 'true');
-        }
-      }
-      
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || { message: 'Login failed' };
-    }
-  },
-
-  // Logout
   logout: async () => {
     try {
-      await api.post('/auth/logout');
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      await fetch(`${BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+        },
+      });
+    } catch (_) {}
+    finally {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
       localStorage.removeItem('rememberMe');
+      localStorage.removeItem('isAuthenticated');
     }
   },
 
-  // Get Current User
-  getCurrentUser: async () => {
-    try {
-      const response = await api.get('/auth/me');
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || { message: 'Failed to fetch user data' };
-    }
-  },
+  isAuthenticated: () => !!localStorage.getItem('authToken'),
 
-  // Check if user is authenticated
-  isAuthenticated: () => {
-    return !!localStorage.getItem('authToken');
-  },
-
-  // Get stored user data
   getUser: () => {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
-  }
+    try {
+      const str = localStorage.getItem('user');
+      return str ? JSON.parse(str) : null;
+    } catch {
+      return null;
+    }
+  },
 };
 
 export default authService;

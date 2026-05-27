@@ -15,13 +15,8 @@ import {
   File, ChevronLeft, ChevronRight, X as XIcon, Check,
 } from 'lucide-react';
 
-const BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
-  'http://localhost:5000/api';
-
-const SERVER_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL?.replace('/api', '')) ||
-  'http://localhost:5000';
+import { BASE_URL } from '../../services/api';
+const SERVER_URL = BASE_URL.replace('/api', '');
 
 const fullUrl = (p) =>
   !p ? null : p.startsWith('http') ? p : `${SERVER_URL}${p}`;

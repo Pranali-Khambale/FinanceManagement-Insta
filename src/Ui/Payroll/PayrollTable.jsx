@@ -23,7 +23,7 @@ import {
 import { exportPayrollToExcel } from "./ExportPayrollExcel";
 import AttendanceInputModal from "./AttendanceInputModal";
 import EmployeeDetailModal from "./EmployeeDetailModal";
-import payrollService from "../../services/payrollService";
+import payrollService from "../../services/payrollService.js";
 
 const AVATAR_COLORS = [
   "from-indigo-400 to-indigo-600",

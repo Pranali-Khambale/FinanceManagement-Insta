@@ -11,9 +11,7 @@ import {
 } from "lucide-react";
 import { DownloadMenu, DownloadSuccessModal } from "./EmployeeHistoryDownload";
 
-const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+import { BASE_URL } from "../../services/api";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {

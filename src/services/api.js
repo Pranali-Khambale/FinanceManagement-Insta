@@ -1,75 +1,103 @@
 // src/services/api.js
 import axios from 'axios';
 
+export const BASE_URL = "https://api-fin.instagrp.com/api";
+
+// export const BASE_URL="http://192.168.1.17:5000/api";
+
+
 const api = axios.create({
-  // baseURL: "http://192.168.1.22:5000/api",
-  baseURL:"https://api-fin.instagrp.com/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 30000, // 30 seconds
+  baseURL:   BASE_URL,
+  headers: { "Content-Type": "application/json" },
+  timeout: 30000,
 });
 
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    //  CRITICAL FIX: Get token from 'authToken' instead of 'token'
     const token = localStorage.getItem('authToken');
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    // Don't override Content-Type if it's FormData
-    if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
-    }
-    
-    console.log(' API Request:', {
-      method: config.method,
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`,
-      hasToken: !!token
-    });
-    
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (config.data instanceof FormData) delete config.headers['Content-Type'];
     return config;
   },
-  (error) => {
-    console.error(' Request Error:', error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor
 api.interceptors.response.use(
-  (response) => {
-    console.log(' API Response:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data
-    });
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error(' API Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      message: error.response?.data?.message || error.message,
-      data: error.response?.data
-    });
-    
-    // Handle specific error cases
     if (error.response?.status === 401) {
-      // Unauthorized - clear all auth data and redirect to login
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
       localStorage.removeItem('isAuthenticated');
       window.location.href = '/login';
     }
-    
     return Promise.reject(error);
   }
 );
 
+// ── Helper: build query string ───────────────────────────────────────────────
+export function buildQS(params = {}) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  ).toString();
+  return qs ? `?${qs}` : '';
+}
+
+// ── apiFetch: authenticated fetch wrapper ────────────────────────────────────
+export async function apiFetch(path, options = {}) {
+  const token = localStorage.getItem('authToken');
+  const isFormData = options.body instanceof FormData;
+
+  const headers = {
+    ...(!isFormData && { 'Content-Type': 'application/json' }),
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
+
+  const response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+
+  if (response.status === 401) {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('isAuthenticated');
+    window.location.href = '/login';
+    return;
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(data.message || `HTTP ${response.status}`);
+    err.status = response.status;
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
+// ── publicFetch: no auth token ───────────────────────────────────────────────
+export async function publicFetch(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
+
+  const headers = {
+    ...(!isFormData && { 'Content-Type': 'application/json' }),
+    ...options.headers,
+  };
+
+  const response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const err = new Error(data.message || `HTTP ${response.status}`);
+    err.status = response.status;
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
+export { api };
 export default api;
