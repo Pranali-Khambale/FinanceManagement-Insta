@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { BASE_URL } from "../../services/api";
+import { BASE_URL } from "../../api/client";
 const BASE_URL_NO_API = BASE_URL.replace("/api", "");
 
 

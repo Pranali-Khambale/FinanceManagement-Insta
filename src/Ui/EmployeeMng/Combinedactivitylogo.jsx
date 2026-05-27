@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { DownloadMenu, DownloadSuccessModal } from "./EmployeeHistoryDownload";
 
-import { BASE_URL } from "../../services/api";
+import { BASE_URL } from "../../api/client";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -339,9 +339,9 @@ const CombinedActivityLog = ({ onClose }) => {
       setBackfillMsg(
         json.success
           ? json.backfilled > 0
-            ? `✅ Backfilled ${json.backfilled} employee(s). Refreshing…`
-            : "✅ All employees already have history records."
-          : `❌ ${json.message}`
+            ? ` Backfilled ${json.backfilled} employee(s). Refreshing…`
+            : " All employees already have history records."
+          : ` ${json.message}`
       );
       if (json.success && json.backfilled > 0) {
         setTimeout(() => { fetchAll(); setBackfillMsg(""); }, 1500);

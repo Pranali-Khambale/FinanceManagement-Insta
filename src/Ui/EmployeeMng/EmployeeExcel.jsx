@@ -6,7 +6,7 @@ import {
 import * as XLSX from "xlsx-js-style";
 import employeeService from "../../services/employeeService";
 
-import { BASE_URL } from "../../services/api";
+import { BASE_URL } from "../../api/client";
 
 const SECTIONS = [
   { label: "Basic",                color: "#374151" },

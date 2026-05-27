@@ -21,7 +21,7 @@ import ViewEmployee from "./ViewEmployee";
 import EditEmployee from "./EditEmployee";
 import employeeService from "../../services/employeeService";
 
-import { BASE_URL } from "../../services/api";
+import { BASE_URL } from "../../api/client";
 
 const EmployeeManagement = ({ showToast }) => {
   const [employees, setEmployees] = useState([]);

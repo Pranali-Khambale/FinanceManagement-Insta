@@ -9,7 +9,7 @@ import {
   BookOpen, Landmark,
 } from "lucide-react";
 
-import { BASE_URL as BASE_API } from "../../services/api";
+import { BASE_URL as BASE_API } from "../../api/client";
 const BASE_URL = BASE_API.replace("/api", "");
 
 // ── Document type metadata ────────────────────────────────────────────────────

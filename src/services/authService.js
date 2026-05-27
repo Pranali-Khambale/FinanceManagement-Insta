@@ -1,88 +1,54 @@
 // src/services/authService.js
-import { apiFetch, BASE_URL } from './api';
+// ─── Business logic: auth, token storage, session helpers ─────────────────────
+import authRepository from '../hooks/authRepository';
+
+const TOKEN_KEY       = 'authToken';
+const USER_KEY        = 'user';
+const AUTH_KEY        = 'isAuthenticated';
+const REMEMBER_KEY    = 'rememberMe';
+
+function persistSession(data, rememberMe = false) {
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  localStorage.setItem(AUTH_KEY, 'true');
+  if (rememberMe) localStorage.setItem(REMEMBER_KEY, 'true');
+}
+
+function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(REMEMBER_KEY);
+}
 
 const authService = {
-
-  login: async (credentials) => {
-    const response = await fetch(`${BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: credentials.username,
-        password: credentials.password,
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      const err = new Error(data.message || `HTTP ${response.status}`);
-      err.status = response.status;
-      throw err;
-    }
-
-   if (data.success) {
-  localStorage.setItem('authToken', data.data.token);
-  localStorage.setItem('user', JSON.stringify(data.data.user));
-  localStorage.setItem('isAuthenticated', 'true');   // ← ADD THIS
-  if (credentials.rememberMe) localStorage.setItem('rememberMe', 'true');
-
-    }
-
+  login: async ({ username, password, rememberMe = false }) => {
+    const data = await authRepository.login(username, password);
+    if (data.success) persistSession(data.data, rememberMe);
     return data;
   },
 
   register: async (userData) => {
-    const response = await fetch(`${BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fullName: userData.fullName,
-        username: userData.username,
-        email:    userData.email,
-        password: userData.password,
-        role:     userData.role || 'hr',
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      const err = new Error(data.message || `HTTP ${response.status}`);
-      err.status = response.status;
-      throw err;
-    }
-
-    if (data.success) {
-  localStorage.setItem('authToken', data.data.token);
-  localStorage.setItem('user', JSON.stringify(data.data.user));
-  localStorage.setItem('isAuthenticated', 'true');   // ← ADD THIS
-}
-
+    const data = await authRepository.register(userData);
+    if (data.success) persistSession(data.data);
     return data;
   },
 
   logout: async () => {
     try {
-      await fetch(`${BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-        },
-      });
-    } catch (_) {}
-    finally {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('rememberMe');
-      localStorage.removeItem('isAuthenticated');
+      await authRepository.logout();
+    } finally {
+      clearSession();
     }
   },
 
-  isAuthenticated: () => !!localStorage.getItem('authToken'),
+  isAuthenticated: () => !!localStorage.getItem(TOKEN_KEY),
+
+  getToken: () => localStorage.getItem(TOKEN_KEY),
 
   getUser: () => {
     try {
-      const str = localStorage.getItem('user');
+      const str = localStorage.getItem(USER_KEY);
       return str ? JSON.parse(str) : null;
     } catch {
       return null;
