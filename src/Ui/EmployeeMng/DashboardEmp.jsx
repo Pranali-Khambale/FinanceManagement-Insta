@@ -548,12 +548,6 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
     }
   };
 
-  // ── Misc handlers ──────────────────────────────────────────────────────────
-  const generateEmployeeId = () => {
-    if (employees.length === 0) return "EMP001";
-    const ids   = employees.map(e => parseInt((e.employee_id || e.id || "").toString().replace(/\D/g, "")) || 0);
-    return `EMP${String(Math.max(...ids, 0) + 1).padStart(3, "0")}`;
-  };
 
   const handleAddEmployee = async (data) => {
     const response = await employeeService.addEmployee(data);
@@ -948,9 +942,13 @@ setPendingRejoinDocsCount(rejoinDocEmployees);
       </div>
 
       {/* Modals */}
-      {showModal && modalType === "add" && (
-        <AddEmployeeWizard onClose={() => setShowModal(false)} onSubmit={handleAddEmployee} generateEmployeeId={generateEmployeeId} />
-      )}
+    {showModal && modalType === "add" && (
+  <AddEmployeeWizard
+    onClose={() => setShowModal(false)}
+    onSubmit={handleAddEmployee}
+    
+  />
+)}
       {showModal && modalType === "link" && (
         <PublicLinkModal onClose={() => setShowModal(false)} showToast={toast} />
       )}

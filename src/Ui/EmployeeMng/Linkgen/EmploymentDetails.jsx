@@ -1,71 +1,29 @@
 import React from 'react';
 import {
-  Building2,
-  Calendar,
-  Layers,
-  MapPin,
-  UserCircle,
-  Users,
-  AlertCircle,
+  Building2, Calendar, Layers, MapPin,
+  UserCircle, Users, AlertCircle,
 } from 'lucide-react';
 
 const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
 
-  // All designations (used for every department)
   const allDesignations = [
-    'Corporate Office Manager',
-    'Coordinator',
-    'Report Maker',
-    'DT Engineer',
-    'Service Engineer',
-    'HR & Admin',
-    'HSW Lead',
-    'Intern',
-    'IT Manager',
-    'Manager',
-    'Operations Head',
-    'Project Manager',
-    'Operations Lead',
-    'Rigger',
-    'Software Engineer',
-    'Store Manager',
-    'Technician',
-    'Accountant',
+    'Corporate Office Manager', 'Coordinator', 'Report Maker', 'DT Engineer',
+    'Service Engineer', 'HR & Admin', 'HSW Lead', 'Intern', 'IT Manager',
+    'Manager', 'Operations Head', 'Project Manager', 'Operations Lead',
+    'Rigger', 'Software Engineer', 'Store Manager', 'Technician', 'Accountant',
   ];
 
-  const departments = [
-    'IT',
-    'Telecom',
-    'Corporate Office',
-  ];
+  const departments = ['IT', 'Telecom', 'Corporate Office'];
 
   const circles = [
-    'Gujarat',
-    'HP (Himachal Pradesh)',
-    'MH (Maharashtra)',
-    'MH (Pune Office)',
-    'MH Nagpur',
-    'MH_Ahilyanagar',
-    'MH_Nagpur',
-    'MH_Pen',
-    'MPCG',
-    'Mumbai',
-    'Punjab',
-    'Pune',
-    'Other',
+    'Gujarat', 'HP (Himachal Pradesh)', 'MH (Maharashtra)', 'MH (Pune Office)',
+    'MH Nagpur', 'MH_Ahilyanagar', 'MH_Nagpur', 'MH_Pen', 'MPCG',
+    'Mumbai', 'Punjab', 'Pune', 'Other',
   ];
 
   const projectNames = [
-    'Corporate',
-    'E// JIO',
-    'E// JIO EMF',
-    'E// JIO TI',
-    'E// JIO UBR',
-    'E// VIL',
-    'IGR',
-    'IT',
-    'Smart Intelligent Village',
-    'VIL MM',
+    'Corporate', 'E// JIO', 'E// JIO EMF', 'E// JIO TI', 'E// JIO UBR',
+    'E// VIL', 'IGR', 'IT', 'Smart Intelligent Village', 'VIL MM',
   ];
 
   const employmentTypes = ['Full-time', 'Part-time', 'Contract', 'Internship', 'Temporary'];
@@ -81,27 +39,21 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* Employee ID — Auto-generated, read-only */}
+        {/* ── Employee ID — shown as info only, assigned after approval ── */}
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-gray-700">Employee ID</label>
-          <div className="relative">
-            <input
-              type="text"
-              name="employeeId"
-              value={formData.employeeId || ''}
-              readOnly
-              className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 bg-gray-50 outline-none font-mono tracking-wide text-gray-700"
-              placeholder="Auto-generated"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
-                Auto-generated
-              </span>
-            </div>
-          </div>
+          <input
+            type="text"
+            value="Will be assigned upon approval"
+            readOnly
+            className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 bg-gray-50 outline-none font-mono text-gray-400 cursor-not-allowed"
+          />
+          <p className="text-xs text-gray-400">
+            Format: <span className="font-mono">Insta-YYMMxxxx</span>
+          </p>
         </div>
 
-        {/* Joining Date */}
+        {/* ── Joining Date ── */}
         <div className="space-y-2">
           <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
             <Calendar className="w-4 h-4 text-gray-500" />
@@ -123,7 +75,7 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
           )}
         </div>
 
-        {/* Department */}
+        {/* ── Department ── */}
         <div className="space-y-2">
           <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
             <Building2 className="w-4 h-4 text-gray-500" />
@@ -149,7 +101,7 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
           )}
         </div>
 
-        {/* Designation — shown after department is selected */}
+        {/* ── Designation ── */}
         {formData.department && (
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
@@ -177,7 +129,7 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
           </div>
         )}
 
-        {/* Project — only for Telecom */}
+        {/* ── Project (Telecom only) ── */}
         {isTelecom && (
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
@@ -205,7 +157,7 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
           </div>
         )}
 
-        {/* Circle — only for Telecom */}
+        {/* ── Circle (Telecom only) ── */}
         {isTelecom && (
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
@@ -233,7 +185,7 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
           </div>
         )}
 
-        {/* Reporting Manager */}
+        {/* ── Reporting Manager ── */}
         <div className="space-y-2">
           <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
             <UserCircle className="w-4 h-4 text-gray-500" />
@@ -249,7 +201,7 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
           />
         </div>
 
-        {/* Employment Type — Radio button cards */}
+        {/* ── Employment Type ── */}
         <div className="space-y-3 md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700">
             Employment Type <span className="text-red-500">*</span>
