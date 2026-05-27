@@ -15,7 +15,7 @@ import {
   File, ChevronLeft, ChevronRight, X as XIcon, Check,
 } from 'lucide-react';
 
-import { BASE_URL } from '../../services/api';
+import { BASE_URL } from '../../api/client';
 const SERVER_URL = BASE_URL.replace('/api', '');
 
 const fullUrl = (p) =>

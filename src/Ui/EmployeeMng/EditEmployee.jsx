@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect } from "react";
     Heart, BookOpen, Banknote, Award, Radio, CreditCard, Shield, Hash,
   } from "lucide-react";
   import employeeService from "../../services/employeeService";
-  import { BASE_URL as API_BASE } from "../../services/api";
+  import { BASE_URL as API_BASE } from "../../api/client";
 
   const maritalStatuses = ["Married", "Unmarried"];
   const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];

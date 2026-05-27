@@ -19,7 +19,7 @@ import employeeService      from "../../services/employeeService";
 import { useNavigate }      from "react-router-dom";
 
 // ── Single source of truth — comes from api.js ────────────────────────────────
-import { BASE_URL } from "../../services/api";
+import { BASE_URL } from "../../api/client";
 
 // ── Full name helper ──────────────────────────────────────────────────────────
 const buildFullName = (emp) =>

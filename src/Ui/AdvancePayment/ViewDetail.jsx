@@ -20,11 +20,9 @@ import {
 } from "lucide-react";
 
 // ── Resolve base API URL ──────────────────────────────────────────────────────
-const API_BASE =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://localhost:5000/api";
+import { BASE_URL } from "../../api/client"; // adjust path as needed
 
-const SERVER_ROOT = API_BASE.replace(/\/api\/?$/, "");
+const SERVER_ROOT = BASE_URL.replace(/\/api\/?$/, "");
 
 function resolveFileUrl(filePath) {
   if (!filePath) return null;
@@ -37,7 +35,6 @@ function resolveFileUrl(filePath) {
       : normalised.replace(/^\/+/, "");
   return `${SERVER_ROOT}/${relativePart}`;
 }
-
 const fmt = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
 
 const PAYMENT_TYPES = {

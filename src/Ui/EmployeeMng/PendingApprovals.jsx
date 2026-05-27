@@ -10,8 +10,10 @@ import {
 } from 'lucide-react';
 import employeeService from '../../services/employeeService';
 import { printKYEForm } from './KYEPrintForm';
-import { BASE_URL as BASE_API } from '../../services/api';
+import { BASE_URL as BASE_API } from '../../api/client';
 const BASE_URL = BASE_API.replace('/api', '');
+
+//
 // ─── Utilities ────────────────────────────────────────────────────────────────
 const formatDate = (d) => {
   if (!d) return '—';

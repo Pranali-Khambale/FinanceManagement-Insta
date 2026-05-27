@@ -7,6 +7,7 @@ import {
   Building,
   CreditCard,
   Wallet,
+  
   FileText,
   Image,
   ChevronDown,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { printKYEForm } from "./KYEPrintForm";
 import SalaryDetails from "./salaryDetails";
+
 
 const DOC_LABELS = {
   resume: "Resume – Signed Copy",
@@ -32,6 +34,7 @@ const getDocLabel = (doc) =>
   DOC_LABELS[doc.type || doc.document_type] ||
   doc.name ||
   doc.file_name ||
+  
   doc.type ||
   doc.document_type ||
   "Document";
@@ -1698,6 +1701,7 @@ const ViewEmployee = ({ employee, onClose }) => {
                     }}
                   >
                     Name of Document
+
                   </th>
                   <th
                     style={{

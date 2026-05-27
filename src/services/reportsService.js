@@ -1,23 +1,23 @@
 // src/services/reportsService.js
-import { apiFetch, buildQS } from './api';
+// ─── Business logic: reports, unwraps { success, data } envelope ───────────────
+import reportsRepository from '../repositories/reportsRepository';
 
-// Reports API unwraps the { success, data } envelope for the caller
-async function reportFetch(endpoint) {
-  const data = await apiFetch(endpoint);
-  // apiFetch already throws on !response.ok — here we just check success flag
+// Unwrap the { success, data } envelope returned by all reports endpoints
+async function unwrap(promise) {
+  const data = await promise;
   if (data && typeof data === 'object' && 'success' in data) {
-    if (!data.success) throw new Error(data.message || `API error at ${endpoint}`);
+    if (!data.success) throw new Error(data.message || 'API error');
     return data.data;
   }
-  return data; // already unwrapped by backend
+  return data; // already unwrapped
 }
 
 const reportsService = {
-  getMonthly:    (year)               => reportFetch(`/reports/monthly${buildQS({ year })}`),
-  getQuarterly:  (year)               => reportFetch(`/reports/quarterly${buildQS({ year })}`),
-  getYearly:     (startYear = 2021)   => reportFetch(`/reports/yearly${buildQS({ startYear })}`),
-  getDepartment: (year)               => reportFetch(`/reports/department${buildQS({ year })}`),
-  getSummary:    (year)               => reportFetch(`/reports/summary${buildQS({ year })}`),
+  getMonthly:    (year)               => unwrap(reportsRepository.getMonthly(year)),
+  getQuarterly:  (year)               => unwrap(reportsRepository.getQuarterly(year)),
+  getYearly:     (startYear = 2021)   => unwrap(reportsRepository.getYearly(startYear)),
+  getDepartment: (year)               => unwrap(reportsRepository.getDepartment(year)),
+  getSummary:    (year)               => unwrap(reportsRepository.getSummary(year)),
 
   fetchAll: async (year, startYear = 2021) => {
     const [monthly, quarterly, yearly, deptBreak, summary] = await Promise.all([
