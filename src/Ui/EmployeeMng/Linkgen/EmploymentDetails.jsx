@@ -10,21 +10,23 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
     'Corporate Office Manager', 'Coordinator', 'Report Maker', 'DT Engineer',
     'Service Engineer', 'HR & Admin', 'HSW Lead', 'Intern', 'IT Manager',
     'Manager', 'Operations Head', 'Project Manager', 'Operations Lead',
-    'Rigger', 'Software Engineer', 'Store Manager', 'Technician', 'Accountant',
+    'Rigger', 'Software Engineer', 'Store Manager', 'Technician', 'Accountant','other',
   ];
 
   const departments = ['IT', 'Telecom', 'Corporate Office'];
 
-  const circles = [
-    'Gujarat', 'HP (Himachal Pradesh)', 'MH (Maharashtra)', 'MH (Pune Office)',
-    'MH Nagpur', 'MH_Ahilyanagar', 'MH_Nagpur', 'MH_Pen', 'MPCG',
-    'Mumbai', 'Punjab', 'Pune', 'Other',
-  ];
+ const circles = [
+  'Not Applicable',
+  'Gujarat', 'HP (Himachal Pradesh)', 'MH (Maharashtra)', 'MH (Pune Office)',
+  'MH Nagpur', 'MH_Ahilyanagar', 'MH_Nagpur', 'MH_Pen', 'MPCG',
+  'Mumbai', 'Punjab', 'Pune', 'Other',
+];
 
-  const projectNames = [
-    'Corporate', 'E// JIO', 'E// JIO EMF', 'E// JIO TI', 'E// JIO UBR',
-    'E// VIL', 'IGR', 'IT', 'Smart Intelligent Village', 'VIL MM',
-  ];
+const projectNames = [
+  'Not Applicable',
+  'Corporate', 'E// JIO', 'E// JIO EMF', 'E// JIO TI', 'E// JIO UBR',
+  'E// VIL', 'IGR', 'IT', 'Smart Intelligent Village', 'VIL MM',
+];
 
   const employmentTypes = ['Full-time', 'Part-time', 'Contract', 'Internship', 'Temporary'];
 
