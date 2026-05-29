@@ -1,11 +1,11 @@
 // src/services/authService.js
 // ─── Business logic: auth, token storage, session helpers ─────────────────────
-import authRepository from '../hooks/authRepository';
+import authRepository from '../hooks/authRepository'; // ← correct path
 
-const TOKEN_KEY       = 'authToken';
-const USER_KEY        = 'user';
-const AUTH_KEY        = 'isAuthenticated';
-const REMEMBER_KEY    = 'rememberMe';
+const TOKEN_KEY    = 'authToken';
+const USER_KEY     = 'user';
+const AUTH_KEY     = 'isAuthenticated';
+const REMEMBER_KEY = 'rememberMe';
 
 function persistSession(data, rememberMe = false) {
   localStorage.setItem(TOKEN_KEY, data.token);
@@ -22,6 +22,7 @@ function clearSession() {
 }
 
 const authService = {
+  // ── Auth ────────────────────────────────────────────────────────────────────
   login: async ({ username, password, rememberMe = false }) => {
     const data = await authRepository.login(username, password);
     if (data.success) persistSession(data.data, rememberMe);
@@ -42,6 +43,22 @@ const authService = {
     }
   },
 
+  // ── Password reset ──────────────────────────────────────────────────────────
+
+  // Step 1 — request OTP email
+  // Resolves with { success: true, message: '...' } regardless of whether the
+  // email exists (server is intentionally vague for security).
+  forgotPassword: async (email) => {
+    return authRepository.forgotPassword(email);
+  },
+
+  // Step 2 — submit email + OTP + new password
+  // Throws with a descriptive message when the OTP is invalid/expired.
+  resetPassword: async (email, otp, newPassword) => {
+    return authRepository.resetPassword(email, otp, newPassword);
+  },
+
+  // ── Session helpers ─────────────────────────────────────────────────────────
   isAuthenticated: () => !!localStorage.getItem(TOKEN_KEY),
 
   getToken: () => localStorage.getItem(TOKEN_KEY),

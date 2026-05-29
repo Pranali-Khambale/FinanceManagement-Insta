@@ -1,180 +1,119 @@
-// src/Ui/EmployeeMng/AddEmp/AddEmployeeWizard.jsx
-// ✅ UPDATED:
-//   1. Session retention via sessionStorage (form data + doc metadata)
-//   2. Aadhaar card split into aadharCardFront / aadharCardBack
-//   3. FARM-ToCli + Medical mandatory only for DT Engineer / Rigger / Technician
-//   4. designation passed down to DocumentUpload
-
-import React, { useState, useEffect, useRef } from "react";
-import {
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, ChevronLeft, ChevronRight, Check, AlertCircle, Loader2 } from "lucide-react";
 import PersonalInformation from "./AddEmp/PersonalInfo";
 import EmploymentDetails from "./AddEmp/employeeDetails";
 import SalaryDetails from "./AddEmp/SalaryInfo";
 import DocumentUpload from "./AddEmp/IDProof";
-import employeeService from "../../services/employeeService";
+import employeeService from "../../services/employeeService"; // adjust path if needed
 
-// ── Field roles that require FARM-ToCli and Medical Certificate ──────────────
-const FIELD_ROLES = ["dt engineer", "rigger", "technician"];
-const isFieldRole = (designation = "") =>
-  FIELD_ROLES.includes((designation || "").toLowerCase().trim());
-
-// ── Session storage keys ─────────────────────────────────────────────────────
-const SESSION_FORM_KEY = "addEmp_formData";
-const SESSION_DOCS_KEY = "addEmp_docMeta"; // stores names/sizes only (no File blobs)
-const SESSION_STEP_KEY = "addEmp_step";
-
-// Serialize formData safely (omit non-serialisable values just in case)
-const saveFormToSession = (data) => {
-  try {
-    sessionStorage.setItem(SESSION_FORM_KEY, JSON.stringify(data));
-  } catch (_) {}
-};
-
-const loadFormFromSession = () => {
-  try {
-    const raw = sessionStorage.getItem(SESSION_FORM_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (_) {
-    return null;
-  }
-};
-
-const saveStepToSession = (step) => {
-  try {
-    sessionStorage.setItem(SESSION_STEP_KEY, String(step));
-  } catch (_) {}
-};
-
-const loadStepFromSession = () => {
-  try {
-    const raw = sessionStorage.getItem(SESSION_STEP_KEY);
-    return raw ? parseInt(raw, 10) : 1;
-  } catch (_) {
-    return 1;
-  }
-};
-
-const clearSession = () => {
-  try {
-    sessionStorage.removeItem(SESSION_FORM_KEY);
-    sessionStorage.removeItem(SESSION_DOCS_KEY);
-    sessionStorage.removeItem(SESSION_STEP_KEY);
-  } catch (_) {}
-};
-
-// ── Default empty form ───────────────────────────────────────────────────────
-const defaultForm = {
-  // Personal
-  firstName: "",
-  lastName: "",
-  fatherHusbandName: "",
-  dob: "",
-  gender: "",
-  maritalStatus: "",
-  educationalQualification: "",
-  bloodGroup: "",
-  email: "",
-  phone: "",
-  altPhone: "",
-  panNumber: "",
-  nameOnPan: "",
-  aadhar: "",
-  nameOnAadhar: "",
-  uanNumber: "",
-  // Family
-  familyMemberName: "",
-  familyContactNo: "",
-  familyWorkingStatus: "",
-  familyEmployerName: "",
-  familyEmployerContact: "",
-  // Emergency
-  emergencyContactName: "",
-  emergencyContactNo: "",
-  emergencyContactAddress: "",
-  emergencyContactRelation: "",
-  // Address
-  permanentAddress: "",
-  permanentPhone: "",
-  permanentLandmark: "",
-  permanentLatLong: "",
-  localSameAsPermanent: false,
-  localAddress: "",
-  localPhone: "",
-  localLandmark: "",
-  localLatLong: "",
-  // References
-  ref1Name: "", ref1Designation: "", ref1Organization: "",
-  ref1Address: "", ref1CityStatePin: "", ref1ContactNo: "", ref1Email: "",
-  ref2Name: "", ref2Designation: "", ref2Organization: "",
-  ref2Address: "", ref2CityStatePin: "", ref2ContactNo: "", ref2Email: "",
-  ref3Name: "", ref3Designation: "", ref3Organization: "",
-  ref3Address: "", ref3CityStatePin: "", ref3ContactNo: "", ref3Email: "",
-  // Employment
-  employeeId: "Loading...",
-  joiningDate: "",
-  department: "",
-  designation: "",
-  employmentType: "",
-  project: "",
-  circle: "",
-  status: "Active",
-  // Salary & Bank
-  basicSalary: "",
-  hra: "",
-  otherAllowances: "",
-  bankName: "",
-  accountNumber: "",
-  ifscCode: "",
-  branch: "",
-};
-
-// ── Default empty documents ──────────────────────────────────────────────────
-const defaultDocs = {
-  photo: null,
-  aadharCardFront: null, // ✅ split front
-  aadharCardBack: null,  // ✅ split back
-  panCard: null,
-  bankPassbook: null,
-  resume: null,
-  medicalCertificate: null,
-  academicRecords: null,
-  payslip: null,
-  otherCertificates: null,
-  farmToCli: null,
-};
-
-// ── Main wizard ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// KEY CHANGE: generateEmployeeId prop is no longer used for the initial value.
+// Instead we fetch the real next ID from the DB when the wizard opens.
+// The prop is kept for backward compatibility but ignored.
+// ─────────────────────────────────────────────────────────────────────────────
 const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
-  const [currentStep, setCurrentStep] = useState(() => loadStepFromSession());
+  const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingId, setIsLoadingId] = useState(true);
+  const [isLoadingId, setIsLoadingId] = useState(true); // ← new: loading state for ID fetch
 
-  const [formData, setFormData] = useState(() => {
-    const saved = loadFormFromSession();
-    return saved ? { ...defaultForm, ...saved } : { ...defaultForm };
+  const [formData, setFormData] = useState({
+    // ── Personal ──
+    firstName: "",
+    lastName: "",
+    fatherHusbandName: "",
+    dob: "",
+    gender: "",
+    maritalStatus: "",
+    educationalQualification: "",
+    bloodGroup: "",
+    email: "",
+    phone: "",
+    altPhone: "",
+    panNumber: "",
+    nameOnPan: "",
+    aadhar: "",
+    nameOnAadhar: "",
+    // ── Family ──
+    familyMemberName: "",
+    familyContactNo: "",
+    familyWorkingStatus: "",
+    familyEmployerName: "",
+    familyEmployerContact: "",
+    // ── Emergency ──
+    emergencyContactName: "",
+    emergencyContactNo: "",
+    emergencyContactAddress: "",
+    emergencyContactRelation: "",
+    // ── Address ──
+    permanentAddress: "",
+    permanentPhone: "",
+    permanentLandmark: "",
+    permanentLatLong: "",
+    localSameAsPermanent: false,
+    localAddress: "",
+    localPhone: "",
+    localLandmark: "",
+    localLatLong: "",
+    // ── References ──
+    ref1Name: "",
+    ref1Designation: "",
+    ref1Organization: "",
+    ref1Address: "",
+    ref1CityStatePin: "",
+    ref1ContactNo: "",
+    ref1Email: "",
+    ref2Name: "",
+    ref2Designation: "",
+    ref2Organization: "",
+    ref2Address: "",
+    ref2CityStatePin: "",
+    ref2ContactNo: "",
+    ref2Email: "",
+    ref3Name: "",
+    ref3Designation: "",
+    ref3Organization: "",
+    ref3Address: "",
+    ref3CityStatePin: "",
+    ref3ContactNo: "",
+    ref3Email: "",
+    // ── Employment ──
+    employeeId: "Loading...", // placeholder until DB responds
+    joiningDate: "",
+    department: "",
+    designation: "",
+    employmentType: "",
+    status: "Active",
+    // ── Salary & Bank ──
+    basicSalary: "",
+    hra: "",
+    otherAllowances: "",
+    bankName: "",
+    accountNumber: "",
+    ifscCode: "",
+    branch: "",
   });
 
-  // Documents: File blobs cannot be stored in sessionStorage.
-  // We keep them in state only; on hard refresh they reset (unavoidable for files).
-  // We DO save doc metadata (name, size) to show users which files were selected.
-  const [documents, setDocuments] = useState({ ...defaultDocs });
+  const [documents, setDocuments] = useState({
+    photo: null,
+    aadharCard: null,
+    panCard: null,
+    bankPassbook: null,
+    resume: null,
+    medicalCertificate: null,
+    academicRecords: null,
+    payslip: null,
+    otherCertificates: null,
+    farmToCli: null,
+  });
 
-  // ── Fetch next employee ID ─────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ FETCH REAL NEXT EMPLOYEE ID FROM DATABASE ON MOUNT
+  // This replaces the old generateEmployeeId() prop call which only looked
+  // at client-side state and could produce IDs that already exist in the DB.
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Only fetch if the stored value is still the placeholder
-    if (formData.employeeId && formData.employeeId !== "Loading...") {
-      setIsLoadingId(false);
-      return;
-    }
     let cancelled = false;
     const fetchNextId = async () => {
       setIsLoadingId(true);
@@ -185,6 +124,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         }
       } catch (err) {
         console.error("Failed to fetch next employee ID:", err);
+        // Fallback to the local generator if the API is unreachable
         if (!cancelled) {
           const fallback =
             typeof generateEmployeeId === "function"
@@ -197,29 +137,16 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       }
     };
     fetchNextId();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; }; // cleanup on unmount
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Persist formData to sessionStorage on every change ────────────────────
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
-    saveFormToSession(formData);
-  }, [formData]);
-
-  useEffect(() => {
-    saveStepToSession(currentStep);
-  }, [currentStep]);
-
-  // ── Steps ──────────────────────────────────────────────────────────────────
   const steps = [
-    { number: 1, title: "Personal Info" },
-    { number: 2, title: "Employee Details" },
-    { number: 3, title: "Salary & Bank" },
-    { number: 4, title: "Documents" },
+    { number: 1, title: "Personal Info",    component: PersonalInformation },
+    { number: 2, title: "Employee Details", component: EmploymentDetails   },
+    { number: 3, title: "Salary & Bank",    component: SalaryDetails       },
+    { number: 4, title: "Documents",        component: DocumentUpload      },
   ];
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -263,7 +190,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     setDocuments((prev) => ({ ...prev, [documentType]: null }));
   };
 
-  // ── Validation ─────────────────────────────────────────────────────────────
   const validateStep = (step) => {
     const newErrors = {};
 
@@ -299,16 +225,13 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         if (age < 18) newErrors.dob = "Employee must be at least 18 years old";
         else if (age > 100) newErrors.dob = "Please enter a valid date of birth";
       }
-
       if (!formData.gender) newErrors.gender = "Gender is required";
       if (!formData.email.trim()) newErrors.email = "Email is required";
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
         newErrors.email = "Please enter a valid email";
-
       if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
       else if (!/^[6-9]\d{9}$/.test(formData.phone))
         newErrors.phone = "Enter a valid 10-digit Indian phone number";
-
       if (!formData.panNumber.trim())
         newErrors.panNumber = "PAN number is required";
       else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase()))
@@ -321,12 +244,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         newErrors.aadhar = "Aadhar must be exactly 12 digits";
       if (!formData.nameOnAadhar.trim())
         newErrors.nameOnAadhar = "Name on Aadhaar is required";
-
-      if (formData.uanNumber && formData.uanNumber.trim() !== "") {
-        const cleanUan = formData.uanNumber.replace(/\D/g, "");
-        if (cleanUan.length !== 12)
-          newErrors.uanNumber = "UAN must be exactly 12 digits";
-      }
 
       if (!formData.familyMemberName.trim())
         newErrors.familyMemberName = "Family member name is required";
@@ -371,10 +288,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         newErrors.designation = "Designation is required";
       if (!formData.employmentType)
         newErrors.employmentType = "Employment type is required";
-      if (formData.department === "Telecom") {
-        if (!formData.project) newErrors.project = "Project is required";
-        if (!formData.circle)  newErrors.circle  = "Circle is required";
-      }
     }
 
     if (step === 3) {
@@ -393,27 +306,23 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     if (step === 4) {
       const isTelecom =
         (formData.department || "").toLowerCase().trim() === "telecom";
-      const fieldRole = isFieldRole(formData.designation);
 
       if (!documents.photo)
         newErrors.photo = "Employee photo is required";
-      if (!documents.aadharCardFront)
-        newErrors.aadharCardFront = "Aadhaar card front side is required";
-      if (!documents.aadharCardBack)
-        newErrors.aadharCardBack = "Aadhaar card back side is required";
+      if (!documents.aadharCard)
+        newErrors.aadharCard = "Aadhaar card is required";
       if (!documents.resume)
         newErrors.resume = "Resume is required";
       if (!documents.bankPassbook)
         newErrors.bankPassbook = "Bank passbook / cancelled cheque is required";
 
-      // Medical + FARM-ToCli mandatory only for field roles in Telecom
-      if (isTelecom && fieldRole) {
+      if (isTelecom) {
         if (!documents.medicalCertificate)
           newErrors.medicalCertificate =
-            "Medical certificate is required for this role";
+            "Medical certificate is required for Telecom employees";
         if (!documents.farmToCli)
           newErrors.farmToCli =
-            "FARM-ToCli Certificate is required for DT Engineer / Rigger / Technician";
+            "FARM-ToCli Certificate is required for Telecom employees";
       }
     }
 
@@ -426,9 +335,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       setCurrentStep((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      const firstError = document.querySelector(
-        ".border-red-500, .border-red-300",
-      );
+      const firstError = document.querySelector(".border-red-500, .border-red-300");
       if (firstError)
         firstError.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -439,14 +346,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       setCurrentStep((prev) => prev - 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  };
-
-  const handleClose = () => {
-    // Prompt user before discarding
-    const confirmed = window.confirm(
-      "Close the form? Your progress is saved in this browser session — it will be restored if you reopen the form.",
-    );
-    if (confirmed) onClose();
   };
 
   const handleSubmit = async (e) => {
@@ -464,8 +363,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         documents,
         createdAt: new Date().toISOString(),
       });
-      // Clear session on successful submit
-      clearSession();
     } catch (error) {
       console.error("Submit error:", error);
       setErrors({
@@ -493,7 +390,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
               </p>
             </div>
             <button
-              onClick={handleClose}
+              onClick={onClose}
               disabled={isSubmitting}
               className="p-2 hover:bg-white/20 rounded-lg transition-all disabled:opacity-50"
             >
@@ -502,18 +399,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
           </div>
         </div>
 
-        {/* Session-saved notice */}
-        <div className="px-8 py-2 bg-blue-50 border-b border-blue-100 flex-shrink-0">
-          <p className="text-xs text-blue-600 flex items-center gap-1.5">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-              <path fillRule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 102 0V3h4v1a1 1 0 102 0V3a2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/>
-            </svg>
-            Your form data is automatically saved in this session — minimising or switching tabs won't lose your progress.
-          </p>
-        </div>
-
-        {/* Progress stepper */}
+        {/* Progress */}
         <div className="px-8 pt-5 pb-4 bg-gray-50 flex-shrink-0">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
@@ -554,7 +440,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
           </div>
         </div>
 
-        {/* Form body */}
+        {/* Form */}
         <form
           onSubmit={handleSubmit}
           className="flex-1 flex flex-col overflow-hidden"
@@ -563,6 +449,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
             className="flex-1 overflow-y-auto px-8 py-6"
             style={{ scrollbarWidth: "thin" }}
           >
+            {/* ── Loading overlay while fetching employee ID ── */}
             {isLoadingId && (
               <div className="mb-4 flex items-center gap-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -608,7 +495,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                 handleFileRemove={handleFileRemove}
                 errors={errors}
                 department={formData.department}
-                designation={formData.designation} // ✅ pass designation
               />
             )}
 
@@ -668,7 +554,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       <style>{`
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
