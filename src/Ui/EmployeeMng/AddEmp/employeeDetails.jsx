@@ -127,55 +127,62 @@ const EmploymentDetails = ({ formData, handleInputChange, errors = {} }) => {
           </div>
         )}
 
-      {/* Project (Telecom only) */}
-{isTelecom && (
-  <div className="space-y-2">
-    <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-      <MapPin className="w-4 h-4 text-gray-500" /> Project
-    </label>
-    <select
-      name="project" value={formData.project || ''} onChange={handleInputChange}
-      className={`w-full px-4 py-2.5 rounded-lg border-2 ${
-        errors.project ? 'border-red-500 bg-red-50' : 'border-gray-300'
-      } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none bg-white cursor-pointer`}
-    >
-      <option value="">Select Project</option>
-      {telecomProjectOptions.map(p => (
-        <option key={p} value={p}>{p}</option>
-      ))}
-    </select>
-    {errors.project && (
-      <p className="text-xs text-red-600 flex items-center gap-1">
-        <AlertCircle className="w-3 h-3" />{errors.project}
-      </p>
-    )}
-  </div>
-)}
+        {/* ── Project (Telecom only) ── */}
+        {isTelecom && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <MapPin className="w-4 h-4 text-gray-500" />
+              Project <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="project"
+              value={formData.project || ''}
+              onChange={handleInputChange}
+              className={`w-full px-4 py-2.5 rounded-lg border-2 ${
+                errors.project ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none bg-white cursor-pointer`}
+            >
+              <option value="">Select Project</option>
+              {telecomProjectOptions.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            {errors.project && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />{errors.project}
+              </p>
+            )}
+          </div>
+        )}
 
-{/* Circle (Telecom only) */}
-{isTelecom && (
-  <div className="space-y-2">
-    <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-      <MapPin className="w-4 h-4 text-gray-500" /> Circle
-    </label>
-    <select
-      name="circle" value={formData.circle || ''} onChange={handleInputChange}
-      className={`w-full px-4 py-2.5 rounded-lg border-2 ${
-        errors.circle ? 'border-red-500 bg-red-50' : 'border-gray-300'
-      } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none bg-white cursor-pointer`}
-    >
-      <option value="">Select Circle</option>
-      {telecomCircleOptions.map(c => (
-        <option key={c} value={c}>{c}</option>
-      ))}
-    </select>
-    {errors.circle && (
-      <p className="text-xs text-red-600 flex items-center gap-1">
-        <AlertCircle className="w-3 h-3" />{errors.circle}
-      </p>
-    )}
-  </div>
-)}
+        {/* ── Circle (Telecom only) ── */}
+        {isTelecom && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <MapPin className="w-4 h-4 text-gray-500" />
+              Circle <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="circle"
+              value={formData.circle || ''}
+              onChange={handleInputChange}
+              className={`w-full px-4 py-2.5 rounded-lg border-2 ${
+                errors.circle ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none bg-white cursor-pointer`}
+            >
+              <option value="">Select Circle</option>
+              {telecomCircleOptions.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {errors.circle && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />{errors.circle}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* ── Employment Type ── */}
         <div className="space-y-2 md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-3">
