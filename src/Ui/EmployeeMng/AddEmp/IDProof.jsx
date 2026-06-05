@@ -16,14 +16,19 @@ import {
   CreditCard,
 } from "lucide-react";
 
+// Roles that require Medical Certificate + FARM-ToCli
+const FARM_TO_CLI_POSITIONS = ["dt engineer", "rigger", "technician"];
+
 const DocumentUpload = ({
   documents,
   handleFileUpload,
   handleFileRemove,
   errors = {},
   department = "",
+  requiresFarmToCli = false, // true only for DT Engineer / Rigger / Technician
 }) => {
-  const isTelecom = (department || "").toString().toLowerCase().trim() === "telecom";
+  const isTelecom =
+    (department || "").toString().toLowerCase().trim() === "telecom";
 
   const DocumentCard = ({
     title,
@@ -172,11 +177,11 @@ const DocumentUpload = ({
     );
   };
 
-  const iconCls = "w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors";
+  const iconCls =
+    "w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors";
 
   return (
     <div className="space-y-8">
-
       {/* Header */}
       <div className="text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full mb-3 shadow-lg">
@@ -195,25 +200,42 @@ const DocumentUpload = ({
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-semibold text-blue-900 mb-1">Required Documents</p>
+            <p className="font-semibold text-blue-900 mb-1">
+              Required Documents
+            </p>
             {isTelecom ? (
               <p className="text-blue-700">
-                For <strong>Telecom</strong> employees, the following are mandatory:
-                Employee Photo, Aadhaar Card, Resume, Bank Passbook, Medical Certificate,
-                and <strong>FARM-ToCli Certificate</strong>.
+                For <strong>Telecom</strong> employees, the following are always
+                mandatory: Employee Photo, Aadhaar Card, Resume, and Bank
+                Passbook.
+                {requiresFarmToCli ? (
+                  <>
+                    {" "}
+                    Your role (
+                    <strong>DT Engineer / Rigger / Technician</strong>) also
+                    requires a <strong>Medical Certificate</strong> and{" "}
+                    <strong>FARM-ToCli Certificate</strong>.
+                  </>
+                ) : (
+                  <>
+                    {" "}
+                    Medical Certificate and FARM-ToCli Certificate are only
+                    required for DT Engineers, Riggers, and Technicians — not
+                    applicable to your current role.
+                  </>
+                )}{" "}
                 Accepted formats: JPG, PNG, PDF — max 5MB each.
               </p>
             ) : (
               <p className="text-blue-700">
-                The following documents are mandatory: Employee Photo, Aadhaar Card,
-                Resume, and Bank Passbook. Other documents are optional but recommended.
-                Accepted formats: JPG, PNG, PDF — max 5MB each.
+                The following documents are mandatory: Employee Photo, Aadhaar
+                Card, Resume, and Bank Passbook. Other documents are optional
+                but recommended. Accepted formats: JPG, PNG, PDF — max 5MB each.
               </p>
             )}
           </div>
         </div>
       </div>
-
 
       {/* ── Identity & Personal Documents ── */}
       <div className="space-y-3">
@@ -260,14 +282,14 @@ const DocumentUpload = ({
           KYE Form Documents
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
+          {/* ✅ Medical Certificate — mandatory ONLY for DT Engineer / Rigger / Technician */}
           <DocumentCard
             title="Medical Certificate"
             documentType="medicalCertificate"
-            required={isTelecom}
+            required={requiresFarmToCli}
             description={
-              isTelecom
-                ? "Mandatory — latest medical fitness certificate"
+              requiresFarmToCli
+                ? "Mandatory — latest medical fitness certificate (required for your role)"
                 : "Optional — latest medical fitness certificate"
             }
             icon={<Heart className={iconCls} />}
@@ -300,14 +322,15 @@ const DocumentUpload = ({
             icon={<Banknote className={iconCls} />}
           />
 
-          {isTelecom && (
+          {/* ✅ FARM-ToCli — shown AND required only for DT Engineer / Rigger / Technician */}
+          {requiresFarmToCli && (
             <DocumentCard
               title="FARM-ToCli Certificate"
               documentType="farmToCli"
               required
               description="Field Activity Risk Management – ToCli compliance certificate"
               icon={<Radio className={iconCls} />}
-              badge="Telecom Only"
+              badge="DT Eng / Rigger / Technician"
             />
           )}
 
@@ -323,8 +346,8 @@ const DocumentUpload = ({
       {/* Warning banner */}
       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
         <p className="text-sm text-yellow-800">
-          <strong>Important:</strong> Please ensure all uploaded documents are clear, valid,
-          and match the information provided in previous steps.
+          <strong>Important:</strong> Please ensure all uploaded documents are
+          clear, valid, and match the information provided in previous steps.
         </p>
       </div>
     </div>

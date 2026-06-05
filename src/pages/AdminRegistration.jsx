@@ -207,6 +207,128 @@ const AdminRegister = () => {
         padding: "24px",
       }}
     >
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
+
+        .reg-card {
+          display: flex;
+          flex-direction: row;
+          width: 100%;
+          max-width: 900px;
+          min-height: 560px;
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(37,99,235,0.13), 0 4px 16px rgba(0,0,0,0.07);
+          background: #ffffff;
+        }
+
+        .reg-form-panel {
+          flex: 1;
+          padding: 40px 44px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          background: #ffffff;
+          overflow-y: auto;
+          order: 1;
+        }
+
+        .reg-blue-panel {
+          width: 280px;
+          flex-shrink: 0;
+          background: linear-gradient(160deg, #3b82f6 0%, #1d4ed8 60%, #1e40af 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 36px;
+          position: relative;
+          overflow: hidden;
+          order: 2;
+        }
+
+        .reg-grid-2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+          margin-bottom: 14px;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+          .reg-card {
+            flex-direction: column;
+            min-height: unset;
+            border-radius: 20px;
+            max-width: 100%;
+          }
+
+          /* Blue panel moves to top */
+          .reg-blue-panel {
+            width: 100%;
+            order: 1;
+            padding: 28px 24px;
+            min-height: unset;
+          }
+
+          .reg-blue-panel h3 {
+            font-size: 20px !important;
+            margin-bottom: 8px !important;
+          }
+
+          .reg-blue-panel .blue-desc {
+            font-size: 13px !important;
+            margin-bottom: 20px !important;
+          }
+
+          .reg-blue-panel .sign-in-btn {
+            margin-bottom: 0 !important;
+          }
+
+          .reg-blue-panel .blue-footer {
+            display: none;
+          }
+
+          /* Form goes below */
+          .reg-form-panel {
+            order: 2;
+            padding: 28px 20px 32px;
+          }
+
+          .reg-form-panel h2 {
+            font-size: 20px !important;
+            margin-bottom: 18px !important;
+          }
+
+          /* Stack 2-col grids on mobile */
+          .reg-grid-2 {
+            grid-template-columns: 1fr;
+          }
+
+          /* Full-width submit on mobile */
+          .reg-submit-wrap {
+            justify-content: stretch !important;
+          }
+
+          .reg-submit-btn {
+            width: 100% !important;
+            justify-content: center;
+          }
+        }
+
+        /* ── Tablet ── */
+        @media (min-width: 641px) and (max-width: 900px) {
+          .reg-blue-panel {
+            width: 220px;
+          }
+
+          .reg-form-panel {
+            padding: 32px 28px;
+          }
+        }
+      `}</style>
+
       {/* ── Toast ── */}
       {toast && (
         <div
@@ -300,32 +422,10 @@ const AdminRegister = () => {
         </div>
       )}
 
-      {/* ── Main Card — same split layout as login ── */}
-      <div
-        style={{
-          display: "flex",
-          width: "100%",
-          maxWidth: 900,
-          minHeight: 560,
-          borderRadius: 24,
-          overflow: "hidden",
-          boxShadow:
-            "0 20px 60px rgba(37,99,235,0.13), 0 4px 16px rgba(0,0,0,0.07)",
-          background: "#ffffff",
-        }}
-      >
+      {/* ── Main Card ── */}
+      <div className="reg-card">
         {/* ── LEFT: Register Form ── */}
-        <div
-          style={{
-            flex: 1,
-            padding: "40px 44px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            background: "#ffffff",
-            overflowY: "auto",
-          }}
-        >
+        <div className="reg-form-panel">
           <h2
             style={{
               fontSize: 26,
@@ -372,14 +472,7 @@ const AdminRegister = () => {
 
           <form onSubmit={handleSubmit}>
             {/* Row 1: Full Name + Username */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-                marginBottom: 14,
-              }}
-            >
+            <div className="reg-grid-2">
               <div>
                 <Label>Full Name</Label>
                 <input
@@ -451,14 +544,7 @@ const AdminRegister = () => {
             </div>
 
             {/* Row 2: Password + Confirm */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-                marginBottom: 14,
-              }}
-            >
+            <div className="reg-grid-2">
               <div>
                 <Label>Password</Label>
                 <div style={{ position: "relative" }}>
@@ -683,11 +769,15 @@ const AdminRegister = () => {
               <ErrorMsg msg={errors.acceptTerms} />
             </div>
 
-            {/* Submit — compact pill like login */}
-            <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            {/* Submit */}
+            <div
+              className="reg-submit-wrap"
+              style={{ display: "flex", justifyContent: "flex-start" }}
+            >
               <button
                 type="submit"
                 disabled={loading}
+                className="reg-submit-btn"
                 style={{
                   padding: "12px 48px",
                   background: loading
@@ -739,23 +829,8 @@ const AdminRegister = () => {
           </form>
         </div>
 
-        {/* ── RIGHT: Blue Panel — same as login ── */}
-        <div
-          style={{
-            width: 280,
-            flexShrink: 0,
-            background:
-              "linear-gradient(160deg, #3b82f6 0%, #1d4ed8 60%, #1e40af 100%)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "48px 36px",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {/* Decorative circles */}
+        {/* ── RIGHT / TOP (mobile): Blue Panel ── */}
+        <div className="reg-blue-panel">
           <div
             style={{
               position: "absolute",
@@ -792,6 +867,7 @@ const AdminRegister = () => {
             Have an Account?
           </h3>
           <p
+            className="blue-desc"
             style={{
               color: "rgba(255,255,255,0.80)",
               fontSize: 14,
@@ -802,10 +878,10 @@ const AdminRegister = () => {
           >
             Sign in and continue managing your organization seamlessly!
           </p>
-
           <button
             type="button"
             onClick={() => navigate("/login")}
+            className="sign-in-btn"
             style={{
               padding: "11px 36px",
               background: "#fff",
@@ -818,6 +894,8 @@ const AdminRegister = () => {
               boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
               transition: "all 0.2s",
               marginBottom: 48,
+              position: "relative",
+              zIndex: 1,
             }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.transform = "scale(1.04)")
@@ -826,8 +904,8 @@ const AdminRegister = () => {
           >
             Sign In
           </button>
-
           <p
+            className="blue-footer"
             style={{
               position: "absolute",
               bottom: 20,
@@ -842,14 +920,6 @@ const AdminRegister = () => {
           </p>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes slideInRight {
-          from { opacity: 0; transform: translateX(60px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
     </div>
   );
 };
