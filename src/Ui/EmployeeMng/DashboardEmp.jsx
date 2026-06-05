@@ -112,7 +112,7 @@ const Toast = ({ toasts, removeToast }) => {
     warning: "border-amber-200 bg-amber-50  text-amber-800",
   };
   return (
-    <div className="fixed top-20 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed top-20 right-4 z-[10000] flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
         <div
           key={t.id}
@@ -135,7 +135,7 @@ const Toast = ({ toasts, removeToast }) => {
 // CONFIRM DIALOG
 // ══════════════════════════════════════════════════════════════════════════════
 const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
-  <div className="fixed inset-0 z-[9998] backdrop-blur-sm bg-black/40 flex items-center justify-center p-4">
+  <div className="fixed inset-0 z-[10000] backdrop-blur-sm bg-black/40 flex items-center justify-center p-4">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">

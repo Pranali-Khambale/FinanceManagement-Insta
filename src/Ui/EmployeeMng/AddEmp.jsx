@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { X, ChevronLeft, ChevronRight, Check, AlertCircle, Loader2 } from "lucide-react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import PersonalInformation from "./AddEmp/PersonalInfo";
 import EmploymentDetails from "./AddEmp/employeeDetails";
 import SalaryDetails from "./AddEmp/SalaryInfo";
@@ -11,6 +18,9 @@ import employeeService from "../../services/employeeService"; // adjust path if 
 // Instead we fetch the real next ID from the DB when the wizard opens.
 // The prop is kept for backward compatibility but ignored.
 // ─────────────────────────────────────────────────────────────────────────────
+// Roles that require Medical Certificate + FARM-ToCli (Telecom dept only)
+const FARM_TO_CLI_POSITIONS = ["dt engineer", "rigger", "technician"];
+
 const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState({});
@@ -137,18 +147,30 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       }
     };
     fetchNextId();
-    return () => { cancelled = true; }; // cleanup on unmount
+    return () => {
+      cancelled = true;
+    }; // cleanup on unmount
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const steps = [
-    { number: 1, title: "Personal Info",    component: PersonalInformation },
-    { number: 2, title: "Employee Details", component: EmploymentDetails   },
-    { number: 3, title: "Salary & Bank",    component: SalaryDetails       },
-    { number: 4, title: "Documents",        component: DocumentUpload      },
+    { number: 1, title: "Personal Info", component: PersonalInformation },
+    { number: 2, title: "Employee Details", component: EmploymentDetails },
+    { number: 3, title: "Salary & Bank", component: SalaryDetails },
+    { number: 4, title: "Documents", component: DocumentUpload },
   ];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    // When department changes, clear designation so stale role never
+    // carries over and incorrectly triggers FARM-ToCli / Medical requirement
+    if (name === "department") {
+      setFormData((prev) => ({ ...prev, department: value, designation: "" }));
+      setTouched((prev) => ({ ...prev, department: true, designation: false }));
+      setErrors((prev) => ({ ...prev, department: "", designation: "" }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
     setTouched((prev) => ({ ...prev, [name]: true }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -164,8 +186,12 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       return;
     }
     const validTypes = [
-      "image/jpeg", "image/jpg", "image/png",
-      "image/gif", "image/webp", "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
     ];
     if (!validTypes.includes(file.type)) {
       setErrors((prev) => ({
@@ -213,7 +239,8 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       if (!formData.maritalStatus)
         newErrors.maritalStatus = "Marital status is required";
       if (!formData.educationalQualification.trim())
-        newErrors.educationalQualification = "Educational qualification is required";
+        newErrors.educationalQualification =
+          "Educational qualification is required";
       if (!formData.bloodGroup)
         newErrors.bloodGroup = "Blood group is required";
 
@@ -223,7 +250,8 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
           (new Date() - new Date(formData.dob)) / 31557600000,
         );
         if (age < 18) newErrors.dob = "Employee must be at least 18 years old";
-        else if (age > 100) newErrors.dob = "Please enter a valid date of birth";
+        else if (age > 100)
+          newErrors.dob = "Please enter a valid date of birth";
       }
       if (!formData.gender) newErrors.gender = "Gender is required";
       if (!formData.email.trim()) newErrors.email = "Email is required";
@@ -234,7 +262,9 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         newErrors.phone = "Enter a valid 10-digit Indian phone number";
       if (!formData.panNumber.trim())
         newErrors.panNumber = "PAN number is required";
-      else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase()))
+      else if (
+        !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase())
+      )
         newErrors.panNumber = "Enter a valid PAN (e.g. ABCDE1234F)";
       if (!formData.nameOnPan.trim())
         newErrors.nameOnPan = "Name on PAN is required";
@@ -282,8 +312,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     if (step === 2) {
       if (!formData.joiningDate)
         newErrors.joiningDate = "Joining date is required";
-      if (!formData.department)
-        newErrors.department = "Department is required";
+      if (!formData.department) newErrors.department = "Department is required";
       if (!formData.designation.trim())
         newErrors.designation = "Designation is required";
       if (!formData.employmentType)
@@ -307,22 +336,27 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       const isTelecom =
         (formData.department || "").toLowerCase().trim() === "telecom";
 
-      if (!documents.photo)
-        newErrors.photo = "Employee photo is required";
+      // Medical Certificate & FARM-ToCli are ONLY required for these three roles
+      const requiresRoleDocs =
+        isTelecom &&
+        FARM_TO_CLI_POSITIONS.includes(
+          (formData.designation || "").toLowerCase().trim(),
+        );
+
+      if (!documents.photo) newErrors.photo = "Employee photo is required";
       if (!documents.aadharCard)
         newErrors.aadharCard = "Aadhaar card is required";
-      if (!documents.resume)
-        newErrors.resume = "Resume is required";
+      if (!documents.resume) newErrors.resume = "Resume is required";
       if (!documents.bankPassbook)
         newErrors.bankPassbook = "Bank passbook / cancelled cheque is required";
 
-      if (isTelecom) {
+      if (requiresRoleDocs) {
         if (!documents.medicalCertificate)
           newErrors.medicalCertificate =
-            "Medical certificate is required for Telecom employees";
+            "Medical certificate is required for DT Engineers, Riggers, and Technicians";
         if (!documents.farmToCli)
           newErrors.farmToCli =
-            "FARM-ToCli Certificate is required for Telecom employees";
+            "FARM-ToCli Certificate is required for DT Engineers, Riggers, and Technicians";
       }
     }
 
@@ -335,7 +369,9 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       setCurrentStep((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      const firstError = document.querySelector(".border-red-500, .border-red-300");
+      const firstError = document.querySelector(
+        ".border-red-500, .border-red-300",
+      );
       if (firstError)
         firstError.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -422,7 +458,9 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                   </div>
                   <span
                     className={`mt-2 text-xs font-medium ${
-                      currentStep >= step.number ? "text-gray-900" : "text-gray-400"
+                      currentStep >= step.number
+                        ? "text-gray-900"
+                        : "text-gray-400"
                     }`}
                   >
                     {step.title}
@@ -495,6 +533,13 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                 handleFileRemove={handleFileRemove}
                 errors={errors}
                 department={formData.department}
+                requiresFarmToCli={
+                  (formData.department || "").toLowerCase().trim() ===
+                    "telecom" &&
+                  FARM_TO_CLI_POSITIONS.includes(
+                    (formData.designation || "").toLowerCase().trim(),
+                  )
+                }
               />
             )}
 
