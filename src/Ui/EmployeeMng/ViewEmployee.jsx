@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Printer,
@@ -7,7 +7,6 @@ import {
   Building,
   CreditCard,
   Wallet,
-  
   FileText,
   Image,
   ChevronDown,
@@ -16,36 +15,63 @@ import {
 import { printKYEForm } from "./KYEPrintForm";
 import SalaryDetails from "./salaryDetails";
 
-
 const DOC_LABELS = {
-  resume: "Resume – Signed Copy",
-  idPhoto: "Passport Size Photograph",
   photo: "Passport Size Photograph",
+  idPhoto: "Passport Size Photograph",
+  id_photo: "Passport Size Photograph",
+  resume: "Resume – Signed Copy",
   medicalCertificate: "Medical Certificate",
+  medical_certificate: "Medical Certificate",
   aadharCard: "Aadhaar Card",
+  aadhar_card: "Aadhaar Card",
   panCard: "PAN Card",
+  pan_card: "PAN Card",
   academicRecords: "Academic Records",
+  academic_records: "Academic Records",
   bankPassbook: "Bank Details / Passbook",
+  bank_passbook: "Bank Details / Passbook",
   payslip: "Pay Slip / Bank Statement",
   otherCertificates: "Other Certificates",
+  other_certificates: "Other Certificates",
+  farmToCli: "Farm to CLI",
+  farm_to_cli: "Farm to CLI",
 };
 
 const getDocLabel = (doc) =>
   DOC_LABELS[doc.type || doc.document_type] ||
   doc.name ||
   doc.file_name ||
-  
   doc.type ||
   doc.document_type ||
   "Document";
 
-const isPdf = (rawPath) => rawPath?.toLowerCase().endsWith(".pdf");
+const isPdf = (rawPath) =>
+  typeof rawPath === "string" && rawPath.toLowerCase().endsWith(".pdf");
 
 const buildFullName = (firstName = "", fatherHusbandName = "", lastName = "") =>
   [firstName, fatherHusbandName, lastName]
     .map((s) => String(s || "").trim())
     .filter(Boolean)
     .join(" ");
+
+// ── Fetch a presigned URL from the backend ────────────────────────────────────
+async function fetchPresignedUrl(rawPath) {
+  if (!rawPath) return null;
+  // Already a full URL — return as-is
+  if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+    return rawPath;
+  }
+  try {
+    const res = await fetch(
+      `/api/employees/s3/presign?key=${encodeURIComponent(rawPath)}`,
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.url || null;
+  } catch {
+    return null;
+  }
+}
 
 const ViewEmployee = ({ employee, onClose }) => {
   if (!employee) return null;
@@ -118,31 +144,28 @@ const ViewEmployee = ({ employee, onClose }) => {
     dot: "#94a3b8",
   };
 
-  const BASE_URL =
-    (typeof import.meta !== "undefined" &&
-      import.meta.env?.VITE_API_URL?.replace("/api", "")) ||
-    "http://localhost:5000";
-
-  const resolveUrl = (rawPath) => {
-    if (!rawPath) return null;
-    return rawPath.startsWith("http") ? rawPath : `${BASE_URL}${rawPath}`;
-  };
-
+  // ── Find photo document ───────────────────────────────────────────────────────
   const photoDoc = Array.isArray(e.documents)
     ? e.documents.find((d) =>
-        ["idPhoto", "photo"].includes(d.type || d.document_type),
+        ["idPhoto", "photo", "id_photo"].includes(d.type || d.document_type),
       )
     : null;
-  const photoPath = photoDoc?.path || photoDoc?.file_path || null;
-  const photoUrl = resolveUrl(photoPath);
+  const photoRawPath = photoDoc?.path || photoDoc?.file_path || null;
   const initials =
     `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "NA";
+
+  // ── Resolved photo URL (async) ────────────────────────────────────────────────
+  const [photoUrl, setPhotoUrl] = useState(null);
+  useEffect(() => {
+    fetchPresignedUrl(photoRawPath).then(setPhotoUrl);
+  }, [photoRawPath]);
 
   const basic = parseFloat(e.basic_salary) || 0;
   const hra = parseFloat(e.hra) || 0;
   const otherAllow = parseFloat(e.other_allowances) || 0;
   const totalSalary = basic + hra + otherAllow;
 
+  // ── Renderable docs — deduplicate by file_path ────────────────────────────────
   const allDocs = Array.isArray(e.documents) ? e.documents : [];
   const seenPaths = new Set();
   const renderableDocs = allDocs.filter((doc) => {
@@ -153,17 +176,12 @@ const ViewEmployee = ({ employee, onClose }) => {
     return true;
   });
 
-  /* ─── Shared style tokens ─────────────────────────────────────── */
+  /* ─── Shared style tokens ────────────────────────────────────────────────── */
   const FONT = "'Calibri', 'Segoe UI', Arial, sans-serif";
   const BORDER = "1px solid #000";
 
-  /* ─── SectionWithVerification ────────────────────────────────── */
-  /*
-   * One unified <table> with 5 columns:
-   *   col 0 label (33%)  |  col 1 value (40%)  |  col 2 gap (3%)
-   *   col 3 Verified (12%)  |  col 4 Doc name (12%)
-   */
-  const SectionWithVerification = ({ rows, showVerHeader = false }) => (
+  /* ─── SectionWithVerification ────────────────────────────────────────────── */
+  const SectionWithVerification = ({ rows }) => (
     <table
       style={{
         width: "100%",
@@ -181,45 +199,6 @@ const ViewEmployee = ({ employee, onClose }) => {
         <col style={{ width: "12%" }} />
         <col style={{ width: "12%" }} />
       </colgroup>
-
-      {showVerHeader && (
-        <thead>
-          <tr>
-            <th style={{ border: "none", padding: 0 }} />
-            <th style={{ border: "none", padding: 0 }} />
-            <th style={{ border: "none", padding: 0 }} />
-            <th
-              style={{
-                border: BORDER,
-                borderRight: "none",
-                textAlign: "center",
-                padding: "3px 4px",
-                fontWeight: 700,
-                fontSize: "8.5pt",
-                background: "#fff",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Verified
-              <br />
-              Yes/No
-            </th>
-            <th
-              style={{
-                border: BORDER,
-                textAlign: "center",
-                padding: "3px 4px",
-                fontWeight: 700,
-                fontSize: "8.5pt",
-                background: "#fff",
-              }}
-            >
-              Referred Documents name
-            </th>
-          </tr>
-        </thead>
-      )}
-
       <tbody>
         {rows.map((row, i) => (
           <tr key={i}>
@@ -250,11 +229,9 @@ const ViewEmployee = ({ employee, onClose }) => {
             >
               {row.value}
             </td>
-            {/* gap */}
             <td
               style={{ border: "none", background: "transparent", padding: 0 }}
             />
-            {/* Verified Yes/No */}
             <td
               style={{
                 border: BORDER,
@@ -264,7 +241,6 @@ const ViewEmployee = ({ employee, onClose }) => {
                 height: row.tall ? 64 : 28,
               }}
             />
-            {/* Referred Doc name */}
             <td
               style={{
                 border: BORDER,
@@ -279,7 +255,7 @@ const ViewEmployee = ({ employee, onClose }) => {
     </table>
   );
 
-  /* ─── Section header WITH inline verification box ────────────── */
+  /* ─── Section header WITH inline verification box ────────────────────────── */
   const SectionHeaderWithVer = ({ text }) => (
     <div
       style={{
@@ -289,7 +265,6 @@ const ViewEmployee = ({ employee, onClose }) => {
         marginBottom: 0,
       }}
     >
-      {/* title — 73% wide (33 + 40) */}
       <div style={{ width: "73%", flexShrink: 0 }}>
         <div
           style={{
@@ -303,11 +278,7 @@ const ViewEmployee = ({ employee, onClose }) => {
           {text}
         </div>
       </div>
-
-      {/* gap — 3% */}
       <div style={{ width: "3%", flexShrink: 0 }} />
-
-      {/* verification header box — 24% (12 + 12) */}
       <div style={{ width: "24%", flexShrink: 0 }}>
         <table
           style={{
@@ -368,7 +339,6 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Plain section header (no verification box) ─────────────── */
   const Sec = ({ text }) => (
     <div
       style={{
@@ -383,7 +353,6 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Address sub-header ──────────────────────────────────────── */
   const AddrSub = ({ text }) => (
     <div
       style={{
@@ -397,7 +366,6 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Page wrapper ────────────────────────────────────────────── */
   const Page = ({ children }) => (
     <div
       style={{
@@ -417,7 +385,6 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Page header ─────────────────────────────────────────────── */
   const PageHeader = () => (
     <div
       style={{
@@ -439,7 +406,6 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Page footer ─────────────────────────────────────────────── */
   const PageFooter = ({ n }) => (
     <div
       style={{
@@ -453,40 +419,42 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ─── Document checklist data ─────────────────────────────────── */
   const docList = [
     { sr: 1, name: "Resume -Signed copy", types: ["resume"] },
     {
       sr: 2,
       name: "2 passport size photographs-Name should be written on backside",
-      types: ["idPhoto", "photo"],
+      types: ["idPhoto", "photo", "id_photo"],
     },
     {
       sr: 3,
       name: "Medical Certificate-Latest",
-      types: ["medicalCertificate"],
+      types: ["medicalCertificate", "medical_certificate"],
     },
-    { sr: 4, name: "Aadhaar Card", types: ["aadharCard"] },
-    { sr: 5, name: "Pan Card", types: ["panCard"] },
+    { sr: 4, name: "Aadhaar Card", types: ["aadharCard", "aadhar_card"] },
+    { sr: 5, name: "Pan Card", types: ["panCard", "pan_card"] },
     {
       sr: 6,
       name: "Academic records (SSC,ITI,HSC, Diploma, Degree Certificates Copy)",
-      types: ["academicRecords"],
+      types: ["academicRecords", "academic_records"],
     },
-    { sr: 7, name: "Bank Details", types: ["bankPassbook"] },
+    { sr: 7, name: "Bank Details", types: ["bankPassbook", "bank_passbook"] },
     {
       sr: 8,
       name: "Pay slip or bank statement reflecting last drawn salary",
       types: ["payslip"],
     },
-    { sr: 9, name: "Other certificates, if any", types: ["otherCertificates"] },
+    {
+      sr: 9,
+      name: "Other certificates, if any",
+      types: ["otherCertificates", "other_certificates"],
+    },
   ];
 
   const hasDoc = (types) =>
     Array.isArray(e.documents) &&
     e.documents.some((d) => types.includes(d.type || d.document_type));
 
-  /* ─── Reference rows ──────────────────────────────────────────── */
   const refRows = [
     ["Name", "ref1_name", "ref2_name", "ref3_name"],
     ["Designation", "ref1_designation", "ref2_designation", "ref3_designation"],
@@ -517,14 +485,23 @@ const ViewEmployee = ({ employee, onClose }) => {
     ],
   ];
 
-  /* ─── Uploaded document card ──────────────────────────────────── */
+  /* ─── Uploaded document card — loads presigned URL async ─────────────────── */
   const UploadedDocCard = ({ doc, index }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [imgError, setImgError] = useState(false);
+    const [url, setUrl] = useState(null);
+    const [loading, setLoading] = useState(true);
+
     const rawPath = doc.path || doc.file_path;
-    const url = resolveUrl(rawPath);
     const label = getDocLabel(doc);
     const pdf = isPdf(rawPath);
+
+    useEffect(() => {
+      fetchPresignedUrl(rawPath).then((u) => {
+        setUrl(u);
+        setLoading(false);
+      });
+    }, [rawPath]);
 
     return (
       <div
@@ -589,12 +566,42 @@ const ViewEmployee = ({ employee, onClose }) => {
           ) : (
             <ChevronUp size={16} color="rgba(255,255,255,0.8)" />
           )}
-          
         </div>
 
         {!collapsed && (
           <div style={{ background: "#f8fafc", padding: 12 }}>
-            {pdf ? (
+            {loading ? (
+              <div
+                style={{
+                  height: 80,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#f1f5f9",
+                  borderRadius: 4,
+                }}
+              >
+                <span style={{ fontSize: "9pt", color: "#94a3b8" }}>
+                  Loading…
+                </span>
+              </div>
+            ) : !url ? (
+              <div
+                style={{
+                  height: 80,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#f1f5f9",
+                  borderRadius: 4,
+                  border: "1px dashed #cbd5e1",
+                }}
+              >
+                <span style={{ fontSize: "9pt", color: "#94a3b8" }}>
+                  URL could not be resolved
+                </span>
+              </div>
+            ) : pdf ? (
               <iframe
                 src={url}
                 title={label}
@@ -657,21 +664,23 @@ const ViewEmployee = ({ employee, onClose }) => {
                 }}
               />
             )}
-            <div style={{ marginTop: 8, textAlign: "right" }}>
-              <a
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  fontSize: "9pt",
-                  color: "#6366f1",
-                  textDecoration: "none",
-                  fontWeight: 600,
-                }}
-              >
-                ↗ Open in new tab
-              </a>
-            </div>
+            {url && (
+              <div style={{ marginTop: 8, textAlign: "right" }}>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    fontSize: "9pt",
+                    color: "#6366f1",
+                    textDecoration: "none",
+                    fontWeight: 600,
+                  }}
+                >
+                  ↗ Open in new tab
+                </a>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -700,7 +709,7 @@ const ViewEmployee = ({ employee, onClose }) => {
     );
   };
 
-  /* ─── Salary card (screen-only) ──────────────────────────────── */
+  /* ─── Salary card (screen-only) ──────────────────────────────────────────── */
   const SalaryCard = ({
     icon,
     iconBg,
@@ -811,14 +820,7 @@ const ViewEmployee = ({ employee, onClose }) => {
           <Wallet size={16} color="#a5b4fc" />
         </div>
         <div>
-          <div
-            style={{
-              color: "#f1f5f9",
-              fontWeight: 700,
-              fontSize: 15,
-              fontFamily: "inherit",
-            }}
-          >
+          <div style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 15 }}>
             Salary Details
           </div>
           <div style={{ color: "#94a3b8", fontSize: 11 }}>
@@ -866,7 +868,7 @@ const ViewEmployee = ({ employee, onClose }) => {
           icon={<Building size={16} color="#0891b2" />}
           iconBg="rgba(8,145,178,0.1)"
           iconBorder="rgba(8,145,178,0.2)"
-          label="House Rent Allowance"
+          label="House Rent Allow."
           value={fmtCurrency(hra)}
           subtext={`${totalSalary > 0 ? Math.round((hra / totalSalary) * 100) : 0}% of CTC`}
           accentColor="#0891b2"
@@ -1018,14 +1020,12 @@ const ViewEmployee = ({ employee, onClose }) => {
     </div>
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
-  /*  RENDER                                                         */
-  /* ═══════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════════════════ */
+  /*  RENDER                                                                     */
+  /* ═══════════════════════════════════════════════════════════════════════════ */
   return (
     <>
-      <style>{`
-        @media print { .no-print { display: none !important; } }
-      `}</style>
+      <style>{`@media print { .no-print { display: none !important; } }`}</style>
 
       <div
         style={{
@@ -1135,11 +1135,9 @@ const ViewEmployee = ({ employee, onClose }) => {
             background: "#cbd5e1",
           }}
         >
-          {/* ══════════════════════════════════════ PAGE 1 ══ */}
+          {/* ══ PAGE 1 ══════════════════════════════════════════════════════════ */}
           <Page>
             <PageHeader />
-
-            {/* Title box */}
             <div
               style={{
                 border: "1.5px solid #000",
@@ -1212,7 +1210,6 @@ const ViewEmployee = ({ employee, onClose }) => {
               </div>
             </div>
 
-            {/* Section 1 */}
             <SectionHeaderWithVer text="1. Employee Personal Details -" />
             <SectionWithVerification
               rows={[
@@ -1246,41 +1243,38 @@ const ViewEmployee = ({ employee, onClose }) => {
               ]}
             />
 
-            {/* Section 2 */}
             <SectionHeaderWithVer text="2. Employee Family Details -" />
             <SectionWithVerification
               rows={[
                 {
-                  label: "Father/Mother /Spouse Name",
+                  label: "Father/Mother/Spouse Name",
                   value: val(e.family_member_name),
                 },
                 {
-                  label: "Father/Mother / Spouse contact number",
+                  label: "Father/Mother/Spouse contact number",
                   value: val(e.family_contact_no),
                 },
                 {
-                  label: "Father/Mother / Spouse working status",
+                  label: "Father/Mother/Spouse working status",
                   value: val(e.family_working_status),
                 },
                 {
-                  label: "Father/Mother / Spouse Employer name",
+                  label: "Father/Mother/Spouse Employer name",
                   value: val(e.family_employer_name),
                 },
                 {
-                  label: "Father/Spouse / Mother Employer contact number",
+                  label: "Father/Spouse/Mother Employer contact number",
                   value: val(e.family_employer_contact),
                 },
               ]}
             />
-
             <PageFooter n="1" />
           </Page>
 
-          {/* ══════════════════════════════════════ PAGE 2 ══ */}
+          {/* ══ PAGE 2 ══════════════════════════════════════════════════════════ */}
           <Page>
             <PageHeader />
 
-            {/* Section 3 */}
             <SectionHeaderWithVer text="3. Employee Emergency Contact Details –" />
             <SectionWithVerification
               rows={[
@@ -1304,7 +1298,6 @@ const ViewEmployee = ({ employee, onClose }) => {
               ]}
             />
 
-            {/* Section 4 */}
             <SectionHeaderWithVer text="4. Employee Bank account Details –" />
             <SectionWithVerification
               rows={[
@@ -1322,9 +1315,7 @@ const ViewEmployee = ({ employee, onClose }) => {
               ]}
             />
 
-            {/* Section 5 */}
             <SectionHeaderWithVer text="5. Employee Address Details -" />
-
             <AddrSub text="A) Permanent Address" />
             <SectionWithVerification
               rows={[
@@ -1375,15 +1366,13 @@ const ViewEmployee = ({ employee, onClose }) => {
                 },
               ]}
             />
-
             <PageFooter n="2" />
           </Page>
 
-          {/* ══════════════════════════════════════ PAGE 3 ══ */}
+          {/* ══ PAGE 3 ══════════════════════════════════════════════════════════ */}
           <Page>
             <PageHeader />
 
-            {/* Section 6 — Reference table: white headers (File 1 style) */}
             <Sec text="6. Reference Details –" />
             <table
               style={{
@@ -1449,42 +1438,18 @@ const ViewEmployee = ({ employee, onClose }) => {
               <tbody>
                 {refRows.map(([label, k1, k2, k3]) => (
                   <tr key={label}>
-                    <td
-                      style={{
-                        border: BORDER,
-                        padding: "4px 6px",
-                        background: "#fff",
-                      }}
-                    >
-                      {label}
-                    </td>
-                    <td
-                      style={{
-                        border: BORDER,
-                        padding: "4px 6px",
-                        background: "#fff",
-                      }}
-                    >
-                      {val(e[k1])}
-                    </td>
-                    <td
-                      style={{
-                        border: BORDER,
-                        padding: "4px 6px",
-                        background: "#fff",
-                      }}
-                    >
-                      {val(e[k2])}
-                    </td>
-                    <td
-                      style={{
-                        border: BORDER,
-                        padding: "4px 6px",
-                        background: "#fff",
-                      }}
-                    >
-                      {val(e[k3])}
-                    </td>
+                    {[label, e[k1], e[k2], e[k3]].map((v, ci) => (
+                      <td
+                        key={ci}
+                        style={{
+                          border: BORDER,
+                          padding: "4px 6px",
+                          background: "#fff",
+                        }}
+                      >
+                        {ci === 0 ? v : val(v)}
+                      </td>
+                    ))}
                   </tr>
                 ))}
                 <tr>
@@ -1528,7 +1493,6 @@ const ViewEmployee = ({ employee, onClose }) => {
               </tbody>
             </table>
 
-            {/* Section 7 */}
             <Sec text="7. DECLARATION –" />
             <div
               style={{
@@ -1587,7 +1551,6 @@ const ViewEmployee = ({ employee, onClose }) => {
               </div>
             </div>
 
-            {/* Signature row */}
             <div
               style={{
                 display: "flex",
@@ -1653,15 +1616,13 @@ const ViewEmployee = ({ employee, onClose }) => {
               Note: Digitally filled out the KYE form is not acceptable. KYE
               form should be handwritten by the respective employee.
             </div>
-
             <PageFooter n="3" />
           </Page>
 
-          {/* ══════════════════════════════════════ PAGE 4 ══ */}
+          {/* ══ PAGE 4 ══════════════════════════════════════════════════════════ */}
           <Page>
             <PageHeader />
 
-            {/* Section 8 — document checklist: white headers, empty cell for unattached (File 1 style) */}
             <Sec text="8. Please attach the below-listed documents with the KYE form. –" />
             <table
               style={{
@@ -1701,7 +1662,6 @@ const ViewEmployee = ({ employee, onClose }) => {
                     }}
                   >
                     Name of Document
-
                   </th>
                   <th
                     style={{
@@ -1752,7 +1712,6 @@ const ViewEmployee = ({ employee, onClose }) => {
                           fontWeight: attached ? 700 : 400,
                         }}
                       >
-                        {/* File 1 style: show "Yes ✓" when attached, blank when not */}
                         {attached ? "Yes ✓" : ""}
                       </td>
                     </tr>
@@ -1761,7 +1720,6 @@ const ViewEmployee = ({ employee, onClose }) => {
               </tbody>
             </table>
 
-            {/* Section 9 */}
             <Sec text="9. For office Use only." />
             <table
               style={{
@@ -1810,7 +1768,6 @@ const ViewEmployee = ({ employee, onClose }) => {
                         height: label === "Remarks" ? 24 : "auto",
                         background: "#fff",
                         fontWeight: value ? 600 : 400,
-                        color: value ? "#000" : "transparent",
                       }}
                     >
                       {value || "\u00a0"}
@@ -1875,6 +1832,5 @@ const ViewEmployee = ({ employee, onClose }) => {
     </>
   );
 };
-
 
 export default ViewEmployee;

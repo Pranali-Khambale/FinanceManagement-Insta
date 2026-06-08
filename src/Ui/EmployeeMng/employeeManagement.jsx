@@ -68,16 +68,12 @@ const EmployeeManagement = ({ showToast }) => {
     const maxId = Math.max(...ids, 0);
     return `EMP${String(maxId + 1).padStart(3, "0")}`;
   };
-
-  const handleAddEmployee = async (employeeData) => {
-    const response = await employeeService.addEmployee(employeeData);
-    if (response.success) {
-      showToast?.("Employee added successfully!", "success");
-      setShowModal(false);
-      fetchEmployees();
-    } else {
-      throw new Error(response.message || "Failed to add employee");
-    }
+  // ✅ FIXED — just await, errors bubble up to AddEmp.jsx's catch block
+  const handleAddEmployee = async (data) => {
+    await employeeService.addEmployee(data);
+    toast("Employee added successfully!", "success");
+    setShowModal(false);
+    fetchEmployees();
   };
 
   const handleEditSave = (updatedEmployee) => {
@@ -486,6 +482,6 @@ const EmployeeManagement = ({ showToast }) => {
       )}
     </div>
   );
-};
+};;
 
 export default EmployeeManagement;

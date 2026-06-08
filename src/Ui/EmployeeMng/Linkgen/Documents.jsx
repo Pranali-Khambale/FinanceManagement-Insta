@@ -35,6 +35,8 @@ const DocumentCard = ({
   const handleFileSelect = (e) => {
     const selected = e.target.files[0];
     if (!selected) return;
+
+    // Explicitly allow standard images and PDFs
     const validTypes = [
       "image/jpeg",
       "image/jpg",
