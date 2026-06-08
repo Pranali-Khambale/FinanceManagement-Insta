@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { X, ChevronLeft, ChevronRight, Check, AlertCircle, Loader2 } from "lucide-react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import PersonalInformation from "./AddEmp/PersonalInfo";
 import EmploymentDetails from "./AddEmp/employeeDetails";
 import SalaryDetails from "./AddEmp/SalaryInfo";
 import DocumentUpload from "./AddEmp/IDProof";
-import employeeService from "../../services/employeeService"; // adjust path if needed
+import employeeService from "../../services/employeeService";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// KEY CHANGE: generateEmployeeId prop is no longer used for the initial value.
-// Instead we fetch the real next ID from the DB when the wizard opens.
-// The prop is kept for backward compatibility but ignored.
-// ─────────────────────────────────────────────────────────────────────────────
+const FARM_TO_CLI_POSITIONS = ["dt engineer", "rigger", "technician"];
+
 const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingId, setIsLoadingId] = useState(true); // ← new: loading state for ID fetch
+  const [isLoadingId, setIsLoadingId] = useState(true);
 
   const [formData, setFormData] = useState({
     // ── Personal ──
@@ -79,7 +83,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     ref3ContactNo: "",
     ref3Email: "",
     // ── Employment ──
-    employeeId: "Loading...", // placeholder until DB responds
+    employeeId: "Loading...",
     joiningDate: "",
     department: "",
     designation: "",
@@ -95,8 +99,9 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     branch: "",
   });
 
+  // ── FIX: All document keys now match DocumentUploadStep fieldNames exactly ──
   const [documents, setDocuments] = useState({
-    photo: null,
+    idPhoto: null, // was "photo" — matches fieldName="idPhoto" in DocumentUploadStep
     aadharCard: null,
     panCard: null,
     bankPassbook: null,
@@ -108,11 +113,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     farmToCli: null,
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ✅ FETCH REAL NEXT EMPLOYEE ID FROM DATABASE ON MOUNT
-  // This replaces the old generateEmployeeId() prop call which only looked
-  // at client-side state and could produce IDs that already exist in the DB.
-  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     const fetchNextId = async () => {
@@ -124,7 +124,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         }
       } catch (err) {
         console.error("Failed to fetch next employee ID:", err);
-        // Fallback to the local generator if the API is unreachable
         if (!cancelled) {
           const fallback =
             typeof generateEmployeeId === "function"
@@ -137,40 +136,59 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       }
     };
     fetchNextId();
-    return () => { cancelled = true; }; // cleanup on unmount
+    return () => {
+      cancelled = true;
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const steps = [
-    { number: 1, title: "Personal Info",    component: PersonalInformation },
-    { number: 2, title: "Employee Details", component: EmploymentDetails   },
-    { number: 3, title: "Salary & Bank",    component: SalaryDetails       },
-    { number: 4, title: "Documents",        component: DocumentUpload      },
+    { number: 1, title: "Personal Info", component: PersonalInformation },
+    { number: 2, title: "Employee Details", component: EmploymentDetails },
+    { number: 3, title: "Salary & Bank", component: SalaryDetails },
+    { number: 4, title: "Documents", component: DocumentUpload },
   ];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "department") {
+      setFormData((prev) => ({ ...prev, department: value, designation: "" }));
+      setTouched((prev) => ({ ...prev, department: true, designation: false }));
+      setErrors((prev) => ({ ...prev, department: "", designation: "" }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
     setTouched((prev) => ({ ...prev, [name]: true }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  const handleFileUpload = (documentType, file) => {
-    if (!file) return;
+  // ── FIX: handleFileUpload now stores directly by fieldName (no transformation) ──
+  const handleFileUpload = (fieldName, file) => {
+    if (!file) {
+      // null means remove
+      setDocuments((prev) => ({ ...prev, [fieldName]: null }));
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       setErrors((prev) => ({
         ...prev,
-        [documentType]: "File size must be less than 5MB",
+        [fieldName]: "File size must be less than 5MB",
       }));
       return;
     }
     const validTypes = [
-      "image/jpeg", "image/jpg", "image/png",
-      "image/gif", "image/webp", "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
     ];
     if (!validTypes.includes(file.type)) {
       setErrors((prev) => ({
         ...prev,
-        [documentType]: "Only JPEG, PNG, GIF, WEBP, and PDF files are allowed",
+        [fieldName]: "Only JPEG, PNG, GIF, WEBP, and PDF files are allowed",
       }));
       return;
     }
@@ -178,16 +196,16 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     reader.onloadend = () => {
       setDocuments((prev) => ({
         ...prev,
-        [documentType]: { file, preview: reader.result, name: file.name },
+        [fieldName]: { file, preview: reader.result, name: file.name },
       }));
-      if (errors[documentType])
-        setErrors((prev) => ({ ...prev, [documentType]: "" }));
+      if (errors[fieldName])
+        setErrors((prev) => ({ ...prev, [fieldName]: "" }));
     };
     reader.readAsDataURL(file);
   };
 
-  const handleFileRemove = (documentType) => {
-    setDocuments((prev) => ({ ...prev, [documentType]: null }));
+  const handleFileRemove = (fieldName) => {
+    setDocuments((prev) => ({ ...prev, [fieldName]: null }));
   };
 
   const validateStep = (step) => {
@@ -213,7 +231,8 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       if (!formData.maritalStatus)
         newErrors.maritalStatus = "Marital status is required";
       if (!formData.educationalQualification.trim())
-        newErrors.educationalQualification = "Educational qualification is required";
+        newErrors.educationalQualification =
+          "Educational qualification is required";
       if (!formData.bloodGroup)
         newErrors.bloodGroup = "Blood group is required";
 
@@ -223,7 +242,8 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
           (new Date() - new Date(formData.dob)) / 31557600000,
         );
         if (age < 18) newErrors.dob = "Employee must be at least 18 years old";
-        else if (age > 100) newErrors.dob = "Please enter a valid date of birth";
+        else if (age > 100)
+          newErrors.dob = "Please enter a valid date of birth";
       }
       if (!formData.gender) newErrors.gender = "Gender is required";
       if (!formData.email.trim()) newErrors.email = "Email is required";
@@ -234,7 +254,9 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
         newErrors.phone = "Enter a valid 10-digit Indian phone number";
       if (!formData.panNumber.trim())
         newErrors.panNumber = "PAN number is required";
-      else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase()))
+      else if (
+        !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.toUpperCase())
+      )
         newErrors.panNumber = "Enter a valid PAN (e.g. ABCDE1234F)";
       if (!formData.nameOnPan.trim())
         newErrors.nameOnPan = "Name on PAN is required";
@@ -282,8 +304,7 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     if (step === 2) {
       if (!formData.joiningDate)
         newErrors.joiningDate = "Joining date is required";
-      if (!formData.department)
-        newErrors.department = "Department is required";
+      if (!formData.department) newErrors.department = "Department is required";
       if (!formData.designation.trim())
         newErrors.designation = "Designation is required";
       if (!formData.employmentType)
@@ -306,23 +327,27 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
     if (step === 4) {
       const isTelecom =
         (formData.department || "").toLowerCase().trim() === "telecom";
+      const requiresRoleDocs =
+        isTelecom &&
+        FARM_TO_CLI_POSITIONS.includes(
+          (formData.designation || "").toLowerCase().trim(),
+        );
 
-      if (!documents.photo)
-        newErrors.photo = "Employee photo is required";
+      // ── FIX: validate using "idPhoto" (not "photo") ──
+      if (!documents.idPhoto) newErrors.idPhoto = "Employee photo is required";
       if (!documents.aadharCard)
         newErrors.aadharCard = "Aadhaar card is required";
-      if (!documents.resume)
-        newErrors.resume = "Resume is required";
+      if (!documents.resume) newErrors.resume = "Resume is required";
       if (!documents.bankPassbook)
         newErrors.bankPassbook = "Bank passbook / cancelled cheque is required";
 
-      if (isTelecom) {
+      if (requiresRoleDocs) {
         if (!documents.medicalCertificate)
           newErrors.medicalCertificate =
-            "Medical certificate is required for Telecom employees";
+            "Medical certificate is required for DT Engineers, Riggers, and Technicians";
         if (!documents.farmToCli)
           newErrors.farmToCli =
-            "FARM-ToCli Certificate is required for Telecom employees";
+            "FARM-ToCli Certificate is required for DT Engineers, Riggers, and Technicians";
       }
     }
 
@@ -335,7 +360,9 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
       setCurrentStep((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      const firstError = document.querySelector(".border-red-500, .border-red-300");
+      const firstError = document.querySelector(
+        ".border-red-500, .border-red-300",
+      );
       if (firstError)
         firstError.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -422,7 +449,9 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                   </div>
                   <span
                     className={`mt-2 text-xs font-medium ${
-                      currentStep >= step.number ? "text-gray-900" : "text-gray-400"
+                      currentStep >= step.number
+                        ? "text-gray-900"
+                        : "text-gray-400"
                     }`}
                   >
                     {step.title}
@@ -449,7 +478,6 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
             className="flex-1 overflow-y-auto px-8 py-6"
             style={{ scrollbarWidth: "thin" }}
           >
-            {/* ── Loading overlay while fetching employee ID ── */}
             {isLoadingId && (
               <div className="mb-4 flex items-center gap-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -488,13 +516,27 @@ const AddEmployeeWizard = ({ onClose, onSubmit, generateEmployeeId }) => {
                 touched={touched}
               />
             )}
+
+            {/* ── FIX: correct props passed to DocumentUpload ── */}
             {currentStep === 4 && (
               <DocumentUpload
-                documents={documents}
-                handleFileUpload={handleFileUpload}
-                handleFileRemove={handleFileRemove}
+                formData={documents}
+                onFileChange={(fieldName, file) => {
+                  if (file === null) {
+                    handleFileRemove(fieldName);
+                  } else {
+                    handleFileUpload(fieldName, file);
+                  }
+                }}
                 errors={errors}
                 department={formData.department}
+                requiresFarmToCli={
+                  (formData.department || "").toLowerCase().trim() ===
+                    "telecom" &&
+                  FARM_TO_CLI_POSITIONS.includes(
+                    (formData.designation || "").toLowerCase().trim(),
+                  )
+                }
               />
             )}
 

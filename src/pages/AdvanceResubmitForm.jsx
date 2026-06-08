@@ -17,7 +17,7 @@ import {
   AlertTriangle, CheckCircle2, Upload, X,
   Loader2, RefreshCw, FileText, Info,
 } from "lucide-react";
-import { BASE_URL } from "../services/api";
+import { BASE_URL } from "../api/client";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function inr(n) {

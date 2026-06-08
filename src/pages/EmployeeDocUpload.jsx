@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
-import { BASE_URL } from "../services/api";
+import { BASE_URL } from "../api/client";
 // ── File drop zone ────────────────────────────────────────────────────────────
 const DropZone = ({ label, description, accept, file, onChange, onRemove, required, icon: Icon }) => {
   const inputRef  = useRef(null);

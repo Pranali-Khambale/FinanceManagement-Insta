@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X, Printer, FlipHorizontal, Upload, Loader, ZoomIn, ZoomOut, Move, Check, RotateCcw, Crop, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-import { BASE_URL as API_URL } from "../../services/api";
+import { BASE_URL as API_URL } from "../../api/client";
 const BASE_URL = API_URL.replace("/api", "");
 
 const getPhotoUrl = (employee) => {

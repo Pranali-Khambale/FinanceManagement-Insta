@@ -3,7 +3,7 @@
 // =============================================================================
 import { useState, useEffect, useCallback } from 'react';
 
-import { BASE_URL as API_BASE } from '../../services/api';
+import { BASE_URL as API_BASE } from '../../api/client';
 
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

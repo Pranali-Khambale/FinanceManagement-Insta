@@ -16,11 +16,13 @@ const generalDesignations = [
 ];
 
 const telecomProjectOptions = [
+  'Not Applicable',
   'Corporate', 'E// JIO', 'E// JIO EMF', 'E// JIO TI', 'E// JIO UBR',
   'E// VIL', 'IGR', 'IT', 'Smart Intelligent Villege', 'VIL MM',
 ];
 
 const telecomCircleOptions = [
+  'Not Applicable',
   'Gujarat', 'HP (Himachal Pradesh)', 'MH (Maharashtra)', 'MH (Pune Office)',
   'MH Nagpur', 'MH_Ahilyanagar', 'MH_Nagpur', 'MH_Pen', 'MPCG',
   'Mumbai', 'Punjab', 'Pune',
