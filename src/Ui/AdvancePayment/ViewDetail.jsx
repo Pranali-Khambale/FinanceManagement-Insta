@@ -19,21 +19,20 @@ import {
   Maximize2,
 } from "lucide-react";
 
-// ── Resolve base API URL ──────────────────────────────────────────────────────
-import { BASE_URL } from "../../api/client"; // adjust path as needed
+// ── Resolve file URL — S3-aware ───────────────────────────────────────────────
+// The backend stores S3 *keys* (e.g. "advance-payment/uuid.png") in
+// advance_payment_attachments.file_path — that is the ONLY place file paths
+// are stored. There are no payment_screenshot_url / proof_url columns on the
+// requests table; the ViewDetail reads from req.attachments[] exclusively.
+// getS3Url() converts a key → full HTTPS URL; full URLs pass through unchanged.
+import { getS3Url } from "../../utils/s3Utils"; // adjust path if needed
 
-const SERVER_ROOT = BASE_URL.replace(/\/api\/?$/, "");
-
-function resolveFileUrl(filePath) {
-  if (!filePath) return null;
-  if (/^(blob:|https?:\/\/)/.test(filePath)) return filePath;
-  const normalised = filePath.replace(/\\/g, "/");
-  const uploadsIdx = normalised.indexOf("uploads/");
-  const relativePart =
-    uploadsIdx !== -1
-      ? normalised.slice(uploadsIdx)
-      : normalised.replace(/^\/+/, "");
-  return `${SERVER_ROOT}/${relativePart}`;
+function resolveFileUrl(filePathOrKey) {
+  if (!filePathOrKey) return null;
+  // Already a full URL (blob preview or legacy http row) — return as-is
+  if (/^(blob:|https?:\/\/)/.test(filePathOrKey)) return filePathOrKey;
+  // S3 key → build full HTTPS URL via env vars
+  return getS3Url(filePathOrKey);
 }
 const fmt = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
 
@@ -547,8 +546,7 @@ function DocViewer({ src, name, onClose }) {
             background: "rgba(15,23,42,0.8)",
             borderTop: "1px solid rgba(255,255,255,0.05)",
           }}
-        >
-        </div>
+        ></div>
       )}
     </div>
   );
@@ -1269,5 +1267,3 @@ export default function ViewDetailModal({ req, onClose, onApprove, onReject }) {
   // ✅ Portal renders directly into <body>, escaping any parent stacking context
   return createPortal(modalContent, document.body);
 }
-
-

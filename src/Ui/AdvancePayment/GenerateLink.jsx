@@ -1,6 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/Ui/AdvancePayment/GenerateLink.jsx
-// ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -19,7 +16,6 @@ import {
   Send,
 } from "lucide-react";
 import advancePaymentService from "../../services/advancePaymentService";
-                                        
 
 const ALLOWED_KEYS = ["emp_to_emp", "other"];
 
@@ -276,7 +272,6 @@ export default function GenerateLinkModal({ onClose }) {
       })
     : null;
 
-  // ✅ All modal JSX stored in a variable so createPortal can wrap it
   const modalContent = (
     <>
       <style>{`
@@ -292,7 +287,7 @@ export default function GenerateLinkModal({ onClose }) {
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
         <div style={S.modal}>
-          {/* ── Header ── */}
+          {/* Header */}
           <div style={S.header}>
             <div
               style={{
@@ -329,10 +324,9 @@ export default function GenerateLinkModal({ onClose }) {
             </div>
           </div>
 
-          {/* ── Step 1 ── */}
+          {/* Step 1 */}
           {step === 1 && (
             <div style={S.body}>
-              {/* Payment type */}
               <div>
                 <span style={S.label}>Payment type</span>
                 {typesLoading ? (
@@ -472,7 +466,6 @@ export default function GenerateLinkModal({ onClose }) {
                 )}
               </div>
 
-              {/* Type description */}
               {pt.key && (
                 <div
                   style={{
@@ -503,7 +496,6 @@ export default function GenerateLinkModal({ onClose }) {
                 </div>
               )}
 
-              {/* Email */}
               <div>
                 <span style={S.label}>
                   Employee email <span style={{ color: "#ef4444" }}>*</span>
@@ -558,7 +550,6 @@ export default function GenerateLinkModal({ onClose }) {
                 )}
               </div>
 
-              {/* Info strip */}
               <div
                 style={{
                   display: "flex",
@@ -592,10 +583,9 @@ export default function GenerateLinkModal({ onClose }) {
             </div>
           )}
 
-          {/* ── Step 2 ── */}
+          {/* Step 2 */}
           {step === 2 && generated && (
             <div style={{ ...S.body, animation: "fadeUp 0.22s ease" }}>
-              {/* Success banner */}
               <div
                 style={{
                   display: "flex",
@@ -654,7 +644,6 @@ export default function GenerateLinkModal({ onClose }) {
                 />
               </div>
 
-              {/* Link display */}
               <div>
                 <span style={S.label}>Shareable link</span>
                 <div
@@ -674,7 +663,6 @@ export default function GenerateLinkModal({ onClose }) {
                 </div>
               </div>
 
-              {/* Action chips */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button
                   className="gl-chip"
@@ -764,7 +752,6 @@ export default function GenerateLinkModal({ onClose }) {
                 </button>
               </div>
 
-              {/* Note */}
               <div
                 style={{
                   display: "flex",
@@ -798,7 +785,7 @@ export default function GenerateLinkModal({ onClose }) {
             </div>
           )}
 
-          {/* ── Footer ── */}
+          {/* Footer */}
           <div style={S.footer}>
             <button
               onClick={onClose}
@@ -845,6 +832,5 @@ export default function GenerateLinkModal({ onClose }) {
     </>
   );
 
-  // ✅ Portal renders directly into <body>, escaping any parent stacking context
   return createPortal(modalContent, document.body);
 }

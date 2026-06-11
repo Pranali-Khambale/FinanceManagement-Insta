@@ -29,7 +29,106 @@ import {
 } from "lucide-react";
 
 import { BASE_URL as BASE_API } from "../../api/client";
-const BASE_URL = BASE_API.replace(/\/api$/, "");
+import { getS3Url } from "../../utils/s3Utils";
+
+// ── URL resolver ──────────────────────────────────────────────────────────────
+function fullUrl(path) {
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return getS3Url(path);
+}
+
+// ── S3 key extractor ──────────────────────────────────────────────────────────
+// CRITICAL FIX: employeeController.resolveDocUrls() converts raw S3 keys
+// (e.g. "uploads/employee_docs/file.png") into full HTTPS URLs before
+// returning registration docs to the frontend. But the proxy endpoint
+// (/api/employees/s3/proxy?key=...) and presign endpoint
+// (/api/employees/s3/presign?key=...) both expect a raw S3 key — NOT a full URL.
+//
+// This function strips the S3 / CloudFront host prefix so we always pass
+// raw keys to backend endpoints, regardless of doc source (KYE, HR, Reg).
+//
+// Handles:
+//   https://<bucket>.s3.<region>.amazonaws.com/<key>   → <key>
+//   https://<bucket>.s3.amazonaws.com/<key>            → <key>
+//   https://<cloudfront-id>.cloudfront.net/<key>       → <key>
+//   https://any-custom-cdn.example.com/<key>           → <key>  (falls back gracefully)
+//   uploads/employee_docs/file.png                     → unchanged (already a key)
+function extractS3Key(urlOrKey) {
+  if (!urlOrKey) return urlOrKey;
+  // Already a raw key (no protocol) — return as-is
+  if (!urlOrKey.startsWith("http://") && !urlOrKey.startsWith("https://")) {
+    return urlOrKey;
+  }
+  try {
+    const parsed = new URL(urlOrKey);
+    // pathname starts with "/" — strip it to get the S3 key
+    // e.g. "/uploads/employee_docs/file.png" → "uploads/employee_docs/file.png"
+    return parsed.pathname.replace(/^\//, "");
+  } catch {
+    return urlOrKey;
+  }
+}
+
+// Module-level presign cache: S3 key → { url, expiresAt }
+const _presignCache = new Map();
+
+// ── Auth helper — used by every fetch call in this file ───────────────────────
+function getAuthHeaders() {
+  const token =
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("authToken")
+      : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
+ * Returns a short-lived presigned S3 URL for the given file_path key.
+ * Results are cached for 50 min. Falls back to fullUrl() on failure.
+ *
+ * FIX: always extract the raw S3 key before calling the presign endpoint,
+ * because registration docs arrive with file_path already resolved to a
+ * full HTTPS URL by employeeController.resolveDocUrls().
+ */
+async function getPresignedUrl(filePath) {
+  if (!filePath) return null;
+
+  // FIX: extract the raw key even if filePath is already a full URL
+  const rawKey = extractS3Key(filePath);
+
+  // If it's still a full URL after extraction (shouldn't happen, but safety check),
+  // return it directly — it's already accessible
+  if (rawKey.startsWith("http://") || rawKey.startsWith("https://")) {
+    return rawKey;
+  }
+
+  const now = Date.now();
+  const cached = _presignCache.get(rawKey);
+  if (cached && cached.expiresAt > now) return cached.url;
+
+  try {
+    const res = await fetch(
+      `${BASE_API}/employees/s3/presign?key=${encodeURIComponent(rawKey)}`,
+      { headers: getAuthHeaders(), credentials: "include" },
+    );
+    if (!res.ok) {
+      console.warn("[presign] HTTP", res.status, "for key:", rawKey);
+      return fullUrl(rawKey);
+    }
+    const data = await res.json();
+    if (data.success && data.url) {
+      _presignCache.set(rawKey, {
+        url: data.url,
+        expiresAt: now + 50 * 60 * 1000,
+      });
+      return data.url;
+    }
+    console.warn("[presign] no url in response:", data);
+  } catch (e) {
+    console.warn("[presign] failed for", rawKey, "–", e.message);
+  }
+  return fullUrl(rawKey);
+}
 
 // ── Document type metadata ────────────────────────────────────────────────────
 const DOC_TYPE_META = {
@@ -78,7 +177,25 @@ const DOC_TYPE_META = {
     dot: "#f97316",
     section: "reg",
   },
+  id_photo: {
+    label: "Employee Photo",
+    icon: User,
+    bg: "#fff7ed",
+    border: "#fed7aa",
+    text: "#c2410c",
+    dot: "#f97316",
+    section: "reg",
+  },
   aadharCard: {
+    label: "Aadhaar Card",
+    icon: CreditCard,
+    bg: "#fefce8",
+    border: "#fde68a",
+    text: "#92400e",
+    dot: "#f59e0b",
+    section: "reg",
+  },
+  aadhar_card: {
     label: "Aadhaar Card",
     icon: CreditCard,
     bg: "#fefce8",
@@ -96,7 +213,25 @@ const DOC_TYPE_META = {
     dot: "#a855f7",
     section: "reg",
   },
+  pan_card: {
+    label: "PAN Card",
+    icon: CreditCard,
+    bg: "#fdf4ff",
+    border: "#e9d5ff",
+    text: "#7e22ce",
+    dot: "#a855f7",
+    section: "reg",
+  },
   bankPassbook: {
+    label: "Bank Passbook",
+    icon: Landmark,
+    bg: "#f0fdfa",
+    border: "#99f6e4",
+    text: "#0f766e",
+    dot: "#14b8a6",
+    section: "reg",
+  },
+  bank_passbook: {
     label: "Bank Passbook",
     icon: Landmark,
     bg: "#f0fdfa",
@@ -114,6 +249,87 @@ const DOC_TYPE_META = {
     dot: "#64748b",
     section: "reg",
   },
+  medicalCertificate: {
+    label: "Medical Certificate",
+    icon: FileText,
+    bg: "#fff1f2",
+    border: "#fecdd3",
+    text: "#be123c",
+    dot: "#f43f5e",
+    section: "reg",
+  },
+  medical_certificate: {
+    label: "Medical Certificate",
+    icon: FileText,
+    bg: "#fff1f2",
+    border: "#fecdd3",
+    text: "#be123c",
+    dot: "#f43f5e",
+    section: "reg",
+  },
+  academicRecords: {
+    label: "Academic Records",
+    icon: BookOpen,
+    bg: "#f0f9ff",
+    border: "#bae6fd",
+    text: "#0369a1",
+    dot: "#0ea5e9",
+    section: "reg",
+  },
+  academic_records: {
+    label: "Academic Records",
+    icon: BookOpen,
+    bg: "#f0f9ff",
+    border: "#bae6fd",
+    text: "#0369a1",
+    dot: "#0ea5e9",
+    section: "reg",
+  },
+  payslip: {
+    label: "Payslip",
+    icon: FileText,
+    bg: "#f7fee7",
+    border: "#d9f99d",
+    text: "#4d7c0f",
+    dot: "#84cc16",
+    section: "reg",
+  },
+  otherCertificates: {
+    label: "Other Certificates",
+    icon: File,
+    bg: "#f9fafb",
+    border: "#e5e7eb",
+    text: "#374151",
+    dot: "#9ca3af",
+    section: "reg",
+  },
+  other_certificates: {
+    label: "Other Certificates",
+    icon: File,
+    bg: "#f9fafb",
+    border: "#e5e7eb",
+    text: "#374151",
+    dot: "#9ca3af",
+    section: "reg",
+  },
+  farmToCli: {
+    label: "Farm to CLI",
+    icon: File,
+    bg: "#f9fafb",
+    border: "#e5e7eb",
+    text: "#374151",
+    dot: "#9ca3af",
+    section: "reg",
+  },
+  farm_to_cli: {
+    label: "Farm to CLI",
+    icon: File,
+    bg: "#f9fafb",
+    border: "#e5e7eb",
+    text: "#374151",
+    dot: "#9ca3af",
+    section: "reg",
+  },
   other: {
     label: "Other Document",
     icon: File,
@@ -128,15 +344,23 @@ const DOC_TYPE_META = {
 const REG_DOC_LABELS = {
   photo: "Employee Photo",
   idPhoto: "Employee Photo",
+  id_photo: "Employee Photo",
   aadharCard: "Aadhaar Card",
+  aadhar_card: "Aadhaar Card",
   panCard: "PAN Card",
+  pan_card: "PAN Card",
   bankPassbook: "Bank Passbook",
+  bank_passbook: "Bank Passbook",
   resume: "Resume",
   medicalCertificate: "Medical Certificate",
+  medical_certificate: "Medical Certificate",
   academicRecords: "Academic Records",
+  academic_records: "Academic Records",
   payslip: "Payslip",
-  farmToCli: "Farm to CLI",
   otherCertificates: "Other Certificates",
+  other_certificates: "Other Certificates",
+  farmToCli: "Farm to CLI",
+  farm_to_cli: "Farm to CLI",
 };
 
 const HR_UPLOAD_TYPES = [
@@ -154,11 +378,6 @@ const HR_UPLOAD_TYPES = [
   },
 ];
 
-function fullUrl(path) {
-  if (!path) return null;
-  return path.startsWith("http") ? path : `${BASE_URL}${path}`;
-}
-
 function getFileType(path = "", mime = "") {
   const p = String(path || "").toLowerCase();
   const m = String(mime || "").toLowerCase();
@@ -168,98 +387,98 @@ function getFileType(path = "", mime = "") {
   return "other";
 }
 
-// ── Image loading strategies ──────────────────────────────────────────────────
+// ── Image / PDF loading for PDF generation ────────────────────────────────────
 /**
- * Strategy 1: fetch() with credentials (requires proper CORS headers on backend)
- * Returns Uint8Array or throws.
+ * FIX: Always extract the raw S3 key before passing to the proxy endpoint.
+ * Registration docs have file_path as full HTTPS URLs (transformed by
+ * employeeController.resolveDocUrls / getS3Url). The proxy expects raw keys.
  */
-async function fetchImageBytes(url) {
-  const resp = await fetch(url, {
-    cache: "no-store",
-    credentials: "include",
-    mode: "cors",
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} – ${resp.statusText}`);
-  const buf = await resp.arrayBuffer();
+async function fetchBytesViaProxy(s3KeyOrUrl) {
+  // FIX: if it's a staged file path (blob:) or object URL, fetch directly
+  if (s3KeyOrUrl.startsWith("blob:")) {
+    const resp = await fetch(s3KeyOrUrl);
+    if (!resp.ok) throw new Error(`Blob fetch failed: ${resp.status}`);
+    return resp.arrayBuffer();
+  }
+
+  // FIX: extract the raw S3 key — handles both raw keys and full HTTPS URLs
+  const rawKey = extractS3Key(s3KeyOrUrl);
+
+  // If it's still a full URL (e.g. CloudFront public URL or truly external),
+  // try fetching directly without the proxy
+  if (rawKey.startsWith("http://") || rawKey.startsWith("https://")) {
+    const resp = await fetch(rawKey, { cache: "no-store" });
+    if (!resp.ok)
+      throw new Error(`Direct fetch HTTP ${resp.status} – ${resp.statusText}`);
+    return resp.arrayBuffer();
+  }
+
+  // Normal flow: use the proxy endpoint with the raw key
+  const proxyUrl = `${BASE_API}/employees/s3/proxy?key=${encodeURIComponent(rawKey)}`;
+  try {
+    const resp = await fetch(proxyUrl, {
+      headers: getAuthHeaders(),
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      throw new Error(`Proxy ${resp.status}: ${body.slice(0, 120)}`);
+    }
+    return resp.arrayBuffer();
+  } catch (proxyErr) {
+    console.warn(
+      "[PDF] proxy failed, falling back to presigned URL:",
+      proxyErr.message,
+    );
+    // getPresignedUrl already handles key extraction internally
+    const presigned = await getPresignedUrl(rawKey);
+    if (!presigned)
+      throw new Error(
+        "Could not resolve document URL (proxy + presign both failed)",
+      );
+    const resp = await fetch(presigned, { cache: "no-store" });
+    if (!resp.ok)
+      throw new Error(`S3 direct HTTP ${resp.status} – ${resp.statusText}`);
+    return resp.arrayBuffer();
+  }
+}
+
+async function fetchImageBytes(s3KeyOrUrl) {
+  const buf = await fetchBytesViaProxy(s3KeyOrUrl);
   return new Uint8Array(buf);
 }
 
-/**
- * Strategy 2: Load via <img crossOrigin="anonymous"> → draw to canvas → get blob bytes.
- * Works when the server sends Access-Control-Allow-Origin: * or the matching origin
- * (without credentials). Falls back if server doesn't send CORS headers at all.
- */
-function loadImageViaCanvas(url) {
+async function getImageBytesWithFallback(s3KeyOrUrl) {
+  return fetchImageBytes(s3KeyOrUrl);
+}
+
+async function fetchPdfBytes(s3KeyOrUrl) {
+  return fetchBytesViaProxy(s3KeyOrUrl);
+}
+
+function convertBlobUrlViaCanvas(blobUrl) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error("Canvas toBlob returned null"));
-            return;
-          }
-          blob
-            .arrayBuffer()
-            .then((buf) => resolve(new Uint8Array(buf)))
-            .catch(reject);
-        }, "image/png");
-      } catch (err) {
-        // SecurityError: tainted canvas
-        reject(err);
-      }
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("toBlob returned null"));
+          return;
+        }
+        blob
+          .arrayBuffer()
+          .then((buf) => resolve(new Uint8Array(buf)))
+          .catch(reject);
+      }, "image/png");
     };
-    img.onerror = () => reject(new Error("Image failed to load"));
-    // Append cache-buster to avoid cached no-CORS response tainting the canvas
-    img.src = url + (url.includes("?") ? "&" : "?") + "_cb=" + Date.now();
+    img.onerror = () => reject(new Error("WebP blob image failed to load"));
+    img.src = blobUrl;
   });
-}
-
-/**
- * Strategy 3: Load image without CORS (no crossOrigin attr) → canvas → blob.
- * This will fail with SecurityError on toDataURL/toBlob if the server doesn't
- * allow CORS, but we can still get dimensions this way.
- * As a last resort, we embed a placeholder page instead of crashing.
- */
-async function getImageBytesWithFallback(url) {
-  // Try fetch first (needs credentials CORS)
-  try {
-    return await fetchImageBytes(url);
-  } catch (fetchErr) {
-    console.warn("[PDF] fetch failed, trying canvas:", fetchErr.message);
-  }
-
-  // Try canvas with crossOrigin=anonymous (needs wildcard or matching CORS)
-  try {
-    return await loadImageViaCanvas(url);
-  } catch (canvasErr) {
-    console.warn("[PDF] canvas failed:", canvasErr.message);
-    throw new Error(
-      "Cannot access image due to CORS restrictions. " +
-        "Add Access-Control-Allow-Origin header to your /uploads route. " +
-        "Original error: " +
-        canvasErr.message,
-    );
-  }
-}
-
-/**
- * Fetch PDF bytes (always uses fetch + credentials).
- */
-async function fetchPdfBytes(url) {
-  const resp = await fetch(url, {
-    cache: "no-store",
-    credentials: "include",
-    mode: "cors",
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} – ${resp.statusText}`);
-  return resp.arrayBuffer();
 }
 
 // ── PDF generation ────────────────────────────────────────────────────────────
@@ -270,15 +489,14 @@ async function downloadAllAsPdf(docs, emp) {
   const pdf = await PDFDocument.create();
   const BOLD = await pdf.embedFont(StandardFonts.HelveticaBold);
   const NORMAL = await pdf.embedFont(StandardFonts.Helvetica);
-
   const W = 595.28,
     H = 841.89;
-  const WHITE = rgb(1, 1, 1);
-  const DARK = rgb(0.071, 0.094, 0.133);
-  const ACCENT = rgb(0.122, 0.365, 0.902);
-  const LABEL = rgb(0.749, 0.796, 0.878);
-  const NAME_C = rgb(1, 1, 1);
-  const PAGEBG = rgb(0.98, 0.98, 0.984);
+  const WHITE = rgb(1, 1, 1),
+    DARK = rgb(0.071, 0.094, 0.133);
+  const ACCENT = rgb(0.122, 0.365, 0.902),
+    LABEL = rgb(0.749, 0.796, 0.878);
+  const NAME_C = rgb(1, 1, 1),
+    PAGEBG = rgb(0.98, 0.98, 0.984);
   const BAR = 38;
 
   const isObj = emp && typeof emp === "object";
@@ -315,7 +533,6 @@ async function downloadAllAsPdf(docs, emp) {
     const label = getLabel(doc);
     const section = getMeta(doc).section || "other";
     const pip = SEC_ACCENT[section] || SEC_ACCENT.other;
-
     page.drawRectangle({
       x: 0,
       y: H - BAR,
@@ -331,7 +548,6 @@ async function downloadAllAsPdf(docs, emp) {
       height: 1,
       color: ACCENT,
     });
-
     const nameStr = trunc(
       fullName + (empId ? `  ·  ${empId}` : ""),
       BOLD,
@@ -345,7 +561,6 @@ async function downloadAllAsPdf(docs, emp) {
       font: BOLD,
       color: NAME_C,
     });
-
     const labelStr = trunc(label.toUpperCase(), BOLD, 7.5, W * 0.4);
     page.drawText(labelStr, {
       x: W - 14 - BOLD.widthOfTextAtSize(labelStr, 7.5),
@@ -357,12 +572,9 @@ async function downloadAllAsPdf(docs, emp) {
     });
   }
 
-  // ── Draw an error page with detailed message ────────────────────────────────
   function addErrorPage(doc, errorMsg) {
     const page = pdf.addPage([W, H]);
     page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: WHITE });
-
-    // Red warning box
     page.drawRectangle({
       x: 40,
       y: H / 2 - 60,
@@ -377,7 +589,6 @@ async function downloadAllAsPdf(docs, emp) {
       height: 100,
       color: rgb(0.85, 0.15, 0.15),
     });
-
     const errTitle = "Could not load this document";
     page.drawText(errTitle, {
       x: (W - BOLD.widthOfTextAtSize(errTitle, 13)) / 2,
@@ -386,8 +597,8 @@ async function downloadAllAsPdf(docs, emp) {
       font: BOLD,
       color: rgb(0.75, 0.18, 0.18),
     });
-
-    const hint = "Fix: Add CORS headers to your /uploads backend route";
+    const hint =
+      "The file could not be fetched. Check network or S3 permissions.";
     page.drawText(hint, {
       x: (W - NORMAL.widthOfTextAtSize(hint, 9)) / 2,
       y: H / 2 - 2,
@@ -395,14 +606,11 @@ async function downloadAllAsPdf(docs, emp) {
       font: NORMAL,
       color: rgb(0.5, 0.3, 0.3),
     });
-
-    // Show truncated error detail
-    const maxErrW = W - 100;
     const errDetail = trunc(
       String(errorMsg || "Unknown error"),
       NORMAL,
       7.5,
-      maxErrW,
+      W - 100,
     );
     page.drawText(errDetail, {
       x: (W - NORMAL.widthOfTextAtSize(errDetail, 7.5)) / 2,
@@ -411,25 +619,39 @@ async function downloadAllAsPdf(docs, emp) {
       font: NORMAL,
       color: rgb(0.6, 0.35, 0.35),
     });
-
     stampBar(page, doc);
   }
 
+  // Helper that resolves bytes from either a local File or an S3 key/URL.
+  // Staged (not-yet-uploaded) HR docs carry a _stagedFile (browser File object).
+  const getBytesForDoc = async (doc) => {
+    if (doc._stagedFile) {
+      return doc._stagedFile.arrayBuffer();
+    }
+    // FIX: fetchBytesViaProxy now handles both raw keys AND full HTTPS URLs
+    return fetchBytesViaProxy(doc.file_path);
+  };
+
   const ORDER = ["kye", "hr", "reg", "other"];
-  const validDocs = docs.filter((d) => d.file_path);
+  const validDocs = docs.filter((d) => d.file_path || d._stagedFile);
   const sorted = ORDER.flatMap((sKey) =>
     validDocs.filter((d) => (getMeta(d).section || "other") === sKey),
   );
 
   for (const doc of sorted) {
-    const url = fullUrl(doc.file_path);
-    const mime = doc.mime_type || doc.mimeType || "";
-    const ft = getFileType(doc.file_path, mime);
+    const mime = doc.mime_type || doc.mimeType || doc._stagedFile?.type || "";
+    // FIX: for file type detection, use the raw key (not the full URL) so the
+    // extension check in getFileType works correctly.
+    const pathForTypeDetection = doc._stagedFile
+      ? doc._stagedFile.name
+      : extractS3Key(doc.file_path || "");
+    const ft = doc._stagedFile
+      ? getFileType(doc._stagedFile.name, doc._stagedFile.type)
+      : getFileType(pathForTypeDetection, mime);
 
     try {
       if (ft === "pdf") {
-        // ── PDFs: fetch as ArrayBuffer ────────────────────────────────────
-        const bytes = await fetchPdfBytes(url);
+        const bytes = await getBytesForDoc(doc);
         const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
         const copied = await pdf.copyPages(src, src.getPageIndices());
         for (const p of copied) {
@@ -444,25 +666,23 @@ async function downloadAllAsPdf(docs, emp) {
           stampBar(p, doc);
         }
       } else if (ft === "image") {
-        // ── Images: multi-strategy fetch ─────────────────────────────────
-        // Strategy order: fetch+credentials → canvas+crossOrigin → error page
         let uint8;
         try {
-          uint8 = await getImageBytesWithFallback(url);
+          if (doc._stagedFile) {
+            const buf = await doc._stagedFile.arrayBuffer();
+            uint8 = new Uint8Array(buf);
+          } else {
+            // FIX: pass file_path directly — fetchBytesViaProxy handles URL extraction
+            uint8 = await getImageBytesWithFallback(doc.file_path);
+          }
         } catch (imgErr) {
-          console.error(
-            "[PDF] All image load strategies failed:",
-            imgErr.message,
-          );
           addErrorPage(doc, imgErr.message);
           continue;
         }
 
-        // Detect format by magic bytes
-        const isPng = uint8[0] === 0x89 && uint8[1] === 0x50; // \x89P
-        const isJpeg = uint8[0] === 0xff && uint8[1] === 0xd8; // \xFF\xD8
-        const isWebp = uint8[8] === 0x57 && uint8[9] === 0x45; // WEBP (bytes 8-11)
-
+        const isPng = uint8[0] === 0x89 && uint8[1] === 0x50;
+        const isJpeg = uint8[0] === 0xff && uint8[1] === 0xd8;
+        const isWebp = uint8[8] === 0x57 && uint8[9] === 0x45;
         let img;
         try {
           if (isPng) {
@@ -470,17 +690,15 @@ async function downloadAllAsPdf(docs, emp) {
           } else if (isJpeg) {
             img = await pdf.embedJpg(uint8);
           } else if (isWebp) {
-            // pdf-lib doesn't support WebP natively — convert via canvas
             const blob = new Blob([uint8], { type: "image/webp" });
             const blobUrl = URL.createObjectURL(blob);
             try {
-              const pngBytes = await loadImageViaCanvas(blobUrl);
+              const pngBytes = await convertBlobUrlViaCanvas(blobUrl);
               img = await pdf.embedPng(pngBytes);
             } finally {
               URL.revokeObjectURL(blobUrl);
             }
           } else {
-            // Unknown — try PNG first, then JPEG
             try {
               img = await pdf.embedPng(uint8);
             } catch {
@@ -488,15 +706,14 @@ async function downloadAllAsPdf(docs, emp) {
             }
           }
         } catch (embedErr) {
-          console.error("[PDF] Failed to embed image:", embedErr.message);
           addErrorPage(doc, "Image embed failed: " + embedErr.message);
           continue;
         }
 
         const { width: iW, height: iH } = img;
-        const PAD = 16;
-        const availW = W - PAD * 2;
-        const availH = H - BAR - PAD * 2;
+        const PAD = 16,
+          availW = W - PAD * 2,
+          availH = H - BAR - PAD * 2;
         const scale = Math.min(availW / iW, availH / iH, 1);
         const page = pdf.addPage([W, H]);
         page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: PAGEBG });
@@ -521,7 +738,11 @@ async function downloadAllAsPdf(docs, emp) {
         stampBar(page, doc);
       }
     } catch (err) {
-      console.error("[PDF] Unexpected error for doc:", doc.file_path, err);
+      console.error(
+        "[PDF] Unexpected error for doc:",
+        doc.file_path || doc._stagedFile?.name,
+        err,
+      );
       addErrorPage(doc, err.message);
     }
   }
@@ -599,11 +820,7 @@ const HRDropZone = ({
       }}
       onDragLeave={() => setDrag(false)}
       onDrop={handleDrop}
-      className={`border-2 border-dashed rounded-lg px-4 py-4 text-center cursor-pointer transition-all ${
-        drag
-          ? "border-blue-500 bg-blue-50"
-          : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50"
-      }`}
+      className={`border-2 border-dashed rounded-lg px-4 py-4 text-center cursor-pointer transition-all ${drag ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50"}`}
     >
       <div className="w-8 h-8 mx-auto mb-1.5 rounded-lg flex items-center justify-center bg-blue-100">
         <Icon className="w-4 h-4 text-blue-600" />
@@ -629,17 +846,40 @@ const HRDropZone = ({
 const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
   const [idx, setIdx] = useState(startIndex);
   const [imgError, setImgError] = useState(false);
+  const [presignedUrls, setPresignedUrls] = useState({});
 
   const doc = docs[idx];
   const mime = doc?.mime_type || doc?.mimeType || "";
-  const url = fullUrl(doc?.file_path);
+  // FIX: use extractS3Key as the cache key so we don't double-cache
+  // the same file under both its raw key and full URL forms
+  const cacheKey = doc?.file_path ? extractS3Key(doc.file_path) : null;
+  const url = (cacheKey && presignedUrls[cacheKey]) || null;
   const ft = getFileType(doc?.file_path, mime);
   const meta = DOC_TYPE_META[doc?.document_type] || DOC_TYPE_META.other;
   const label = doc?._regLabel || meta.label;
 
   useEffect(() => {
+    // FIX: normalise all file_path values to raw keys for consistent caching
+    const unresolved = docs
+      .map((d) => d?.file_path)
+      .filter((k) => k)
+      .map((k) => extractS3Key(k))
+      .filter((k) => k && !presignedUrls[k]);
+
+    if (!unresolved.length) return;
+    Promise.all(unresolved.map((k) => getPresignedUrl(k).then((u) => [k, u])))
+      .then((pairs) => {
+        const entries = Object.fromEntries(pairs.filter(([, u]) => u));
+        if (Object.keys(entries).length)
+          setPresignedUrls((prev) => ({ ...prev, ...entries }));
+      })
+      .catch(() => {});
+  }, [docs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     setImgError(false);
   }, [idx]);
+
   useEffect(() => {
     const h = (e) => {
       if (e.key === "Escape") onClose();
@@ -767,7 +1007,9 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
           style={{ background: "rgba(0,0,0,0.65)" }}
         >
           {docs.map((d, i) => {
-            const u = fullUrl(d.file_path);
+            // FIX: use the extracted key as cache key for thumbnail lookup
+            const thumbKey = d.file_path ? extractS3Key(d.file_path) : null;
+            const u = (thumbKey && presignedUrls[thumbKey]) || null;
             const ft2 = getFileType(
               d.file_path,
               d.mime_type || d.mimeType || "",
@@ -804,10 +1046,18 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
 const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
   const meta = DOC_TYPE_META[doc.document_type] || DOC_TYPE_META.other;
   const Icon = meta.icon;
-  const url = fullUrl(doc.file_path);
   const mime = doc.mime_type || doc.mimeType || "";
   const ft = getFileType(doc.file_path, mime);
   const label = doc._regLabel || meta.label;
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    if (!doc.file_path) return;
+    // FIX: getPresignedUrl handles both raw keys and full URLs internally
+    getPresignedUrl(doc.file_path)
+      .then(setUrl)
+      .catch(() => {});
+  }, [doc.file_path]);
 
   return (
     <div
@@ -815,6 +1065,7 @@ const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
       style={{ background: meta.bg, borderColor: meta.border }}
     >
       <div className="flex items-center gap-3 px-4 py-3">
+        {/* Thumbnail */}
         <div
           className="w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 flex items-center justify-center"
           style={{
@@ -849,6 +1100,7 @@ const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
           )}
         </div>
 
+        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-sm font-bold text-gray-900 truncate">{label}</p>
@@ -896,6 +1148,7 @@ const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
           )}
         </div>
 
+        {/* Actions */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {url && onView && (
             <button
@@ -948,7 +1201,6 @@ const KyeEditModal = ({ doc, empId, onClose, onSaved, onDeleted }) => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
-
   const isNew = !doc;
 
   const handleSave = async () => {
@@ -965,13 +1217,14 @@ const KyeEditModal = ({ doc, empId, onClose, onSaved, onDeleted }) => {
         ? `${BASE_API}/employee-docs/hr-kye-upload/${empId}`
         : `${BASE_API}/employee-docs/kye/${doc.id}`;
       const method = isNew ? "POST" : "PUT";
-      const res = await fetch(url, { method, body: fd });
+      const res = await fetch(url, {
+        method,
+        body: fd,
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
-      if (data.success) {
-        onSaved(data.data);
-      } else {
-        setError(data.message || "Failed to save.");
-      }
+      if (data.success) onSaved(data.data);
+      else setError(data.message || "Failed to save.");
     } catch {
       setError("Cannot connect to server.");
     } finally {
@@ -992,13 +1245,11 @@ const KyeEditModal = ({ doc, empId, onClose, onSaved, onDeleted }) => {
     try {
       const res = await fetch(`${BASE_API}/employee-docs/kye/${doc.id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
       const data = await res.json();
-      if (data.success) {
-        onDeleted(doc.id);
-      } else {
-        setError(data.message || "Failed to delete.");
-      }
+      if (data.success) onDeleted(doc.id);
+      else setError(data.message || "Failed to delete.");
     } catch {
       setError("Cannot connect to server.");
     } finally {
@@ -1102,7 +1353,7 @@ const KyeEditModal = ({ doc, empId, onClose, onSaved, onDeleted }) => {
                   <Loader size={14} className="animate-spin" />
                 ) : (
                   <Trash2 size={14} />
-                )}
+                )}{" "}
                 Delete
               </button>
             )}
@@ -1120,7 +1371,7 @@ const KyeEditModal = ({ doc, empId, onClose, onSaved, onDeleted }) => {
   );
 };
 
-// ── Registration Docs Section ─────────────────────────────────────────────────
+// ── Registration Docs Sub-Section ─────────────────────────────────────────────
 const RegDocsSubSection = ({ regDocs, allViewableDocsRef, onView }) => {
   const [open, setOpen] = useState(true);
 
@@ -1129,8 +1380,7 @@ const RegDocsSubSection = ({ regDocs, allViewableDocsRef, onView }) => {
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-2">
         <AlertCircle size={14} className="text-amber-500 flex-shrink-0" />
         <p className="text-xs text-amber-700">
-          No registration documents (photo, Aadhaar, PAN, passbook) found for
-          this employee.
+          No registration documents found for this employee.
         </p>
       </div>
     );
@@ -1184,7 +1434,6 @@ export const DocsModal = ({ emp, onClose }) => {
   const [lightbox, setLightbox] = useState(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState("");
-
   const [hrFiles, setHrFiles] = useState({
     bgv_form: null,
     email_screenshot: null,
@@ -1193,15 +1442,15 @@ export const DocsModal = ({ emp, onClose }) => {
   const [hrUploadErr, setHrUploadErr] = useState("");
   const [hrSavedDocs, setHrSavedDocs] = useState([]);
   const [hrDocsLoading, setHrDocsLoading] = useState(true);
-
   const [regDocs, setRegDocs] = useState([]);
   const [regDocsLoading, setRegDocsLoading] = useState(true);
-
   const [kyeEditDoc, setKyeEditDoc] = useState(undefined);
 
   const fetchKyeDocs = useCallback(() => {
     setLoading(true);
-    fetch(`${BASE_API}/employee-docs/submissions/${emp.id}`)
+    fetch(`${BASE_API}/employee-docs/submissions/${emp.id}`, {
+      headers: getAuthHeaders(),
+    })
       .then((r) => r.json())
       .then((data) => {
         if (data.success) setDocs(data.data || []);
@@ -1217,14 +1466,15 @@ export const DocsModal = ({ emp, onClose }) => {
 
   useEffect(() => {
     setHrDocsLoading(true);
-    fetch(`${BASE_API}/employee-docs/hr-uploads/${emp.id}`)
+    fetch(`${BASE_API}/employee-docs/hr-uploads/${emp.id}`, {
+      headers: getAuthHeaders(),
+    })
       .then((r) => r.json())
       .then((data) => {
-        if (data.success) {
+        if (data.success)
           setHrSavedDocs(
             (data.data || []).map((d) => ({ ...d, _isHRUpload: true })),
           );
-        }
       })
       .catch(() => {})
       .finally(() => setHrDocsLoading(false));
@@ -1232,12 +1482,18 @@ export const DocsModal = ({ emp, onClose }) => {
 
   useEffect(() => {
     setRegDocsLoading(true);
-    fetch(`${BASE_API}/employees/${emp.id}`)
+    fetch(`${BASE_API}/employees/${emp.id}`, {
+      headers: getAuthHeaders(),
+    })
       .then((r) => r.json())
       .then((data) => {
         if (data.success && data.data?.documents) {
           const mapped = (data.data.documents || [])
             .map((d) => {
+              // FIX: employeeController.resolveDocUrls() may have already
+              // converted raw S3 keys to full HTTPS URLs. We store the
+              // file_path as-is — fetchBytesViaProxy and getPresignedUrl
+              // will extract the raw key internally via extractS3Key().
               const filePath =
                 d.file_path || d.filePath || d.path || d.url || "";
               const docType =
@@ -1276,9 +1532,23 @@ export const DocsModal = ({ emp, onClose }) => {
       d.document_type === "signed_kye",
   );
 
+  const uploadedHRTypes = new Set(hrSavedDocs.map((d) => d.document_type));
+  const stagedHRDocs = HR_UPLOAD_TYPES.filter(
+    ({ key }) => hrFiles[key] && !uploadedHRTypes.has(key),
+  ).map(({ key, label }) => ({
+    _stagedFile: hrFiles[key],
+    document_type: key,
+    file_path: null,
+    file_name: hrFiles[key].name,
+    mime_type: hrFiles[key].type,
+    _isHRUpload: true,
+    _regLabel: label,
+  }));
+
   const allViewableDocs = [
     ...kyeDocs,
     ...hrSavedDocs.filter((d) => d.file_path),
+    ...stagedHRDocs,
     ...regDocs,
   ];
 
@@ -1288,7 +1558,7 @@ export const DocsModal = ({ emp, onClose }) => {
       .join(" ") || "Employee";
 
   const handleDownloadAllPdf = async () => {
-    if (allViewableDocs.length === 0) return;
+    if (!allViewableDocs.length) return;
     setPdfError("");
     setPdfDownloading(true);
     try {
@@ -1321,14 +1591,14 @@ export const DocsModal = ({ emp, onClose }) => {
       const res = await fetch(`${BASE_API}/employee-docs/hr-upload/${emp.id}`, {
         method: "POST",
         body: fd,
+        headers: getAuthHeaders(),
       });
       const data = await res.json();
       if (data.success) {
-        const saved = (data.data || []).map((d) => ({
-          ...d,
-          _isHRUpload: true,
-        }));
-        setHrSavedDocs((prev) => [...prev, ...saved]);
+        setHrSavedDocs((prev) => [
+          ...prev,
+          ...(data.data || []).map((d) => ({ ...d, _isHRUpload: true })),
+        ]);
         setHrFiles({ bgv_form: null, email_screenshot: null });
       } else {
         setHrUploadErr(data.message || "Upload failed.");
@@ -1348,7 +1618,10 @@ export const DocsModal = ({ emp, onClose }) => {
     try {
       const res = await fetch(
         `${BASE_API}/employee-docs/hr-uploads/${doc.id}`,
-        { method: "DELETE" },
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        },
       );
       const data = await res.json();
       if (data.success)
@@ -1359,24 +1632,25 @@ export const DocsModal = ({ emp, onClose }) => {
     }
   };
 
-  const handleKyeSaved = (_savedDoc) => {
+  const handleKyeSaved = () => {
     setKyeEditDoc(undefined);
     fetchKyeDocs();
   };
-  const handleKyeDeleted = (deletedId) => {
+  const handleKyeDeleted = (delId) => {
     setKyeEditDoc(undefined);
-    setDocs((prev) => prev.filter((d) => d.id !== deletedId));
+    setDocs((prev) => prev.filter((d) => d.id !== delId));
   };
 
-  const uploadedTypes = new Set(hrSavedDocs.map((d) => d.document_type));
   const pendingHRTypes = HR_UPLOAD_TYPES.filter(
-    (t) => !uploadedTypes.has(t.key),
+    (t) => !uploadedHRTypes.has(t.key),
   );
 
   const firstName = emp.first_name || "";
   const lastName = emp.last_name || "";
   const initials = `${firstName[0] || "?"}${lastName[0] || ""}`.toUpperCase();
   const isAnyLoading = loading || hrDocsLoading || regDocsLoading;
+
+  const stagedCount = stagedHRDocs.length;
   const totalDocCount = allViewableDocs.length;
 
   return (
@@ -1447,7 +1721,7 @@ export const DocsModal = ({ emp, onClose }) => {
               >
                 <CheckCheck size={11} /> {kyeDocs.length} KYE
               </span>
-              {hrSavedDocs.length > 0 && (
+              {(hrSavedDocs.length > 0 || stagedCount > 0) && (
                 <span
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
                   style={{
@@ -1456,7 +1730,15 @@ export const DocsModal = ({ emp, onClose }) => {
                     border: "1px solid rgba(139,92,246,0.3)",
                   }}
                 >
-                  <Shield size={11} /> {hrSavedDocs.length} HR
+                  <Shield size={11} /> {hrSavedDocs.length + stagedCount} HR
+                  {stagedCount > 0 && (
+                    <span
+                      className="text-amber-300 ml-1"
+                      title="Staged (not yet uploaded to server)"
+                    >
+                      ({stagedCount} staged)
+                    </span>
+                  )}
                 </span>
               )}
               {regDocs.length > 0 && (
@@ -1482,7 +1764,7 @@ export const DocsModal = ({ emp, onClose }) => {
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {/* Section 1: KYE docs */}
+            {/* KYE docs */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1541,6 +1823,7 @@ export const DocsModal = ({ emp, onClose }) => {
                         ) {
                           fetch(`${BASE_API}/employee-docs/kye/${d.id}`, {
                             method: "DELETE",
+                            headers: getAuthHeaders(),
                           })
                             .then((r) => r.json())
                             .then((data) => {
@@ -1559,7 +1842,7 @@ export const DocsModal = ({ emp, onClose }) => {
               )}
             </div>
 
-            {/* Section 2: HR uploaded docs */}
+            {/* HR uploaded docs */}
             {hrDocsLoading ? (
               <div className="flex items-center gap-2 py-3 text-gray-400">
                 <Loader size={14} className="animate-spin" />
@@ -1587,7 +1870,7 @@ export const DocsModal = ({ emp, onClose }) => {
               )
             )}
 
-            {/* Section 3: Registration docs */}
+            {/* Registration docs */}
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <User size={12} className="text-amber-500" /> Registration
@@ -1609,7 +1892,7 @@ export const DocsModal = ({ emp, onClose }) => {
               )}
             </div>
 
-            {/* Section 4: HR upload panel */}
+            {/* HR upload panel */}
             {!hrDocsLoading && pendingHRTypes.length > 0 && (
               <div className="rounded-xl border border-violet-200 overflow-hidden">
                 <div
@@ -1627,6 +1910,23 @@ export const DocsModal = ({ emp, onClose }) => {
                   </span>
                 </div>
                 <div className="p-4 space-y-4 bg-violet-50">
+                  {stagedCount > 0 && (
+                    <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <AlertCircle
+                        size={13}
+                        className="text-amber-500 flex-shrink-0"
+                      />
+                      <p className="text-xs text-amber-700">
+                        <strong>
+                          {stagedCount} staged file{stagedCount > 1 ? "s" : ""}
+                        </strong>{" "}
+                        will be included in the PDF even before uploading to the
+                        server. Click{" "}
+                        <strong>"Upload Selected Documents"</strong> to save
+                        them permanently.
+                      </p>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {pendingHRTypes.map(({ key, label, icon, accept }) => (
                       <div key={key}>
@@ -1703,7 +2003,14 @@ export const DocsModal = ({ emp, onClose }) => {
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <span>{kyeDocs.length} KYE</span>
               <span className="text-gray-300">·</span>
-              <span>{hrSavedDocs.length} HR</span>
+              <span>
+                {hrSavedDocs.length} HR
+                {stagedCount > 0 && (
+                  <span className="text-amber-500 font-semibold ml-1">
+                    +{stagedCount} staged
+                  </span>
+                )}
+              </span>
               <span className="text-gray-300">·</span>
               <span>{regDocs.length} Reg</span>
               <span className="text-gray-300">·</span>
@@ -1766,7 +2073,9 @@ const ReviewedDocsSection = ({ showToast }) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BASE_API}/employee-docs/reviewed`);
+      const res = await fetch(`${BASE_API}/employee-docs/reviewed`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (data.success) setEmployees(data.data || []);
       else setError(data.message || "Failed to load");
@@ -1828,7 +2137,7 @@ const ReviewedDocsSection = ({ showToast }) => {
               onClick={() => setCollapsed((p) => !p)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all"
             >
-              {collapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+              {collapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}{" "}
               {collapsed ? "Show" : "Hide"}
             </button>
           </div>
@@ -1887,10 +2196,10 @@ const ReviewedDocsSection = ({ showToast }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">
-                            {firstName}{" "}
+                            {firstName}
                             {emp.father_husband_name
-                              ? emp.father_husband_name + " "
-                              : ""}
+                              ? ` ${emp.father_husband_name} `
+                              : ` `}
                             {lastName}
                           </p>
                           <p className="text-xs text-gray-500 truncate">
@@ -1937,44 +2246,3 @@ const ReviewedDocsSection = ({ showToast }) => {
 };
 
 export default ReviewedDocsSection;
-
-/*
- * ═══════════════════════════════════════════════════════════════════════════
- * ROOT CAUSE & FIX SUMMARY
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * THE PROBLEM:
- *   "SecurityError: Failed to execute 'toDataURL' on 'HTMLCanvasElement':
- *    Tainted canvases may not be exported."
- *
- *   This happens because the browser fetched the image without CORS headers,
- *   which "taints" the canvas. Once tainted, toDataURL() / toBlob() throw.
- *
- * THE FIX (frontend — this file):
- *   getImageBytesWithFallback() now tries two strategies in order:
- *
- *   1. fetch() + credentials:'include'  ← needs backend CORS fix below
- *   2. <img crossOrigin="anonymous"> → canvas → Blob
- *      ← needs Access-Control-Allow-Origin: * or matching origin (no credentials)
- *
- *   If both fail (server sends no CORS headers at all), an error page is
- *   embedded in the PDF instead of crashing the whole download.
- *   WebP images are also handled via canvas conversion since pdf-lib
- *   doesn't support WebP natively.
- *
- * THE FIX (backend — REQUIRED for strategy 1):
- *   In your Express app, add this BEFORE express.static for /uploads:
- *
- *   import { uploadsCorsMw } from './middleware/employeeMng/employeeDocMiddleware.js';
- *   app.use('/uploads', uploadsCorsMw);
- *   app.use('/uploads', express.static(path.join(PROJECT_ROOT, 'uploads')));
- *
- *   The uploadsCorsMw middleware is already written in employeeDocMiddleware.js.
- *   Just wire it up in your main server file. That's the only backend change needed.
- *
- * QUICK TEST:
- *   curl -I -H "Origin: http://localhost:3000" http://your-backend/uploads/some-image.jpg
- *   You should see: Access-Control-Allow-Origin: http://localhost:3000
- *                   Access-Control-Allow-Credentials: true
- * ═══════════════════════════════════════════════════════════════════════════
- */
