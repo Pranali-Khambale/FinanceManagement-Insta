@@ -16,6 +16,11 @@ import {
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
+   Roles that require Medical Certificate + FARM-ToCli
+───────────────────────────────────────────── */
+const FARM_TOCLI_ROLES = ["DT Engineer", "Rigger", "Technician"];
+
+/* ─────────────────────────────────────────────
    DocumentCard — reusable upload card
 ───────────────────────────────────────────── */
 const DocumentCard = ({
@@ -36,7 +41,6 @@ const DocumentCard = ({
     const selected = e.target.files[0];
     if (!selected) return;
 
-    // Explicitly allow standard images and PDFs
     const validTypes = [
       "image/jpeg",
       "image/jpg",
@@ -78,7 +82,7 @@ const DocumentCard = ({
               : "border-dashed border-gray-300 hover:border-blue-400 bg-white hover:bg-blue-50/30"
         }`}
       >
-        {/* Badge (e.g. "Telecom Only") */}
+        {/* Badge (e.g. "DT Eng / Rigger / Technician") */}
         {badge && (
           <div className="absolute top-2 right-2 z-10">
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
@@ -199,7 +203,9 @@ const DocumentUploadStep = ({
   errors = {},
   onFileChange,
   department,
-  requiresFarmToCli = false, // true only for DT Engineer / Rigger / Technician
+  // requiresFarmToCli prop is now IGNORED in favour of auto-detection below.
+  // Kept in the signature so existing call-sites don't break.
+  requiresFarmToCli: requiresFarmToCliProp,
 }) => {
   const iconCls =
     "w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors";
@@ -209,6 +215,16 @@ const DocumentUploadStep = ({
     .toLowerCase()
     .trim();
   const isTelecom = rawDept === "telecom";
+
+  // ── Derive Farm-ToCli requirement from the selected designation ──────────
+  // Matches against formData.position (the field name used throughout the app).
+  // Only applicable when the department is Telecom.
+  const selectedDesignation = (formData?.position || "").toString().trim();
+  const requiresFarmToCli =
+    isTelecom &&
+    FARM_TOCLI_ROLES.some(
+      (role) => role.toLowerCase() === selectedDesignation.toLowerCase(),
+    );
 
   return (
     <div className="space-y-8">
@@ -302,7 +318,6 @@ const DocumentUploadStep = ({
           Identity &amp; Personal Documents
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Mandatory for ALL departments */}
           <DocumentCard
             title="Employee Photo"
             fieldName="idPhoto"
@@ -355,7 +370,7 @@ const DocumentUploadStep = ({
           KYE Form Documents
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* ✅ Medical Certificate — mandatory ONLY for DT Engineer / Rigger / Technician */}
+          {/* Medical Certificate — shown always; mandatory only for DT Eng / Rigger / Technician in Telecom */}
           <DocumentCard
             title="Medical Certificate"
             fieldName="medicalCertificate"
@@ -411,7 +426,7 @@ const DocumentUploadStep = ({
             onFileChange={onFileChange}
           />
 
-          {/* ✅ FARM-ToCli — shown AND required ONLY for DT Engineer / Rigger / Technician */}
+          {/* FARM-ToCli — rendered AND required ONLY for DT Engineer / Rigger / Technician in Telecom */}
           {requiresFarmToCli && (
             <DocumentCard
               title="FARM-ToCli Certificate"
