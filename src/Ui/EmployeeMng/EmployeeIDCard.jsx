@@ -796,7 +796,7 @@ const PhotoBox = ({
             display: "block",
           }}
           alt="Employee"
-          crossOrigin="anonymous"
+        
           onError={() => {
             if (manualPhoto) return; // data URL shouldn't fail; ignore
             setProxyFailed(true);

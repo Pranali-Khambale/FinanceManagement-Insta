@@ -11,10 +11,73 @@ import {
 import employeeService from '../../services/employeeService';
 import { printKYEForm } from './KYEPrintForm';
 import { BASE_URL as BASE_API } from '../../api/client';
-const BASE_URL = BASE_API.replace('/api', '');
 
-//
-// ─── Utilities ────────────────────────────────────────────────────────────────
+const BASE_URL          = BASE_API.replace('/api', '');
+const BASE_URL_NO_API   = BASE_URL; // alias for clarity
+
+// ══════════════════════════════════════════════════════════════════════════════
+// S3 PRESIGNED-URL CACHE + ASYNC RESOLVER
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** In-memory cache: S3 key → { url, expiresAt } */
+const _presignCache = new Map();
+
+/**
+ * getDocUrl(keyOrPath)
+ *
+ * Converts any stored file_path into a URL the browser can load:
+ *   • Already http(s)://  → returned as-is
+ *   • Starts with /       → legacy local path → prepend server base URL
+ *   • Anything else       → treated as S3 key → fetch a presigned URL
+ *
+ * Presigned URLs are cached for 50 minutes (backend signs for 3 600 s).
+ * Returns null for falsy input.
+ */
+async function getDocUrl(keyOrPath) {
+  if (!keyOrPath) return null;
+  if (keyOrPath.startsWith('https://') || keyOrPath.startsWith('http://'))
+    return keyOrPath;
+  if (keyOrPath.startsWith('/'))
+    return `${BASE_URL_NO_API}${keyOrPath}`;
+
+  // S3 key — check cache
+  const now    = Date.now();
+  const cached = _presignCache.get(keyOrPath);
+  if (cached && cached.expiresAt > now) return cached.url;
+
+  try {
+    const res  = await fetch(
+      `${BASE_API}/employees/s3/presign?key=${encodeURIComponent(keyOrPath)}`
+    );
+    const data = await res.json();
+    if (data.success && data.url) {
+      _presignCache.set(keyOrPath, { url: data.url, expiresAt: now + 50 * 60 * 1000 });
+      return data.url;
+    }
+  } catch (e) {
+    console.warn('[getDocUrl] presign fetch failed:', e.message);
+  }
+  return null;
+}
+
+/**
+ * Synchronous version — returns cached presigned URL or a legacy URL.
+ * Use only as an initial value in useState(); always follow up with getDocUrl().
+ */
+function fullUrl(keyOrPath) {
+  if (!keyOrPath) return null;
+  if (keyOrPath.startsWith('https://') || keyOrPath.startsWith('http://'))
+    return keyOrPath;
+  if (keyOrPath.startsWith('/'))
+    return `${BASE_URL_NO_API}${keyOrPath}`;
+  // S3 key — return cached value (may be null if not yet fetched)
+  return _presignCache.get(keyOrPath)?.url ?? null;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════════════════
+
 const formatDate = (d) => {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -29,8 +92,6 @@ const formatDateShort = (d) => {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 };
-const fullUrl = (path) =>
-  !path ? null : path.startsWith('http') ? path : `${BASE_URL}${path}`;
 const getFileType = (path, mime) => {
   const p = (path || '').toLowerCase();
   const m = (mime || '').toLowerCase();
@@ -39,12 +100,25 @@ const getFileType = (path, mime) => {
   return 'other';
 };
 
-// ─── Document type metadata ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// DOCUMENT TYPE METADATA
+// ══════════════════════════════════════════════════════════════════════════════
+
 const DOC_META = {
   signed_kye: {
     label: 'Signed KYE Form',
     icon: FileText,
     color: { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', dot: '#3b82f6' },
+  },
+  bgv_form: {
+    label: 'BGV Form',
+    icon: Shield,
+    color: { bg: '#f5f3ff', border: '#ddd6fe', text: '#6d28d9', dot: '#7c3aed' },
+  },
+  email_screenshot: {
+    label: 'Approval Email Screenshot',
+    icon: Camera,
+    color: { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', dot: '#22c55e' },
   },
   other: {
     label: 'Other Document',
@@ -53,7 +127,10 @@ const DOC_META = {
   },
 };
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// AVATAR
+// ══════════════════════════════════════════════════════════════════════════════
+
 const Avatar = ({ firstName, lastName, size = 'md' }) => {
   const initials = `${(firstName?.[0] || 'N').toUpperCase()}${(lastName?.[0] || 'A').toUpperCase()}`;
   const sizes = { sm: 'w-9 h-9 text-sm', md: 'w-12 h-12 text-base', lg: 'w-16 h-16 text-xl' };
@@ -70,16 +147,28 @@ const Avatar = ({ firstName, lastName, size = 'md' }) => {
   );
 };
 
-// ─── Doc Lightbox ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// DOC LIGHTBOX  (async presign-aware)
+// ══════════════════════════════════════════════════════════════════════════════
+
 const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
-  const [idx, setIdx]           = useState(startIndex);
-  const [imgError, setImgError] = useState(false);
+  const [idx,          setIdx]         = useState(startIndex);
+  const [imgError,     setImgError]    = useState(false);
+  const [resolvedUrl,  setResolvedUrl] = useState(null);
 
-  const doc      = docs[idx];
-  const url      = fullUrl(doc?.file_path || doc?.path);
-  const fileType = getFileType(doc?.file_path || doc?.path, doc?.mime_type);
+  const doc     = docs[idx];
+  const rawPath = doc?.file_path || doc?.path;
+  const fileType = getFileType(rawPath, doc?.mime_type);
 
-  useEffect(() => { setImgError(false); }, [idx]);
+  // Resolve presigned URL whenever the active doc changes
+  useEffect(() => {
+    setImgError(false);
+    setResolvedUrl(null);
+    getDocUrl(rawPath).then(setResolvedUrl);
+  }, [idx, rawPath]);
+
+  const url = resolvedUrl;
+
   useEffect(() => {
     const h = (e) => {
       if (e.key === 'Escape')     onClose();
@@ -90,11 +179,30 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
     return () => window.removeEventListener('keydown', h);
   }, [docs.length, onClose]);
 
+  // Show spinner while presign URL is being fetched for an S3 key
+  if (
+    !url &&
+    rawPath &&
+    !rawPath.startsWith('http') &&
+    !rawPath.startsWith('/')
+  ) {
+    return (
+      <div
+        className="fixed inset-0 z-[400] flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.93)' }}
+      >
+        <Loader className="w-8 h-8 text-blue-300 animate-spin" />
+      </div>
+    );
+  }
+  if (!url) return null;
+
   const meta = DOC_META[doc?.document_type] || DOC_META.other;
   const Icon = meta.icon;
 
   return (
     <div className="fixed inset-0 z-[400] flex flex-col" style={{ background: 'rgba(0,0,0,0.95)' }}>
+      {/* Header */}
       <div
         className="flex items-center justify-between px-6 py-3 flex-shrink-0"
         style={{ background: 'linear-gradient(90deg,#0f172a,#1e3a5f)' }}
@@ -109,80 +217,79 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {url && (
-            <>
-              <a href={url} download target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium transition-all border border-white/10">
-                <Download className="w-3.5 h-3.5" /> Download
-              </a>
-              <a href={url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium transition-all border border-white/10">
-                <ExternalLink className="w-3.5 h-3.5" /> Open
-              </a>
-            </>
-          )}
+          <a href={url} download target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium border border-white/10">
+            <Download className="w-3.5 h-3.5" /> Download
+          </a>
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium border border-white/10">
+            <ExternalLink className="w-3.5 h-3.5" /> Open
+          </a>
           <button onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-900 rounded-lg text-xs font-bold hover:bg-blue-50 transition-all ml-2">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-900 rounded-lg text-xs font-bold hover:bg-blue-50 ml-2">
             <XIcon className="w-3.5 h-3.5" /> Close
           </button>
         </div>
       </div>
 
+      {/* Content */}
       <div className="flex-1 flex items-center justify-center relative overflow-hidden p-6">
         {idx > 0 && (
           <button onClick={() => setIdx(i => i - 1)}
-            className="absolute left-4 z-10 w-11 h-11 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white transition-all border border-white/10">
+            className="absolute left-4 z-10 w-11 h-11 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white border border-white/10">
             <ChevronLeft className="w-6 h-6" />
           </button>
         )}
-        {fileType === 'pdf' && url && (
+        {fileType === 'pdf' && (
           <iframe src={url} title={meta.label} className="w-full rounded-xl shadow-2xl bg-white"
             style={{ height: 'calc(100vh - 140px)', maxWidth: '960px' }} />
         )}
-        {fileType === 'image' && url && !imgError && (
+        {fileType === 'image' && !imgError && (
           <img src={url} alt={meta.label}
             className="rounded-xl shadow-2xl object-contain"
             style={{ maxHeight: 'calc(100vh - 140px)', maxWidth: '100%' }}
             onError={() => setImgError(true)} />
         )}
-        {(fileType === 'other' || (fileType === 'image' && imgError) || !url) && (
+        {(fileType === 'other' || (fileType === 'image' && imgError)) && (
           <div className="text-center text-white space-y-4">
             <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mx-auto">
               <FileText className="w-10 h-10 opacity-50" />
             </div>
             <p className="text-lg font-semibold opacity-70">Preview not available</p>
-            {url && (
-              <a href={url} download
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold transition-all">
-                <Download className="w-4 h-4" /> Download File
-              </a>
-            )}
+            <a href={url} download
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold">
+              <Download className="w-4 h-4" /> Download File
+            </a>
           </div>
         )}
         {idx < docs.length - 1 && (
           <button onClick={() => setIdx(i => i + 1)}
-            className="absolute right-4 z-10 w-11 h-11 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white transition-all border border-white/10">
+            className="absolute right-4 z-10 w-11 h-11 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white border border-white/10">
             <ChevronRight className="w-6 h-6" />
           </button>
         )}
       </div>
 
+      {/* Thumbnail strip */}
       {docs.length > 1 && (
         <div className="flex-shrink-0 flex items-center gap-2 px-6 py-3 overflow-x-auto"
           style={{ background: 'rgba(0,0,0,0.7)' }}>
           {docs.map((d, i) => {
-            const u  = fullUrl(d.file_path || d.path);
+            const m = DOC_META[d.document_type] || DOC_META.other;
+            const I = m.icon;
+            const thumbUrl = fullUrl(d.file_path || d.path);
             const ft = getFileType(d.file_path || d.path, d.mime_type);
-            const m  = DOC_META[d.document_type] || DOC_META.other;
-            const I  = m.icon;
             return (
               <button key={i} onClick={() => setIdx(i)}
                 className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
                   i === idx ? 'border-blue-400 scale-110' : 'border-white/20 opacity-50 hover:opacity-80'
                 }`}>
-                {ft === 'image' && u
-                  ? <img src={u} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-                  : <div className="w-full h-full bg-slate-800 flex items-center justify-center"><I className="w-4 h-4 text-slate-400" /></div>}
+                {ft === 'image' && thumbUrl
+                  ? <img src={thumbUrl} alt="" className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }} />
+                  : <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                      <I className="w-4 h-4 text-slate-400" />
+                    </div>}
               </button>
             );
           })}
@@ -192,12 +299,20 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
   );
 };
 
-// ─── Single Document Row — VIEW + DOWNLOAD only (no per-doc accept/reject) ────
+// ══════════════════════════════════════════════════════════════════════════════
+// SINGLE DOCUMENT ROW  (async presign-aware)
+// ══════════════════════════════════════════════════════════════════════════════
+
 const DocViewRow = ({ doc, onView }) => {
-  const meta  = DOC_META[doc.document_type] || DOC_META.other;
-  const Icon  = meta.icon;
-  const url   = fullUrl(doc.file_path);
-  const ft    = getFileType(doc.file_path, doc.mime_type);
+  const meta = DOC_META[doc.document_type] || DOC_META.other;
+  const Icon = meta.icon;
+  const ft   = getFileType(doc.file_path, doc.mime_type);
+
+  // Resolve S3 presigned URL asynchronously
+  const [url, setUrl] = useState(() => fullUrl(doc.file_path));
+  useEffect(() => {
+    getDocUrl(doc.file_path).then(setUrl);
+  }, [doc.file_path]);
 
   const isAccepted = doc.status === 'accepted' || doc.reviewed === true;
   const isRejected = doc.status === 'rejected';
@@ -207,8 +322,8 @@ const DocViewRow = ({ doc, onView }) => {
     <div
       className="rounded-xl border transition-all"
       style={{
-        background: isAccepted ? '#f0fdf4' : isRejected ? '#fef2f2' : meta.color.bg,
-        borderColor: isAccepted ? '#bbf7d0' : isRejected ? '#fecaca' : meta.color.border,
+        background:   isAccepted ? '#f0fdf4' : isRejected ? '#fef2f2' : meta.color.bg,
+        borderColor:  isAccepted ? '#bbf7d0' : isRejected ? '#fecaca' : meta.color.border,
       }}
     >
       <div className="flex items-center gap-3 px-4 py-3">
@@ -225,8 +340,15 @@ const DocViewRow = ({ doc, onView }) => {
               <FileText className="w-5 h-5" style={{ color: meta.color.text }} />
               <span className="text-[8px] font-bold" style={{ color: meta.color.text }}>PDF</span>
             </div>
+          ) : url ? (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-0.5" style={{ background: meta.color.bg }}>
+              <Icon className="w-5 h-5" style={{ color: meta.color.text }} />
+            </div>
           ) : (
-            <Icon className="w-5 h-5" style={{ color: meta.color.text }} />
+            // Still loading / no URL yet
+            <div className="w-full h-full flex items-center justify-center" style={{ background: meta.color.bg }}>
+              <Loader className="w-4 h-4 animate-spin" style={{ color: meta.color.text }} />
+            </div>
           )}
         </div>
 
@@ -235,10 +357,8 @@ const DocViewRow = ({ doc, onView }) => {
           <div className="flex items-center gap-2 mb-0.5">
             <p className="text-sm font-bold text-gray-900 truncate">{meta.label}</p>
             {isPending && (
-              <span
-                className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{ background: meta.color.dot, color: '#fff' }}
-              >
+              <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: meta.color.dot, color: '#fff' }}>
                 PENDING
               </span>
             )}
@@ -264,25 +384,25 @@ const DocViewRow = ({ doc, onView }) => {
           )}
         </div>
 
-        {/* View + Download only */}
+        {/* Actions — view + download only */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {url && (
-            <button
-              onClick={() => onView(doc)}
-              className="w-9 h-9 rounded-lg flex items-center justify-center border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-all"
-              title="View document"
-            >
-              <Eye className="w-4 h-4 text-gray-500" />
-            </button>
-          )}
-          {url && (
-            <a
-              href={url} download target="_blank" rel="noopener noreferrer"
-              className="w-9 h-9 rounded-lg flex items-center justify-center border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all"
-              title="Download"
-            >
-              <Download className="w-4 h-4 text-gray-500" />
-            </a>
+          {url ? (
+            <>
+              <button onClick={() => onView(doc)}
+                className="w-9 h-9 rounded-lg flex items-center justify-center border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-all"
+                title="View document">
+                <Eye className="w-4 h-4 text-gray-500" />
+              </button>
+              <a href={url} download target="_blank" rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg flex items-center justify-center border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all"
+                title="Download">
+                <Download className="w-4 h-4 text-gray-500" />
+              </a>
+            </>
+          ) : (
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center border border-gray-100 bg-gray-50">
+              <Loader className="w-4 h-4 text-gray-400 animate-spin" />
+            </div>
           )}
         </div>
       </div>
@@ -290,7 +410,10 @@ const DocViewRow = ({ doc, onView }) => {
   );
 };
 
-// ─── Batch Action Bar ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// BATCH ACTION BAR
+// ══════════════════════════════════════════════════════════════════════════════
+
 const BatchActionBar = ({ docs, onAcceptAll, onRejectAll, accepting, rejecting }) => {
   const [showRejectBox, setShowRejectBox] = useState(false);
   const [reason, setReason]               = useState('');
@@ -309,14 +432,8 @@ const BatchActionBar = ({ docs, onAcceptAll, onRejectAll, accepting, rejecting }
   };
 
   return (
-    <div
-      className="rounded-xl border mb-3 overflow-hidden"
-      style={{
-        background: 'linear-gradient(90deg,#f8fafc,#f1f5f9)',
-        borderColor: '#e2e8f0',
-      }}
-    >
-      {/* Top bar */}
+    <div className="rounded-xl border mb-3 overflow-hidden"
+      style={{ background: 'linear-gradient(90deg,#f8fafc,#f1f5f9)', borderColor: '#e2e8f0' }}>
       <div className="flex items-center justify-between px-4 py-3 gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -327,82 +444,50 @@ const BatchActionBar = ({ docs, onAcceptAll, onRejectAll, accepting, rejecting }
             {docs.length} submitted
           </span>
         </div>
-
         <div className="flex items-center gap-2">
-          {/* Accept All */}
-          <button
-            onClick={onAcceptAll}
-            disabled={accepting || rejecting}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-bold disabled:opacity-50 transition-all shadow-sm hover:shadow-md active:scale-[0.97]"
-            style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)' }}
-          >
-            {accepting
-              ? <Loader className="w-3.5 h-3.5 animate-spin" />
-              : <CheckCheck className="w-3.5 h-3.5" />}
+          <button onClick={onAcceptAll} disabled={accepting || rejecting}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-bold disabled:opacity-50 shadow-sm hover:shadow-md active:scale-[0.97]"
+            style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)' }}>
+            {accepting ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <CheckCheck className="w-3.5 h-3.5" />}
             Accept All
           </button>
-
-          {/* Reject All */}
-          <button
-            onClick={() => setShowRejectBox(p => !p)}
-            disabled={accepting || rejecting}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-400 text-xs font-bold disabled:opacity-50 transition-all"
-          >
+          <button onClick={() => setShowRejectBox(p => !p)} disabled={accepting || rejecting}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-400 text-xs font-bold disabled:opacity-50">
             <XCircle className="w-3.5 h-3.5" />
             {showRejectBox ? 'Cancel' : 'Reject All'}
           </button>
         </div>
       </div>
-
-      {/* Inline reject reason box */}
       {showRejectBox && (
-        <div
-          className="px-4 pb-4 border-t border-red-100"
-          style={{ background: '#fff5f5', animation: 'fadeSlideIn 0.18s ease both' }}
-        >
+        <div className="px-4 pb-4 border-t border-red-100" style={{ background: '#fff5f5' }}>
           <p className="text-xs font-semibold text-red-700 mb-2 mt-3">
             Reason for rejecting all documents <span className="text-red-400 font-normal">(optional)</span>
           </p>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
-            placeholder="e.g. Documents are blurry, wrong files uploaded, incomplete submission…"
-            className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white text-xs text-gray-800 resize-none outline-none focus:border-red-400 mb-3"
-          />
+          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2}
+            placeholder="e.g. Documents are blurry, wrong files uploaded…"
+            className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white text-xs text-gray-800 resize-none outline-none focus:border-red-400 mb-3" />
           <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => { setShowRejectBox(false); setReason(''); }}
-              disabled={rejecting}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50"
-            >
+            <button onClick={() => { setShowRejectBox(false); setReason(''); }} disabled={rejecting}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">
               Cancel
             </button>
-            <button
-              onClick={handleRejectConfirm}
-              disabled={rejecting}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-50"
-            >
+            <button onClick={handleRejectConfirm} disabled={rejecting}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50">
               {rejecting ? <Loader className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
               Confirm Reject All
             </button>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-// ── SUBMITTED DOCS SECTION (inline in pending approval card) ─────────────────
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// SUBMITTED DOCS SECTION  (inline in pending approval card)
+// Shows AFTER approval when employee uploads signed KYE / BGV / screenshot
+// ══════════════════════════════════════════════════════════════════════════════
+
 const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
   const [docs,      setDocs]      = useState([]);
   const [loading,   setLoading]   = useState(false);
@@ -432,52 +517,42 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
     }
   }, [docsSubmitted, fetchDocs]);
 
-  // ── Accept ALL pending docs ────────────────────────────────────────────────
   const handleAcceptAll = async () => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
-    if (pending.length === 0) return;
+    if (!pending.length) return;
     setAccepting(true);
     try {
       await Promise.all(
         pending.map(doc =>
           fetch(`${BASE_API}/employee-docs/mark-reviewed/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
           })
         )
       );
-      setDocs(p =>
-        p.map(d => pending.find(pd => pd.id === d.id)
-          ? { ...d, reviewed: true, status: 'accepted' }
-          : d
-        )
-      );
+      setDocs(p => p.map(d =>
+        pending.find(pd => pd.id === d.id) ? { ...d, reviewed: true, status: 'accepted' } : d
+      ));
       showToast?.(`All ${pending.length} document${pending.length > 1 ? 's' : ''} accepted`, 'success');
     } catch { showToast?.('Failed to accept all documents', 'error'); }
     finally { setAccepting(false); }
   };
 
-  // ── Reject ALL pending docs with shared reason ────────────────────────────
   const handleRejectAll = async (reason) => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
-    if (pending.length === 0) return;
+    if (!pending.length) return;
     setRejecting(true);
     try {
       await Promise.all(
         pending.map(doc =>
           fetch(`${BASE_API}/employee-docs/reject-doc/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ rejection_reason: reason }),
           })
         )
       );
-      setDocs(p =>
-        p.map(d => pending.find(pd => pd.id === d.id)
-          ? { ...d, status: 'rejected', rejection_reason: reason }
-          : d
-        )
-      );
+      setDocs(p => p.map(d =>
+        pending.find(pd => pd.id === d.id) ? { ...d, status: 'rejected', rejection_reason: reason } : d
+      ));
       showToast?.(`All ${pending.length} document${pending.length > 1 ? 's' : ''} rejected`, 'success');
     } catch { showToast?.('Failed to reject all documents', 'error'); }
     finally { setRejecting(false); }
@@ -486,7 +561,6 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
   const pending = docs.filter(d => !d.reviewed && d.status !== 'rejected' && d.status !== 'accepted').length;
   const allDone = docs.length > 0 && pending === 0;
 
-  // ── No docs submitted yet — professional empty state ──────────────────────
   if (!docsSubmitted) {
     return (
       <div className="mx-5 mb-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-3">
@@ -515,7 +589,9 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
           onClick={() => setExpanded(p => !p)}
           className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all mb-2"
           style={{
-            background: allDone ? 'linear-gradient(90deg,#f0fdf4,#dcfce7)' : pending > 0 ? 'linear-gradient(90deg,#fefce8,#fef9c3)' : '#f8fafc',
+            background: allDone
+              ? 'linear-gradient(90deg,#f0fdf4,#dcfce7)'
+              : pending > 0 ? 'linear-gradient(90deg,#fefce8,#fef9c3)' : '#f8fafc',
             borderColor: allDone ? '#bbf7d0' : pending > 0 ? '#fde68a' : '#e2e8f0',
           }}
         >
@@ -537,7 +613,8 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={(e) => { e.stopPropagation(); fetchDocs(); }} className="p-1 rounded-md hover:bg-white/60 transition-all">
+            <button onClick={e => { e.stopPropagation(); fetchDocs(); }}
+              className="p-1 rounded-md hover:bg-white/60">
               <RefreshCw className="w-3.5 h-3.5 text-gray-500" />
             </button>
             {expanded ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
@@ -559,8 +636,6 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
                 <button onClick={fetchDocs} className="text-xs text-red-600 underline font-medium">Retry</button>
               </div>
             )}
-
-            {/* ── BATCH ACTION BAR at top of list ── */}
             {!loading && !error && docs.length > 0 && (
               <BatchActionBar
                 docs={docs}
@@ -570,16 +645,9 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
                 rejecting={rejecting}
               />
             )}
-
-            {/* ── Document rows (view + download only) ── */}
-            {!loading && !error && docs.map((doc) => (
-              <DocViewRow
-                key={doc.id}
-                doc={doc}
-                onView={(d) => setLightbox(docs.indexOf(d))}
-              />
+            {!loading && !error && docs.map(doc => (
+              <DocViewRow key={doc.id} doc={doc} onView={d => setLightbox(docs.indexOf(d))} />
             ))}
-
             {!loading && !error && docs.length > 0 && allDone && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
                 <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -595,9 +663,10 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
   );
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-// ── DOC REVIEW CARD (active employees who submitted docs after approval) ─────
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// DOC REVIEW CARD  (active employees who submitted docs after approval)
+// ══════════════════════════════════════════════════════════════════════════════
+
 const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
   const [docs,      setDocs]      = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -620,17 +689,15 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-  // ── Accept ALL pending ────────────────────────────────────────────────────
   const handleAcceptAll = async () => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
-    if (pending.length === 0) return;
+    if (!pending.length) return;
     setAccepting(true);
     try {
       await Promise.all(
         pending.map(doc =>
           fetch(`${BASE_API}/employee-docs/mark-reviewed/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
           })
         )
       );
@@ -645,17 +712,15 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
     finally { setAccepting(false); }
   };
 
-  // ── Reject ALL pending with shared reason ─────────────────────────────────
   const handleRejectAll = async (reason) => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
-    if (pending.length === 0) return;
+    if (!pending.length) return;
     setRejecting(true);
     try {
       await Promise.all(
         pending.map(doc =>
           fetch(`${BASE_API}/employee-docs/reject-doc/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ rejection_reason: reason }),
           })
         )
@@ -680,10 +745,9 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
         <DocLightbox docs={docs} startIndex={lightbox} onClose={() => setLightbox(null)} />
       )}
 
-      <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${
+      <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all overflow-hidden ${
         allDone ? 'border-green-200' : 'border-amber-200'
       }`}>
-        {/* Accent bar */}
         <div className="h-0.5 w-full" style={{
           background: allDone
             ? 'linear-gradient(90deg,#22c55e,#16a34a)'
@@ -694,9 +758,8 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
         <div className="px-5 pt-4 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3.5">
-              {/* ── Avatar with clean dot indicator (no Bell icon) ── */}
               <div className="relative">
-               <Avatar firstName={emp.first_name} lastName={emp.last_name} size="md" />
+                <Avatar firstName={emp.first_name} lastName={emp.last_name} size="md" />
                 <div
                   className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white"
                   style={{ background: allDone ? '#22c55e' : '#f59e0b' }}
@@ -735,14 +798,13 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
                 </div>
               </div>
             </div>
-
             <div className="flex items-center gap-2">
               <button onClick={fetchDocs}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-all text-xs">
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 text-xs">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
               <button onClick={() => setExpanded(p => !p)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition-all text-xs">
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 text-xs">
                 {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
             </div>
@@ -789,7 +851,6 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
             )}
             {!loading && !error && docs.length > 0 && (
               <div className="space-y-2">
-                {/* ── BATCH ACTION BAR ── */}
                 <BatchActionBar
                   docs={docs}
                   onAcceptAll={handleAcceptAll}
@@ -797,16 +858,9 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
                   accepting={accepting}
                   rejecting={rejecting}
                 />
-
-                {/* ── Doc rows (view + download only) ── */}
-                {docs.map((doc) => (
-                  <DocViewRow
-                    key={doc.id}
-                    doc={doc}
-                    onView={(d) => setLightbox(docs.indexOf(d))}
-                  />
+                {docs.map(doc => (
+                  <DocViewRow key={doc.id} doc={doc} onView={d => setLightbox(docs.indexOf(d))} />
                 ))}
-
                 {allDone && (
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border border-green-200 mt-1">
                     <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -827,15 +881,14 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
   );
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-// ── DOCUMENTS PENDING REVIEW SECTION ─────────────────────────────────────────
-// ═════════════════════════════════════════════════════════════════════════════
-// ✅ FIX: Added `onCountLoaded` prop — calls back with employee count after fetch
+// ══════════════════════════════════════════════════════════════════════════════
+// DOCUMENTS PENDING REVIEW SECTION
+// ══════════════════════════════════════════════════════════════════════════════
+
 const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
   const [employees, setEmployees] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
-  const [collapsed, setCollapsed] = useState(false);
 
   const fetchPendingDocs = useCallback(async () => {
     setLoading(true); setError('');
@@ -845,7 +898,6 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
       if (data.success) {
         const list = data.data || [];
         setEmployees(list);
-        // ✅ FIX: Report the real count up to the parent stats bar
         onCountLoaded?.(list.length);
       } else {
         setError(data.message || 'Failed to load');
@@ -863,7 +915,6 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
   const handleAllReviewed = (empId) => {
     setEmployees(prev => {
       const updated = prev.filter(e => e.id !== empId);
-      // ✅ FIX: Keep count in sync when an employee's docs are all reviewed
       onCountLoaded?.(updated.length);
       return updated;
     });
@@ -875,59 +926,68 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3" />
 
-      {!collapsed && (
-        <>
-          <div className="relative mb-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-dashed border-amber-200" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
-                style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}>
-                Signed Documents Received
-              </span>
-            </div>
+      <>
+        <div className="relative mb-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-dashed border-amber-200" />
           </div>
+          <div className="relative flex justify-center">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
+              style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}>
+              Signed Documents Received
+            </span>
+          </div>
+        </div>
 
-          {loading && (
-            <div className="flex items-center justify-center py-12 bg-white rounded-2xl border border-amber-100">
-              <Loader className="w-6 h-6 text-amber-500 animate-spin" />
-              <span className="text-sm text-gray-500 ml-3">Loading submitted documents…</span>
-            </div>
-          )}
-          {error && !loading && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-700 flex-1">{error}</p>
-              <button onClick={fetchPendingDocs}
-                className="px-3 py-1.5 bg-white border border-red-300 hover:bg-red-50 rounded-lg text-xs font-semibold text-red-600">
-                Retry
-              </button>
-            </div>
-          )}
-          {!loading && !error && (
-            <div className="space-y-4">
-              {employees.map(emp => (
-                <DocReviewCard key={emp.id} emp={emp} onAllReviewed={handleAllReviewed} showToast={showToast} />
-              ))}
-            </div>
-          )}
-        </>
-      )}
+        {loading && (
+          <div className="flex items-center justify-center py-12 bg-white rounded-2xl border border-amber-100">
+            <Loader className="w-6 h-6 text-amber-500 animate-spin" />
+            <span className="text-sm text-gray-500 ml-3">Loading submitted documents…</span>
+          </div>
+        )}
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-700 flex-1">{error}</p>
+            <button onClick={fetchPendingDocs}
+              className="px-3 py-1.5 bg-white border border-red-300 hover:bg-red-50 rounded-lg text-xs font-semibold text-red-600">
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && (
+          <div className="space-y-4">
+            {employees.map(emp => (
+              <DocReviewCard key={emp.id} emp={emp} onAllReviewed={handleAllReviewed} showToast={showToast} />
+            ))}
+          </div>
+        )}
+      </>
     </div>
   );
 };
 
-// ─── Lightbox for registration form documents ──────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// LIGHTBOX for registration-form documents  (async presign-aware)
+// ══════════════════════════════════════════════════════════════════════════════
+
 const Lightbox = ({ docs, startIndex = 0, onClose }) => {
-  const [idx, setIdx]           = useState(startIndex);
-  const [imgError, setImgError] = useState(false);
+  const [idx,         setIdx]        = useState(startIndex);
+  const [imgError,    setImgError]   = useState(false);
+  const [resolvedUrl, setResolvedUrl] = useState(null);
 
   const doc      = docs[idx];
-  const url      = fullUrl(doc?.path);
-  const fileType = getFileType(doc?.path, doc?.mime_type);
+  const rawPath  = doc?.path;
+  const fileType = getFileType(rawPath, doc?.mime_type);
 
-  useEffect(() => { setImgError(false); }, [idx]);
+  useEffect(() => {
+    setImgError(false);
+    setResolvedUrl(null);
+    getDocUrl(rawPath).then(setResolvedUrl);
+  }, [idx, rawPath]);
+
+  const url = resolvedUrl;
+
   useEffect(() => {
     const h = (e) => {
       if (e.key === 'Escape')     onClose();
@@ -938,6 +998,15 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
     return () => window.removeEventListener('keydown', h);
   }, [docs.length, onClose]);
 
+  // Show spinner while fetching presign URL for S3 key
+  if (!url && rawPath && !rawPath.startsWith('http') && !rawPath.startsWith('/')) {
+    return (
+      <div className="fixed inset-0 z-[300] flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.92)' }}>
+        <Loader className="w-8 h-8 text-blue-300 animate-spin" />
+      </div>
+    );
+  }
   if (!url) return null;
 
   return (
@@ -953,15 +1022,15 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
         </div>
         <div className="flex items-center gap-2">
           <a href={url} download target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-medium transition-all">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-medium">
             <Download className="w-3.5 h-3.5" /> Download
           </a>
           <a href={url} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-medium transition-all">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-medium">
             <ExternalLink className="w-3.5 h-3.5" /> Open Tab
           </a>
           <button onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-900 rounded-lg text-xs font-semibold hover:bg-blue-50 transition-all ml-1">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-900 rounded-lg text-xs font-semibold hover:bg-blue-50 ml-1">
             <XIcon className="w-3.5 h-3.5" /> Close
           </button>
         </div>
@@ -969,7 +1038,7 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
       <div className="flex-1 flex items-center justify-center relative overflow-hidden p-6">
         {idx > 0 && (
           <button onClick={() => setIdx(i => i - 1)}
-            className="absolute left-4 z-10 w-11 h-11 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white transition-all">
+            className="absolute left-4 z-10 w-11 h-11 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white">
             <ChevronLeft className="w-6 h-6" />
           </button>
         )}
@@ -990,14 +1059,14 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
             </div>
             <p className="text-lg font-semibold opacity-80">Preview not available</p>
             <a href={url} download
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold transition-all">
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold">
               <Download className="w-4 h-4" /> Download
             </a>
           </div>
         )}
         {idx < docs.length - 1 && (
           <button onClick={() => setIdx(i => i + 1)}
-            className="absolute right-4 z-10 w-11 h-11 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white transition-all">
+            className="absolute right-4 z-10 w-11 h-11 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white">
             <ChevronRight className="w-6 h-6" />
           </button>
         )}
@@ -1006,9 +1075,13 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
   );
 };
 
-// ─── Full Form Viewer Modal ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// FULL FORM VIEWER MODAL  (async presign-aware thumbnails)
+// ══════════════════════════════════════════════════════════════════════════════
+
 const FullFormViewer = ({ employee, onClose }) => {
-  const [lightbox, setLightbox] = useState(null);
+  const [lightbox,        setLightbox]        = useState(null);
+  const [resolvedDocUrls, setResolvedDocUrls] = useState({});
 
   const DOC_DEFS = [
     { type: 'idPhoto',            label: 'Employee Photo',      icon: <UserCircle className="w-4 h-4" /> },
@@ -1022,14 +1095,26 @@ const FullFormViewer = ({ employee, onClose }) => {
     { type: 'otherCertificates',  label: 'Other Certificates',  icon: <FileText className="w-4 h-4" /> },
   ];
 
-  const uploadedDocs  = DOC_DEFS.map(def => {
+  const uploadedDocs = DOC_DEFS.map(def => {
     const found = Array.isArray(employee.documents)
       ? employee.documents.find(d => d.type === def.type || d.document_type === def.type)
       : null;
     return { ...def, path: found?.path || found?.file_path || null };
   });
   const availableDocs = uploadedDocs.filter(d => d.path);
-  const openLightbox  = (type) => {
+
+  // Resolve all presigned URLs on mount / when employee changes
+  useEffect(() => {
+    if (!availableDocs.length) return;
+    Promise.all(
+      availableDocs.map(d => getDocUrl(d.path).then(url => [d.type, url]))
+    ).then(pairs => {
+      setResolvedDocUrls(Object.fromEntries(pairs.filter(([, url]) => url)));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employee.id]);
+
+  const openLightbox = (type) => {
     const idx = availableDocs.findIndex(d => d.type === type);
     if (idx >= 0) setLightbox({ docs: availableDocs, startIndex: idx });
   };
@@ -1062,6 +1147,7 @@ const FullFormViewer = ({ employee, onClose }) => {
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl my-4 flex flex-col" style={{ maxHeight: '95vh' }}>
+          {/* Modal header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0"
             style={{ background: 'linear-gradient(90deg,#1e3a5f 0%,#1d4ed8 100%)', borderRadius: '16px 16px 0 0' }}>
             <div className="flex items-center gap-4">
@@ -1084,17 +1170,20 @@ const FullFormViewer = ({ employee, onClose }) => {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => printKYEForm(employee)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-semibold transition-all border border-white/20">
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-semibold border border-white/20">
                 <Printer className="w-3.5 h-3.5" /> Print
               </button>
               <button onClick={onClose}
-                className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-blue-900 hover:bg-blue-50 transition-all">
+                className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-blue-900 hover:bg-blue-50">
                 Close
               </button>
             </div>
           </div>
+
+          {/* Modal body */}
           <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {/* Left column */}
               <div className="space-y-5">
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="1" title="Personal Information" icon={<User className="w-4 h-4" />} />
@@ -1122,6 +1211,8 @@ const FullFormViewer = ({ employee, onClose }) => {
                   </div>
                 </div>
               </div>
+
+              {/* Right column */}
               <div className="space-y-5">
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="3" title="Employment Details" icon={<Briefcase className="w-4 h-4" />} />
@@ -1133,22 +1224,74 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Reporting Manager" value={employee.reporting_manager} />
                   </div>
                 </div>
+
+                {/* Documents grid */}
                 {availableDocs.length > 0 && (
                   <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                     <SectionTitle num="4" title="Uploaded Documents" icon={<FileText className="w-4 h-4" />} />
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableDocs.map((doc, i) => (
-                        <button key={i} onClick={() => openLightbox(doc.type)}
-                          className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-100 bg-gray-50 hover:border-blue-200 hover:bg-blue-50 transition-all text-left">
-                          <div className="w-7 h-7 bg-blue-100 rounded-md flex items-center justify-center flex-shrink-0 text-blue-600">
-                            {doc.icon}
+                    <div className="grid grid-cols-2 gap-3">
+                      {uploadedDocs.map((doc) => {
+                        const url = resolvedDocUrls[doc.type] || null;
+                        const ft  = getFileType(doc.path, null);
+                        return (
+                          <div
+                            key={doc.type}
+                            className={`rounded-xl border overflow-hidden transition-all ${
+                              url
+                                ? 'border-indigo-200 bg-white hover:border-blue-400 hover:shadow-md cursor-pointer'
+                                : 'border-gray-200 bg-gray-50'
+                            }`}
+                            onClick={() => url && openLightbox(doc.type)}
+                          >
+                            {/* Thumbnail */}
+                            <div className="relative h-24 bg-gray-100 flex items-center justify-center overflow-hidden">
+                              {ft === 'image' && url ? (
+                                <img src={url} alt={doc.label} className="w-full h-full object-cover"
+                                  onError={e => { e.target.style.display = 'none'; }} />
+                              ) : ft === 'pdf' && url ? (
+                                <div className="flex flex-col items-center gap-1 w-full h-full bg-red-50 justify-center">
+                                  <FileText className="w-7 h-7 text-red-400" />
+                                  <span className="text-xs font-bold text-red-500">PDF</span>
+                                </div>
+                              ) : url ? (
+                                <div className="flex flex-col items-center gap-1 w-full h-full bg-blue-50 justify-center">
+                                  <FileText className="w-7 h-7 text-blue-400" />
+                                  <span className="text-xs font-bold text-blue-500">FILE</span>
+                                </div>
+                              ) : doc.path ? (
+                                // Has a path but URL not yet resolved — show spinner
+                                <div className="flex items-center justify-center w-full h-full bg-gray-100">
+                                  <Loader className="w-6 h-6 text-gray-400 animate-spin" />
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center w-full h-full bg-gray-100">
+                                  <div className="w-9 h-9 rounded-xl bg-gray-200 text-gray-400 flex items-center justify-center">
+                                    {doc.icon}
+                                  </div>
+                                </div>
+                              )}
+                              {url && (
+                                <div className="absolute inset-0 bg-blue-900/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <div className="flex items-center gap-1.5 text-white text-xs font-semibold">
+                                    <Eye className="w-4 h-4" /> View
+                                  </div>
+                                </div>
+                              )}
+                              <div className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                url ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                              }`}>
+                                {url ? '✓' : '—'}
+                              </div>
+                            </div>
+                            <div className="px-3 py-2 border-t border-gray-100">
+                              <p className="text-xs font-semibold text-gray-800 truncate">{doc.label}</p>
+                              <p className={`text-[10px] mt-0.5 ${url ? 'text-blue-500' : 'text-gray-400'}`}>
+                                {url ? 'Click to view' : doc.path ? 'Loading…' : 'Not uploaded'}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-gray-800 truncate">{doc.label}</p>
-                            <p className="text-[10px] text-blue-500">Click to view</p>
-                          </div>
-                        </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1161,7 +1304,10 @@ const FullFormViewer = ({ employee, onClose }) => {
   );
 };
 
-// ─── Reject Modal (for registration rejection) ────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// REJECT MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+
 const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
   const [reason, setReason] = useState('');
   const isRejoin = employee.status === 'pending_rejoin';
@@ -1185,7 +1331,7 @@ const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
           <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
             Reason for {isRejoin ? 'Declining' : 'Rejection'}
           </label>
-          <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
+          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
             placeholder="Provide a reason (optional but recommended)..."
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-red-400 outline-none text-sm mb-5 resize-none" />
           <div className="flex gap-3">
@@ -1205,9 +1351,12 @@ const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
   );
 };
 
-// ─── Employee Card ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// EMPLOYEE CARD
+// ══════════════════════════════════════════════════════════════════════════════
+
 const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, showToast }) => {
-  const [showFullForm, setShowFullForm] = useState(false);
+  const [showFullForm,  setShowFullForm]  = useState(false);
   const isRejoin      = employee.status === 'pending_rejoin';
   const docsSubmitted = !!(employee.docs_submitted);
 
@@ -1215,7 +1364,7 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
     <>
       {showFullForm && <FullFormViewer employee={employee} onClose={() => setShowFullForm(false)} />}
 
-      <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden ${
+      <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-all overflow-hidden ${
         isRejoin ? 'border-indigo-200' : docsSubmitted ? 'border-amber-200' : 'border-gray-200'
       }`}>
         <div className="h-0.5 w-full" style={{
@@ -1265,7 +1414,7 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
 
             <div className="flex items-center gap-1.5">
               <button onClick={() => setShowFullForm(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 transition-all text-xs font-medium">
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 text-xs font-medium">
                 <Eye className="w-3.5 h-3.5" /> View
               </button>
               <button onClick={onApprove} disabled={approving || rejecting}
@@ -1274,9 +1423,6 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
                   background: isRejoin
                     ? 'linear-gradient(135deg,#4f46e5,#7c3aed)'
                     : 'linear-gradient(135deg,#16a34a,#22c55e)',
-                  boxShadow: isRejoin
-                    ? '0 1px 6px rgba(124,58,237,0.35)'
-                    : '0 1px 6px rgba(34,197,94,0.35)',
                 }}>
                 {approving
                   ? <><Loader className="w-3.5 h-3.5 animate-spin" /><span>Approving…</span></>
@@ -1292,6 +1438,7 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
           </div>
         </div>
 
+        {/* Info row */}
         <div className="px-5 pt-4 pb-3">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             {[
@@ -1322,6 +1469,7 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
           </div>
         </div>
 
+        {/* Submitted docs section */}
         <div className="border-t border-gray-100 pt-3">
           <SubmittedDocsSection empDbId={employee.id} docsSubmitted={docsSubmitted} showToast={showToast} />
         </div>
@@ -1330,14 +1478,16 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════════════════════
+
 const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
-  const [pendingList, setPendingList]     = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState('');
-  const [actionLoading, setActionLoading] = useState({});
-  const [rejectTarget, setRejectTarget]   = useState(null);
-  // ✅ FIX: Track doc-pending count separately from registration pending count
+  const [pendingList,    setPendingList]    = useState([]);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState('');
+  const [actionLoading,  setActionLoading]  = useState({});
+  const [rejectTarget,   setRejectTarget]   = useState(null);
   const [docPendingCount, setDocPendingCount] = useState(0);
 
   const fetchPending = useCallback(async () => {
@@ -1349,7 +1499,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
     } catch (err) {
       setError(
         err.message?.includes('connect') || err.message?.includes('fetch')
-          ? 'Cannot connect to server. Please ensure the backend is running on port 5000.'
+          ? 'Cannot connect to server. Please ensure the backend is running.'
           : err.message || 'Failed to load pending submissions'
       );
     } finally { setLoading(false); }
@@ -1411,10 +1561,8 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
     );
   }
 
-  const newCount    = pendingList.filter(e => e.status === 'pending').length;
-  const rejoinCount = pendingList.filter(e => e.status === 'pending_rejoin').length;
-  // ✅ FIX: Use docPendingCount (from DocumentsPendingReviewSection) instead of
-  //         pendingList.filter(e => e.docs_submitted).length which was wrong
+  const newCount     = pendingList.filter(e => e.status === 'pending').length;
+  const rejoinCount  = pendingList.filter(e => e.status === 'pending_rejoin').length;
   const totalPending = pendingList.length + docPendingCount;
 
   return (
@@ -1428,7 +1576,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
         />
       )}
 
-      {/* Page Header */}
+      {/* Page header */}
       <div className="mb-7">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
@@ -1461,43 +1609,20 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
             </p>
           </div>
           <button onClick={fetchPending}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 transition-all shadow-sm">
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 shadow-sm">
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>
         </div>
 
-        {/* ✅ FIX: Stats bar now shows correct counts for both sections */}
+        {/* Stats bar */}
         {(pendingList.length > 0 || docPendingCount > 0) && (
           <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              {
-                label: 'Total Pending',
-                // ✅ Registration pending + doc review pending combined
-                value: totalPending,
-                color: '#1d4ed8', bg: '#eff6ff',
-              },
-              {
-                label: 'New Applications',
-                value: newCount,
-                color: '#059669', bg: '#f0fdf4',
-              },
-              {
-                label: 'Rejoin Requests',
-                value: rejoinCount,
-                color: '#7c3aed', bg: '#f5f3ff',
-              },
-              {
-                label: 'Docs Pending Review',
-                // ✅ FIX: Now correctly shows employees with pending doc reviews
-                //         from DocumentsPendingReviewSection, not from pendingList
-                value: docPendingCount,
-                color: '#d97706', bg: '#fffbeb',
-              },
-              {
-                label: 'Latest Request',
-                value: formatDateShort(pendingList[0]?.created_at),
-                color: '#64748b', bg: '#f8fafc',
-              },
+              { label: 'Total Pending',       value: totalPending,              color: '#1d4ed8', bg: '#eff6ff' },
+              { label: 'New Applications',    value: newCount,                  color: '#059669', bg: '#f0fdf4' },
+              { label: 'Rejoin Requests',     value: rejoinCount,               color: '#7c3aed', bg: '#f5f3ff' },
+              { label: 'Docs Pending Review', value: docPendingCount,           color: '#d97706', bg: '#fffbeb' },
+              { label: 'Latest Request',      value: formatDateShort(pendingList[0]?.created_at), color: '#64748b', bg: '#f8fafc' },
             ].map((stat, i) => (
               <div key={i} className="rounded-xl border px-4 py-3 shadow-sm"
                 style={{ background: stat.bg, borderColor: stat.bg === '#f8fafc' ? '#e2e8f0' : 'transparent' }}>
@@ -1520,7 +1645,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
         </div>
       )}
 
-      {/* ✅ FIX: Pass onCountLoaded callback so doc count flows up to stats bar */}
+      {/* Documents pending review section */}
       <DocumentsPendingReviewSection
         showToast={showToast}
         onCountLoaded={setDocPendingCount}
@@ -1540,6 +1665,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
         </div>
       )}
 
+      {/* Registration approval cards */}
       {pendingList.length > 0 && (
         <>
           <div className="relative mb-5">
@@ -1554,7 +1680,7 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
             </div>
           </div>
           <div className="space-y-4">
-            {pendingList.map((emp) => (
+            {pendingList.map(emp => (
               <EmployeeCard
                 key={emp.id}
                 employee={emp}
