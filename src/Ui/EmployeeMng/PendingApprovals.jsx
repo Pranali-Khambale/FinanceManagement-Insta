@@ -6,7 +6,7 @@ import {
   Briefcase, CreditCard, Shield, UserCircle, Building, FileCheck,
   Award, ExternalLink, Printer, Download, ChevronLeft, ChevronRight,
   X as XIcon, History, Upload, Check, Camera, File, ChevronDown, ChevronUp,
-  FolderOpen, CheckCheck,
+  FolderOpen, CheckCheck, Heart, BookOpen, Banknote, Radio,
 } from 'lucide-react';
 import employeeService from '../../services/employeeService';
 import { printKYEForm } from './KYEPrintForm';
@@ -212,7 +212,6 @@ const DocViewRow = ({ doc, onView }) => {
       }}
     >
       <div className="flex items-center gap-3 px-4 py-3">
-        {/* Thumbnail */}
         <div
           className="w-12 h-12 rounded-lg overflow-hidden border flex-shrink-0 flex items-center justify-center"
           style={{ borderColor: meta.color.border, background: ft === 'image' ? 'transparent' : meta.color.bg }}
@@ -230,17 +229,12 @@ const DocViewRow = ({ doc, onView }) => {
           )}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <p className="text-sm font-bold text-gray-900 truncate">{meta.label}</p>
             {isPending && (
-              <span
-                className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{ background: meta.color.dot, color: '#fff' }}
-              >
-                PENDING
-              </span>
+              <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: meta.color.dot, color: '#fff' }}>PENDING</span>
             )}
             {isAccepted && (
               <span className="flex-shrink-0 inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-500 text-white">
@@ -264,23 +258,18 @@ const DocViewRow = ({ doc, onView }) => {
           )}
         </div>
 
-        {/* View + Download only */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {url && (
-            <button
-              onClick={() => onView(doc)}
+            <button onClick={() => onView(doc)}
               className="w-9 h-9 rounded-lg flex items-center justify-center border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-all"
-              title="View document"
-            >
+              title="View document">
               <Eye className="w-4 h-4 text-gray-500" />
             </button>
           )}
           {url && (
-            <a
-              href={url} download target="_blank" rel="noopener noreferrer"
+            <a href={url} download target="_blank" rel="noopener noreferrer"
               className="w-9 h-9 rounded-lg flex items-center justify-center border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all"
-              title="Download"
-            >
+              title="Download">
               <Download className="w-4 h-4 text-gray-500" />
             </a>
           )}
@@ -309,14 +298,8 @@ const BatchActionBar = ({ docs, onAcceptAll, onRejectAll, accepting, rejecting }
   };
 
   return (
-    <div
-      className="rounded-xl border mb-3 overflow-hidden"
-      style={{
-        background: 'linear-gradient(90deg,#f8fafc,#f1f5f9)',
-        borderColor: '#e2e8f0',
-      }}
-    >
-      {/* Top bar */}
+    <div className="rounded-xl border mb-3 overflow-hidden"
+      style={{ background: 'linear-gradient(90deg,#f8fafc,#f1f5f9)', borderColor: '#e2e8f0' }}>
       <div className="flex items-center justify-between px-4 py-3 gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -327,69 +310,42 @@ const BatchActionBar = ({ docs, onAcceptAll, onRejectAll, accepting, rejecting }
             {docs.length} submitted
           </span>
         </div>
-
         <div className="flex items-center gap-2">
-          {/* Accept All */}
-          <button
-            onClick={onAcceptAll}
-            disabled={accepting || rejecting}
+          <button onClick={onAcceptAll} disabled={accepting || rejecting}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-bold disabled:opacity-50 transition-all shadow-sm hover:shadow-md active:scale-[0.97]"
-            style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)' }}
-          >
-            {accepting
-              ? <Loader className="w-3.5 h-3.5 animate-spin" />
-              : <CheckCheck className="w-3.5 h-3.5" />}
+            style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)' }}>
+            {accepting ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <CheckCheck className="w-3.5 h-3.5" />}
             Accept All
           </button>
-
-          {/* Reject All */}
-          <button
-            onClick={() => setShowRejectBox(p => !p)}
-            disabled={accepting || rejecting}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-400 text-xs font-bold disabled:opacity-50 transition-all"
-          >
+          <button onClick={() => setShowRejectBox(p => !p)} disabled={accepting || rejecting}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-400 text-xs font-bold disabled:opacity-50 transition-all">
             <XCircle className="w-3.5 h-3.5" />
             {showRejectBox ? 'Cancel' : 'Reject All'}
           </button>
         </div>
       </div>
-
-      {/* Inline reject reason box */}
       {showRejectBox && (
-        <div
-          className="px-4 pb-4 border-t border-red-100"
-          style={{ background: '#fff5f5', animation: 'fadeSlideIn 0.18s ease both' }}
-        >
+        <div className="px-4 pb-4 border-t border-red-100"
+          style={{ background: '#fff5f5', animation: 'fadeSlideIn 0.18s ease both' }}>
           <p className="text-xs font-semibold text-red-700 mb-2 mt-3">
             Reason for rejecting all documents <span className="text-red-400 font-normal">(optional)</span>
           </p>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
-            placeholder="e.g. Documents are blurry, wrong files uploaded, incomplete submission…"
-            className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white text-xs text-gray-800 resize-none outline-none focus:border-red-400 mb-3"
-          />
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+            placeholder="e.g. Documents are blurry, wrong files uploaded…"
+            className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white text-xs text-gray-800 resize-none outline-none focus:border-red-400 mb-3" />
           <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => { setShowRejectBox(false); setReason(''); }}
-              disabled={rejecting}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50"
-            >
+            <button onClick={() => { setShowRejectBox(false); setReason(''); }} disabled={rejecting}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50">
               Cancel
             </button>
-            <button
-              onClick={handleRejectConfirm}
-              disabled={rejecting}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-50"
-            >
+            <button onClick={handleRejectConfirm} disabled={rejecting}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-50">
               {rejecting ? <Loader className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
               Confirm Reject All
             </button>
           </div>
         </div>
       )}
-
       <style>{`
         @keyframes fadeSlideIn {
           from { opacity: 0; transform: translateY(-6px); }
@@ -432,52 +388,34 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
     }
   }, [docsSubmitted, fetchDocs]);
 
-  // ── Accept ALL pending docs ────────────────────────────────────────────────
   const handleAcceptAll = async () => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
     if (pending.length === 0) return;
     setAccepting(true);
     try {
-      await Promise.all(
-        pending.map(doc =>
-          fetch(`${BASE_API}/employee-docs/mark-reviewed/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          })
-        )
-      );
-      setDocs(p =>
-        p.map(d => pending.find(pd => pd.id === d.id)
-          ? { ...d, reviewed: true, status: 'accepted' }
-          : d
-        )
-      );
+      await Promise.all(pending.map(doc =>
+        fetch(`${BASE_API}/employee-docs/mark-reviewed/${doc.id}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        })
+      ));
+      setDocs(p => p.map(d => pending.find(pd => pd.id === d.id) ? { ...d, reviewed: true, status: 'accepted' } : d));
       showToast?.(`All ${pending.length} document${pending.length > 1 ? 's' : ''} accepted`, 'success');
     } catch { showToast?.('Failed to accept all documents', 'error'); }
     finally { setAccepting(false); }
   };
 
-  // ── Reject ALL pending docs with shared reason ────────────────────────────
   const handleRejectAll = async (reason) => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
     if (pending.length === 0) return;
     setRejecting(true);
     try {
-      await Promise.all(
-        pending.map(doc =>
-          fetch(`${BASE_API}/employee-docs/reject-doc/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rejection_reason: reason }),
-          })
-        )
-      );
-      setDocs(p =>
-        p.map(d => pending.find(pd => pd.id === d.id)
-          ? { ...d, status: 'rejected', rejection_reason: reason }
-          : d
-        )
-      );
+      await Promise.all(pending.map(doc =>
+        fetch(`${BASE_API}/employee-docs/reject-doc/${doc.id}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rejection_reason: reason }),
+        })
+      ));
+      setDocs(p => p.map(d => pending.find(pd => pd.id === d.id) ? { ...d, status: 'rejected', rejection_reason: reason } : d));
       showToast?.(`All ${pending.length} document${pending.length > 1 ? 's' : ''} rejected`, 'success');
     } catch { showToast?.('Failed to reject all documents', 'error'); }
     finally { setRejecting(false); }
@@ -486,7 +424,6 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
   const pending = docs.filter(d => !d.reviewed && d.status !== 'rejected' && d.status !== 'accepted').length;
   const allDone = docs.length > 0 && pending === 0;
 
-  // ── No docs submitted yet — professional empty state ──────────────────────
   if (!docsSubmitted) {
     return (
       <div className="mx-5 mb-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-3">
@@ -508,17 +445,13 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
       {lightbox !== null && (
         <DocLightbox docs={docs} startIndex={lightbox} onClose={() => setLightbox(null)} />
       )}
-
       <div className="mx-5 mb-4">
-        {/* Toggle header */}
-        <button
-          onClick={() => setExpanded(p => !p)}
+        <button onClick={() => setExpanded(p => !p)}
           className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all mb-2"
           style={{
             background: allDone ? 'linear-gradient(90deg,#f0fdf4,#dcfce7)' : pending > 0 ? 'linear-gradient(90deg,#fefce8,#fef9c3)' : '#f8fafc',
             borderColor: allDone ? '#bbf7d0' : pending > 0 ? '#fde68a' : '#e2e8f0',
-          }}
-        >
+          }}>
           <div className="flex items-center gap-2.5">
             <div className="relative">
               <div className="w-2 h-2 rounded-full" style={{ background: allDone ? '#22c55e' : '#f59e0b' }} />
@@ -529,10 +462,8 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
             <span className="text-xs font-bold" style={{ color: allDone ? '#14532d' : '#92400e' }}>
               {allDone ? 'All Documents Reviewed' : `${pending} Document${pending > 1 ? 's' : ''} Pending Review`}
             </span>
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-              style={{ background: allDone ? '#bbf7d0' : '#fde68a', color: allDone ? '#14532d' : '#78350f' }}
-            >
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: allDone ? '#bbf7d0' : '#fde68a', color: allDone ? '#14532d' : '#78350f' }}>
               {docs.length} submitted
             </span>
           </div>
@@ -559,27 +490,12 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
                 <button onClick={fetchDocs} className="text-xs text-red-600 underline font-medium">Retry</button>
               </div>
             )}
-
-            {/* ── BATCH ACTION BAR at top of list ── */}
             {!loading && !error && docs.length > 0 && (
-              <BatchActionBar
-                docs={docs}
-                onAcceptAll={handleAcceptAll}
-                onRejectAll={handleRejectAll}
-                accepting={accepting}
-                rejecting={rejecting}
-              />
+              <BatchActionBar docs={docs} onAcceptAll={handleAcceptAll} onRejectAll={handleRejectAll} accepting={accepting} rejecting={rejecting} />
             )}
-
-            {/* ── Document rows (view + download only) ── */}
             {!loading && !error && docs.map((doc) => (
-              <DocViewRow
-                key={doc.id}
-                doc={doc}
-                onView={(d) => setLightbox(docs.indexOf(d))}
-              />
+              <DocViewRow key={doc.id} doc={doc} onView={(d) => setLightbox(docs.indexOf(d))} />
             ))}
-
             {!loading && !error && docs.length > 0 && allDone && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
                 <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -596,7 +512,7 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ── DOC REVIEW CARD (active employees who submitted docs after approval) ─────
+// ── DOC REVIEW CARD ──────────────────────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════════════
 const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
   const [docs,      setDocs]      = useState([]);
@@ -620,20 +536,16 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-  // ── Accept ALL pending ────────────────────────────────────────────────────
   const handleAcceptAll = async () => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
     if (pending.length === 0) return;
     setAccepting(true);
     try {
-      await Promise.all(
-        pending.map(doc =>
-          fetch(`${BASE_API}/employee-docs/mark-reviewed/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          })
-        )
-      );
+      await Promise.all(pending.map(doc =>
+        fetch(`${BASE_API}/employee-docs/mark-reviewed/${doc.id}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        })
+      ));
       const updated = docs.map(d =>
         pending.find(pd => pd.id === d.id) ? { ...d, reviewed: true, status: 'accepted' } : d
       );
@@ -645,21 +557,17 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
     finally { setAccepting(false); }
   };
 
-  // ── Reject ALL pending with shared reason ─────────────────────────────────
   const handleRejectAll = async (reason) => {
     const pending = docs.filter(d => !d.reviewed && d.status !== 'accepted' && d.status !== 'rejected');
     if (pending.length === 0) return;
     setRejecting(true);
     try {
-      await Promise.all(
-        pending.map(doc =>
-          fetch(`${BASE_API}/employee-docs/reject-doc/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rejection_reason: reason }),
-          })
-        )
-      );
+      await Promise.all(pending.map(doc =>
+        fetch(`${BASE_API}/employee-docs/reject-doc/${doc.id}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rejection_reason: reason }),
+        })
+      ));
       const updated = docs.map(d =>
         pending.find(pd => pd.id === d.id) ? { ...d, status: 'rejected', rejection_reason: reason } : d
       );
@@ -679,28 +587,17 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
       {lightbox !== null && (
         <DocLightbox docs={docs} startIndex={lightbox} onClose={() => setLightbox(null)} />
       )}
-
-      <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${
-        allDone ? 'border-green-200' : 'border-amber-200'
-      }`}>
-        {/* Accent bar */}
+      <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${allDone ? 'border-green-200' : 'border-amber-200'}`}>
         <div className="h-0.5 w-full" style={{
-          background: allDone
-            ? 'linear-gradient(90deg,#22c55e,#16a34a)'
-            : 'linear-gradient(90deg,#f59e0b,#fbbf24,#fcd34d)',
+          background: allDone ? 'linear-gradient(90deg,#22c55e,#16a34a)' : 'linear-gradient(90deg,#f59e0b,#fbbf24,#fcd34d)',
         }} />
-
-        {/* Header */}
         <div className="px-5 pt-4 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3.5">
-              {/* ── Avatar with clean dot indicator (no Bell icon) ── */}
               <div className="relative">
-               <Avatar firstName={emp.first_name} lastName={emp.last_name} size="md" />
-                <div
-                  className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white"
-                  style={{ background: allDone ? '#22c55e' : '#f59e0b' }}
-                />
+                <Avatar firstName={emp.first_name} lastName={emp.last_name} size="md" />
+                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white"
+                  style={{ background: allDone ? '#22c55e' : '#f59e0b' }} />
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -735,7 +632,6 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
                 </div>
               </div>
             </div>
-
             <div className="flex items-center gap-2">
               <button onClick={fetchDocs}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-all text-xs">
@@ -748,8 +644,6 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
             </div>
           </div>
         </div>
-
-        {/* Info row */}
         <div className="px-5 py-3 border-b border-gray-50">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {[
@@ -767,8 +661,6 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
             ))}
           </div>
         </div>
-
-        {/* Documents */}
         {expanded && (
           <div className="px-5 py-4">
             {loading && (
@@ -789,24 +681,10 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
             )}
             {!loading && !error && docs.length > 0 && (
               <div className="space-y-2">
-                {/* ── BATCH ACTION BAR ── */}
-                <BatchActionBar
-                  docs={docs}
-                  onAcceptAll={handleAcceptAll}
-                  onRejectAll={handleRejectAll}
-                  accepting={accepting}
-                  rejecting={rejecting}
-                />
-
-                {/* ── Doc rows (view + download only) ── */}
+                <BatchActionBar docs={docs} onAcceptAll={handleAcceptAll} onRejectAll={handleRejectAll} accepting={accepting} rejecting={rejecting} />
                 {docs.map((doc) => (
-                  <DocViewRow
-                    key={doc.id}
-                    doc={doc}
-                    onView={(d) => setLightbox(docs.indexOf(d))}
-                  />
+                  <DocViewRow key={doc.id} doc={doc} onView={(d) => setLightbox(docs.indexOf(d))} />
                 ))}
-
                 {allDone && (
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border border-green-200 mt-1">
                     <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -830,7 +708,6 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
 // ═════════════════════════════════════════════════════════════════════════════
 // ── DOCUMENTS PENDING REVIEW SECTION ─────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════════════
-// ✅ FIX: Added `onCountLoaded` prop — calls back with employee count after fetch
 const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
   const [employees, setEmployees] = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -845,7 +722,6 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
       if (data.success) {
         const list = data.data || [];
         setEmployees(list);
-        // ✅ FIX: Report the real count up to the parent stats bar
         onCountLoaded?.(list.length);
       } else {
         setError(data.message || 'Failed to load');
@@ -863,7 +739,6 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
   const handleAllReviewed = (empId) => {
     setEmployees(prev => {
       const updated = prev.filter(e => e.id !== empId);
-      // ✅ FIX: Keep count in sync when an employee's docs are all reviewed
       onCountLoaded?.(updated.length);
       return updated;
     });
@@ -874,7 +749,6 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3" />
-
       {!collapsed && (
         <>
           <div className="relative mb-5">
@@ -888,7 +762,6 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
               </span>
             </div>
           </div>
-
           {loading && (
             <div className="flex items-center justify-center py-12 bg-white rounded-2xl border border-amber-100">
               <Loader className="w-6 h-6 text-amber-500 animate-spin" />
@@ -918,7 +791,7 @@ const DocumentsPendingReviewSection = ({ showToast, onCountLoaded }) => {
   );
 };
 
-// ─── Lightbox for registration form documents ──────────────────────────────────
+// ─── Registration-doc Lightbox (uses .path field, not .file_path) ─────────────
 const Lightbox = ({ docs, startIndex = 0, onClose }) => {
   const [idx, setIdx]           = useState(startIndex);
   const [imgError, setImgError] = useState(false);
@@ -1007,29 +880,54 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
 };
 
 // ─── Full Form Viewer Modal ───────────────────────────────────────────────────
+// FIX: DOC_DEFS now uses the normalized DB document_type values that the backend
+//      stores in employee_documents.document_type (via FIELD_TO_DOC_TYPE map in
+//      registrationController). The matching logic is updated accordingly.
+//      farmToCli (→ 'farm_to_cli') is also added.
 const FullFormViewer = ({ employee, onClose }) => {
   const [lightbox, setLightbox] = useState(null);
 
+  // ── Map DB document_type → display metadata ─────────────────────────────────
+  // Backend normalizes via FIELD_TO_DOC_TYPE:
+  //   idPhoto → 'photo'  |  aadharCard → 'aadhar_card'  |  panCard → 'pan_card'
+  //   bankPassbook → 'bank_passbook'  |  resume → 'resume'  |  payslip → 'payslip'
+  //   otherCertificates → 'other_certificates'  |  medicalCertificate → 'medical_certificate'
+  //   academicRecords → 'academic_records'  |  farmToCli → 'farm_to_cli'
   const DOC_DEFS = [
-    { type: 'idPhoto',            label: 'Employee Photo',      icon: <UserCircle className="w-4 h-4" /> },
-    { type: 'aadharCard',         label: 'Aadhaar Card',        icon: <CreditCard className="w-4 h-4" /> },
-    { type: 'panCard',            label: 'PAN Card',            icon: <FileCheck className="w-4 h-4" /> },
-    { type: 'resume',             label: 'Resume',              icon: <FileText className="w-4 h-4" /> },
-    { type: 'bankPassbook',       label: 'Bank Passbook',       icon: <Building className="w-4 h-4" /> },
-    { type: 'medicalCertificate', label: 'Medical Certificate', icon: <Shield className="w-4 h-4" /> },
-    { type: 'academicRecords',    label: 'Academic Records',    icon: <Award className="w-4 h-4" /> },
-    { type: 'payslip',            label: 'Pay Slip',            icon: <FileText className="w-4 h-4" /> },
-    { type: 'otherCertificates',  label: 'Other Certificates',  icon: <FileText className="w-4 h-4" /> },
+    { type: 'photo',               label: 'Employee Photo',         icon: <UserCircle className="w-4 h-4" /> },
+    { type: 'aadhar_card',         label: 'Aadhaar Card',           icon: <CreditCard className="w-4 h-4" /> },
+    { type: 'pan_card',            label: 'PAN Card',               icon: <FileCheck className="w-4 h-4" /> },
+    { type: 'resume',              label: 'Resume',                 icon: <FileText className="w-4 h-4" /> },
+    { type: 'bank_passbook',       label: 'Bank Passbook',          icon: <Building className="w-4 h-4" /> },
+    { type: 'medical_certificate', label: 'Medical Certificate',    icon: <Heart className="w-4 h-4" /> },
+    { type: 'academic_records',    label: 'Academic Records',       icon: <BookOpen className="w-4 h-4" /> },
+    { type: 'payslip',             label: 'Pay Slip',               icon: <Banknote className="w-4 h-4" /> },
+    { type: 'farm_to_cli',         label: 'FARM-ToCli Certificate', icon: <Radio className="w-4 h-4" /> },
+    { type: 'other_certificates',  label: 'Other Certificates',     icon: <Award className="w-4 h-4" /> },
   ];
 
-  const uploadedDocs  = DOC_DEFS.map(def => {
+  // Build the list of uploaded docs by matching the DB document_type to each def.
+  // The backend's getPending query returns documents as:
+  //   { type: <document_type>, path: <file_path>, name: <file_name>, mime_type }
+  const uploadedDocs = DOC_DEFS.map(def => {
     const found = Array.isArray(employee.documents)
-      ? employee.documents.find(d => d.type === def.type || d.document_type === def.type)
+      ? employee.documents.find(d =>
+          // Match against 'type' (getPending uses json_build_object key 'type')
+          // Also check 'document_type' in case other endpoints use that key
+          (d.type ?? d.document_type) === def.type
+        )
       : null;
-    return { ...def, path: found?.path || found?.file_path || null };
+    return {
+      ...def,
+      path:      found?.path || found?.file_path || null,
+      mime_type: found?.mime_type || null,
+    };
   });
+
+  // Only show docs that have an actual file uploaded
   const availableDocs = uploadedDocs.filter(d => d.path);
-  const openLightbox  = (type) => {
+
+  const openLightbox = (type) => {
     const idx = availableDocs.findIndex(d => d.type === type);
     if (idx >= 0) setLightbox({ docs: availableDocs, startIndex: idx });
   };
@@ -1062,6 +960,7 @@ const FullFormViewer = ({ employee, onClose }) => {
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl my-4 flex flex-col" style={{ maxHeight: '95vh' }}>
+          {/* ── Modal header ── */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0"
             style={{ background: 'linear-gradient(90deg,#1e3a5f 0%,#1d4ed8 100%)', borderRadius: '16px 16px 0 0' }}>
             <div className="flex items-center gap-4">
@@ -1093,8 +992,11 @@ const FullFormViewer = ({ employee, onClose }) => {
               </button>
             </div>
           </div>
+
+          {/* ── Scrollable body ── */}
           <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {/* ── LEFT COLUMN ── */}
               <div className="space-y-5">
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="1" title="Personal Information" icon={<User className="w-4 h-4" />} />
@@ -1122,6 +1024,8 @@ const FullFormViewer = ({ employee, onClose }) => {
                   </div>
                 </div>
               </div>
+
+              {/* ── RIGHT COLUMN ── */}
               <div className="space-y-5">
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <SectionTitle num="3" title="Employment Details" icon={<Briefcase className="w-4 h-4" />} />
@@ -1131,27 +1035,69 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Employment Type"   value={employee.employment_type} />
                     <Field label="Joining Date"      value={formatDate(employee.joining_date)} />
                     <Field label="Reporting Manager" value={employee.reporting_manager} />
+                    {employee.circle && <Field label="Circle"       value={employee.circle} />}
+                    {employee.project_name && <Field label="Project" value={employee.project_name} />}
                   </div>
                 </div>
-                {availableDocs.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                    <SectionTitle num="4" title="Uploaded Documents" icon={<FileText className="w-4 h-4" />} />
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableDocs.map((doc, i) => (
-                        <button key={i} onClick={() => openLightbox(doc.type)}
-                          className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-100 bg-gray-50 hover:border-blue-200 hover:bg-blue-50 transition-all text-left">
-                          <div className="w-7 h-7 bg-blue-100 rounded-md flex items-center justify-center flex-shrink-0 text-blue-600">
-                            {doc.icon}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-gray-800 truncate">{doc.label}</p>
-                            <p className="text-[10px] text-blue-500">Click to view</p>
-                          </div>
-                        </button>
-                      ))}
+
+                {/* ── Uploaded Documents ── */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                  <SectionTitle num="4" title="Uploaded Documents" icon={<FileText className="w-4 h-4" />} />
+
+                  {availableDocs.length === 0 ? (
+                    <div className="flex items-center gap-3 px-4 py-5 rounded-xl border border-dashed border-gray-200 bg-gray-50">
+                      <FolderOpen className="w-8 h-8 text-gray-300 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-500">No documents uploaded</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          The employee has not submitted any documents yet.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableDocs.map((doc, i) => {
+                        const ft = getFileType(doc.path, doc.mime_type);
+                        const url = fullUrl(doc.path);
+                        return (
+                          <button key={i} onClick={() => openLightbox(doc.type)}
+                            className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-100 bg-gray-50 hover:border-blue-200 hover:bg-blue-50 transition-all text-left group">
+                            {/* Thumbnail preview */}
+                            <div className="w-10 h-10 rounded-md overflow-hidden border border-gray-200 flex-shrink-0 flex items-center justify-center bg-white">
+                              {ft === 'image' && url ? (
+                                <img src={url} alt={doc.label}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { e.target.style.display = 'none'; }} />
+                              ) : ft === 'pdf' ? (
+                                <div className="flex flex-col items-center justify-center w-full h-full bg-red-50">
+                                  <FileText className="w-4 h-4 text-red-500" />
+                                  <span className="text-[7px] font-bold text-red-500">PDF</span>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                  {doc.icon}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{doc.label}</p>
+                              <p className="text-[10px] text-blue-500 group-hover:text-blue-700 mt-0.5 flex items-center gap-1">
+                                <Eye className="w-2.5 h-2.5" /> View
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* All-docs count summary */}
+                  {availableDocs.length > 0 && (
+                    <p className="text-[10px] text-gray-400 mt-3 text-center">
+                      {availableDocs.length} of {DOC_DEFS.length} possible documents uploaded
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1161,7 +1107,7 @@ const FullFormViewer = ({ employee, onClose }) => {
   );
 };
 
-// ─── Reject Modal (for registration rejection) ────────────────────────────────
+// ─── Reject Modal ─────────────────────────────────────────────────────────────
 const RejectModal = ({ employee, onConfirm, onCancel, loading }) => {
   const [reason, setReason] = useState('');
   const isRejoin = employee.status === 'pending_rejoin';
@@ -1214,7 +1160,6 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
   return (
     <>
       {showFullForm && <FullFormViewer employee={employee} onClose={() => setShowFullForm(false)} />}
-
       <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden ${
         isRejoin ? 'border-indigo-200' : docsSubmitted ? 'border-amber-200' : 'border-gray-200'
       }`}>
@@ -1225,7 +1170,6 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
             ? 'linear-gradient(90deg,#f59e0b,#fbbf24,#fcd34d)'
             : 'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)',
         }} />
-
         <div className="px-5 pt-4 pb-3.5 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3.5">
@@ -1262,7 +1206,6 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
                 </div>
               </div>
             </div>
-
             <div className="flex items-center gap-1.5">
               <button onClick={() => setShowFullForm(true)}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 transition-all text-xs font-medium">
@@ -1271,12 +1214,8 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
               <button onClick={onApprove} disabled={approving || rejecting}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
                 style={{
-                  background: isRejoin
-                    ? 'linear-gradient(135deg,#4f46e5,#7c3aed)'
-                    : 'linear-gradient(135deg,#16a34a,#22c55e)',
-                  boxShadow: isRejoin
-                    ? '0 1px 6px rgba(124,58,237,0.35)'
-                    : '0 1px 6px rgba(34,197,94,0.35)',
+                  background: isRejoin ? 'linear-gradient(135deg,#4f46e5,#7c3aed)' : 'linear-gradient(135deg,#16a34a,#22c55e)',
+                  boxShadow: isRejoin ? '0 1px 6px rgba(124,58,237,0.35)' : '0 1px 6px rgba(34,197,94,0.35)',
                 }}>
                 {approving
                   ? <><Loader className="w-3.5 h-3.5 animate-spin" /><span>Approving…</span></>
@@ -1337,7 +1276,6 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
   const [error, setError]                 = useState('');
   const [actionLoading, setActionLoading] = useState({});
   const [rejectTarget, setRejectTarget]   = useState(null);
-  // ✅ FIX: Track doc-pending count separately from registration pending count
   const [docPendingCount, setDocPendingCount] = useState(0);
 
   const fetchPending = useCallback(async () => {
@@ -1413,8 +1351,6 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
 
   const newCount    = pendingList.filter(e => e.status === 'pending').length;
   const rejoinCount = pendingList.filter(e => e.status === 'pending_rejoin').length;
-  // ✅ FIX: Use docPendingCount (from DocumentsPendingReviewSection) instead of
-  //         pendingList.filter(e => e.docs_submitted).length which was wrong
   const totalPending = pendingList.length + docPendingCount;
 
   return (
@@ -1466,38 +1402,14 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
           </button>
         </div>
 
-        {/* ✅ FIX: Stats bar now shows correct counts for both sections */}
         {(pendingList.length > 0 || docPendingCount > 0) && (
           <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              {
-                label: 'Total Pending',
-                // ✅ Registration pending + doc review pending combined
-                value: totalPending,
-                color: '#1d4ed8', bg: '#eff6ff',
-              },
-              {
-                label: 'New Applications',
-                value: newCount,
-                color: '#059669', bg: '#f0fdf4',
-              },
-              {
-                label: 'Rejoin Requests',
-                value: rejoinCount,
-                color: '#7c3aed', bg: '#f5f3ff',
-              },
-              {
-                label: 'Docs Pending Review',
-                // ✅ FIX: Now correctly shows employees with pending doc reviews
-                //         from DocumentsPendingReviewSection, not from pendingList
-                value: docPendingCount,
-                color: '#d97706', bg: '#fffbeb',
-              },
-              {
-                label: 'Latest Request',
-                value: formatDateShort(pendingList[0]?.created_at),
-                color: '#64748b', bg: '#f8fafc',
-              },
+              { label: 'Total Pending',       value: totalPending,     color: '#1d4ed8', bg: '#eff6ff' },
+              { label: 'New Applications',    value: newCount,         color: '#059669', bg: '#f0fdf4' },
+              { label: 'Rejoin Requests',     value: rejoinCount,      color: '#7c3aed', bg: '#f5f3ff' },
+              { label: 'Docs Pending Review', value: docPendingCount,  color: '#d97706', bg: '#fffbeb' },
+              { label: 'Latest Request',      value: formatDateShort(pendingList[0]?.created_at), color: '#64748b', bg: '#f8fafc' },
             ].map((stat, i) => (
               <div key={i} className="rounded-xl border px-4 py-3 shadow-sm"
                 style={{ background: stat.bg, borderColor: stat.bg === '#f8fafc' ? '#e2e8f0' : 'transparent' }}>
@@ -1520,13 +1432,8 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
         </div>
       )}
 
-      {/* ✅ FIX: Pass onCountLoaded callback so doc count flows up to stats bar */}
-      <DocumentsPendingReviewSection
-        showToast={showToast}
-        onCountLoaded={setDocPendingCount}
-      />
+      <DocumentsPendingReviewSection showToast={showToast} onCountLoaded={setDocPendingCount} />
 
-      {/* Empty state */}
       {!error && pendingList.length === 0 && docPendingCount === 0 && (
         <div className="bg-white border border-gray-200 rounded-2xl p-16 text-center shadow-sm">
           <div className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center"
