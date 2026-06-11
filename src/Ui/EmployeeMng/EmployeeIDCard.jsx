@@ -14,42 +14,35 @@ import {
 } from "lucide-react";
 
 import { BASE_URL as API_URL } from "../../api/client";
-const BASE_URL = API_URL.replace("/api", "");
 
 // ─────────────────────────────────────────────────────────────────────────────
-// getPhotoUrl
+// PHOTO URL STRATEGY
 //
-// Reads from the employee object that was already processed by resolveDocUrls()
-// on the backend. resolveDocUrls() calls getS3Url() on every file_path and
-// injects a synthetic {document_type:'photo'} entry from id_photo_url when
-// no real photo row exists in employee_documents — covering all KYE employees.
+// Instead of trying to resolve S3 keys on the frontend (which breaks when
+// presigned URLs expire or when the backend returns raw keys), we use a
+// dedicated backend endpoint:
 //
-// We accept ANY non-empty string returned by getS3Url() without filtering by
-// protocol. The backend decides the URL format (presigned, public CDN, or
-// relative path served by Express). We trust it as-is.
+//   GET /api/employees/:id/photo
 //
-// Priority: documents[] photo row  →  id_photo_url column  →  null
+// This endpoint always does a fresh 302 redirect to the latest S3 presigned
+// URL, so the <img src> always works regardless of when the employee was
+// created or how the photo was uploaded.
+//
+// manualPhoto (freshly cropped data URL) always takes priority over the
+// proxy URL so the user sees their crop immediately before the DB upload
+// completes.
 // ─────────────────────────────────────────────────────────────────────────────
-const PHOTO_TYPES = new Set(["photo", "idPhoto", "id_photo"]);
 
-const getPhotoUrl = (employee) => {
+/**
+ * Build the photo proxy URL for a given employee.
+ * Uses the numeric DB id when available (most reliable), falls back to
+ * the human-readable employee_id string.
+ */
+const getPhotoProxyUrl = (employee) => {
   if (!employee) return null;
-
-  // 1. Scan documents[] for any photo-type doc with a non-empty file_path.
-  //    These are already resolved URLs from resolveDocUrls() on the backend.
-  const docs = Array.isArray(employee.documents) ? employee.documents : [];
-  for (const doc of docs) {
-    if (PHOTO_TYPES.has(doc.document_type) && doc.file_path) {
-      return doc.file_path; // trust whatever the backend resolved it to
-    }
-  }
-
-  // 2. Fall back to the id_photo_url column (also resolved by resolveDocUrls).
-  if (employee.id_photo_url) {
-    return employee.id_photo_url;
-  }
-
-  return null;
+  const id = employee.id || employee.employee_id;
+  if (!id) return null;
+  return `${API_URL}/employees/${id}/photo`;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,7 +78,8 @@ const CW = 260;
 const CH = 430;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// uploadPhotoToDb  —  POST /api/employees/:id/upload-photo
+// uploadPhotoToDb
+// POST /api/employees/:id/upload-photo
 // ─────────────────────────────────────────────────────────────────────────────
 const uploadPhotoToDb = async (employeeDbId, file) => {
   const formData = new FormData();
@@ -331,6 +325,7 @@ const PhotoCropEditor = ({ src, onDone, onCancel }) => {
     const ctx = out.getContext("2d");
     const img = imgRef.current;
     const upscale = OUTPUT_W / DW;
+
     if (mode === "crop") {
       const mid = document.createElement("canvas");
       mid.width = OUTPUT_W;
@@ -745,18 +740,32 @@ const PhotoUploadOverlay = ({ onUpload, onEdit, uploading, hasPhoto }) => (
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PhotoBox
+//
+// Uses the proxy URL (/api/employees/:id/photo) as the primary source.
+// manualPhoto (freshly cropped data URL) always wins over the proxy URL.
+// On error (e.g. employee has no photo yet), falls back to initials.
+//
+// The proxy URL never truly "expires" — each browser request hits the backend
+// which issues a fresh S3 redirect on every load.
 // ─────────────────────────────────────────────────────────────────────────────
 const PhotoBox = ({
-  photoUrl,
-  manualPhoto,
+  photoProxyUrl, // /api/employees/:id/photo  — always fresh via backend redirect
+  manualPhoto, // Just-cropped data URL — always takes priority
   firstName,
   onUpload,
   uploading,
   onEditClick,
-  onPhotoError,
+  onPhotoMissing, // Called when proxy URL 404s (employee has no photo yet)
 }) => {
-  // manualPhoto (fresh crop data URL) always wins over the DB photo URL
-  const displayPhoto = manualPhoto || photoUrl || null;
+  const [proxyFailed, setProxyFailed] = useState(false);
+
+  // Reset failed state whenever the proxy URL changes (e.g. after upload)
+  useEffect(() => {
+    setProxyFailed(false);
+  }, [photoProxyUrl]);
+
+  // manualPhoto (fresh crop) always wins; then proxy; then initials
+  const displayPhoto = manualPhoto || (!proxyFailed ? photoProxyUrl : null);
 
   return (
     <div
@@ -789,8 +798,9 @@ const PhotoBox = ({
           alt="Employee"
           crossOrigin="anonymous"
           onError={() => {
-            // Only fire for DB/URL photos, not data URLs
-            if (!manualPhoto && onPhotoError) onPhotoError();
+            if (manualPhoto) return; // data URL shouldn't fail; ignore
+            setProxyFailed(true);
+            if (onPhotoMissing) onPhotoMissing();
           }}
         />
       ) : (
@@ -836,12 +846,12 @@ const PhotoBox = ({
 // ─────────────────────────────────────────────────────────────────────────────
 const CardFront = ({
   employee,
-  photoUrl,
+  photoProxyUrl,
   manualPhoto,
   onUpload,
   uploading,
   onEditClick,
-  onPhotoError,
+  onPhotoMissing,
   validityDate,
 }) => {
   const firstName = employee.first_name || employee.firstName || "";
@@ -854,7 +864,7 @@ const CardFront = ({
     .join(" ")
     .toUpperCase();
   const empId = employee.employee_id || employee.id || "—";
-  // Backend SELECT aliases e.position AS designation — handle both
+  // Backend aliases position AS designation; handle both
   const designation = employee.designation || employee.position || "—";
   const validTill = formatDate(validityDate);
 
@@ -914,13 +924,13 @@ const CardFront = ({
         }}
       >
         <PhotoBox
-          photoUrl={photoUrl}
+          photoProxyUrl={photoProxyUrl}
           manualPhoto={manualPhoto}
           firstName={firstName}
           onUpload={onUpload}
           uploading={uploading}
           onEditClick={onEditClick}
-          onPhotoError={onPhotoError}
+          onPhotoMissing={onPhotoMissing}
         />
       </div>
 
@@ -1156,41 +1166,34 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
   const [selectedValidity, setSelectedValidity] = useState("1 Year");
   const [customDate, setCustomDate] = useState("");
 
-  // ── Photo URL ─────────────────────────────────────────────────────────────
+  // ── Photo state ────────────────────────────────────────────────────────────
+  // photoProxyUrl: always points to /api/employees/:id/photo
+  // This URL is stable (doesn't expire) — the backend issues a fresh S3
+  // redirect on every browser request.
   //
-  // The parent fetches employees via getAll() / getById() — both call
-  // resolveDocUrls() on the backend which:
-  //   1. Calls getS3Url() on every document's file_path  → usable URL
-  //   2. Calls getS3Url() on id_photo_url column         → usable URL
-  //   3. Injects a synthetic { document_type:'photo', file_path: resolvedUrl }
-  //      into documents[] when no real photo row exists in employee_documents
-  //      → this covers every KYE-registered employee
-  //
-  // getPhotoUrl() reads documents[0..n] looking for a photo-type entry, then
-  // falls back to id_photo_url. We accept ANY non-empty string — the backend
-  // decides the URL format (https://, relative path, etc.) and we trust it.
-  // ─────────────────────────────────────────────────────────────────────────
-  const [photoUrl, setPhotoUrl] = useState(() => getPhotoUrl(employee));
-
-  // Re-sync if the parent passes a freshly-fetched employee object
-  useEffect(() => {
-    const url = getPhotoUrl(employee);
-    if (url) setPhotoUrl(url);
-  }, [employee]);
-
-  const fileInputRef = useRef(null);
+  // photoExists: tracks whether the backend confirmed a photo exists.
+  // Starts as true (optimistic) and is set to false on 404.
+  const [photoExists, setPhotoExists] = useState(true);
 
   const employeeDbId = employee.id;
+  const employeeDisplayId = employee.employee_id || employee.id;
+  const photoProxyUrl = employeeDbId
+    ? `${API_URL}/employees/${employeeDbId}/photo`
+    : null;
+
   const firstName = employee.first_name || employee.firstName || "";
   const lastName = employee.last_name || employee.lastName || "";
   const fullName = [firstName, lastName].filter(Boolean).join(" ");
   const empId = employee.employee_id || employee.id || "—";
+  // Backend uses `position AS designation` in SELECT — handle both field names
   const designation = employee.designation || employee.position || "—";
   const emergencyContact = employee.emergency_contact_no || "—";
 
-  const hasPhoto = !!(manualPhoto || photoUrl);
+  const hasPhoto = !!(manualPhoto || (photoExists && photoProxyUrl));
 
-  // ── Photo upload ──────────────────────────────────────────────────────────
+  const fileInputRef = useRef(null);
+
+  // ── Photo upload ───────────────────────────────────────────────────────────
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1205,42 +1208,66 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
 
   const handleCropDone = async (croppedDataUrl) => {
     setShowCropEditor(false);
-    setManualPhoto(croppedDataUrl); // show immediately
+
+    // 1. Show cropped photo immediately (data URL — no network wait)
+    setManualPhoto(croppedDataUrl);
     setUploadState("uploading");
 
     try {
+      // 2. Convert data URL → File and upload to S3 via the backend
       const res = await fetch(croppedDataUrl);
       const blob = await res.blob();
       const file = new File([blob], "photo.jpg", { type: "image/jpeg" });
-      const result = await uploadPhotoToDb(employeeDbId, file);
+      await uploadPhotoToDb(employeeDbId, file);
 
       setUploadState("success");
+      // Photo now exists in DB — re-enable proxy URL and reset failed state
+      setPhotoExists(true);
 
-      // uploadPhoto controller returns data.file_path already resolved via getS3Url()
-      const resolvedUrl = result?.data?.file_path;
-      if (resolvedUrl) setPhotoUrl(resolvedUrl);
-
-      if (typeof onPhotoUpdated === "function") onPhotoUpdated(result.data);
+      if (typeof onPhotoUpdated === "function") onPhotoUpdated();
     } catch (err) {
       setUploadState("error");
       setUploadMsg(err.message || "Upload failed.");
+      // Keep manualPhoto so card still shows the photo even on DB error
     }
   };
 
-  const handleEditExisting = () => {
-    const src = manualPhoto || photoUrl;
-    if (src) {
-      setRawPhoto(src);
+  // Opens the crop editor on the best available photo source.
+  // For the proxy URL we need to fetch the image as a data URL first
+  // (because canvas.toDataURL() requires same-origin or CORS-enabled images).
+  const handleEditExisting = async () => {
+    if (manualPhoto) {
+      setRawPhoto(manualPhoto);
       setShowCropEditor(true);
+      return;
+    }
+    if (photoProxyUrl && photoExists) {
+      try {
+        // Fetch via proxy, convert to blob → data URL for the canvas editor
+        const res = await fetch(photoProxyUrl, { credentials: "include" });
+        if (!res.ok) throw new Error("Could not fetch photo");
+        const blob = await res.blob();
+        const dataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target.result);
+          reader.readAsDataURL(blob);
+        });
+        setRawPhoto(dataUrl);
+        setShowCropEditor(true);
+      } catch (_err) {
+        // If fetch fails, open crop editor anyway — user can re-upload
+        setRawPhoto(null);
+        setShowCropEditor(false);
+      }
     }
   };
 
-  // If the img URL fails (e.g. expired presigned URL), clear it so initials show
-  const handlePhotoError = () => {
-    if (!manualPhoto) setPhotoUrl(null);
+  // Called when the photo img fails to load — proxy returned 404 (no photo)
+  const handlePhotoMissing = () => {
+    setPhotoExists(false);
   };
 
-  // ── Validity ──────────────────────────────────────────────────────────────
+  // ── Validity ───────────────────────────────────────────────────────────────
   const handleValidityPill = (opt) => {
     setSelectedValidity(opt.label);
     if (opt.months !== null) setValidityDate(addMonths(opt.months));
@@ -1251,7 +1278,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
     if (e.target.value) setValidityDate(new Date(e.target.value));
   };
 
-  // ── Print ─────────────────────────────────────────────────────────────────
+  // ── Print ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {
     const fatherName =
       employee.father_husband_name || employee.fatherHusbandName || "";
@@ -1260,7 +1287,11 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
       .filter(Boolean)
       .join(" ")
       .toUpperCase();
-    const photoSrc = manualPhoto || photoUrl;
+
+    // For print: use manualPhoto data URL if available (works offline),
+    // otherwise use the proxy URL (requires network at print time).
+    const photoSrc =
+      manualPhoto || (photoExists && photoProxyUrl ? photoProxyUrl : null);
     const validTill = formatDate(validityDate);
     const logoUrl =
       window.location.origin +
@@ -1271,45 +1302,71 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
 
     const photoHtml = photoSrc
       ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;display:block" crossorigin="anonymous"/>`
-      : `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font-size:28px;font-weight:bold;color:#bbb">${(firstName[0] || "?").toUpperCase()}</span></div>`;
+      : `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+           <span style="font-size:28px;font-weight:bold;color:#bbb">${(firstName[0] || "?").toUpperCase()}</span>
+         </div>`;
 
     const pw = window.open("", "_blank", "width=720,height=660");
     pw.document
       .write(`<!DOCTYPE html><html><head><title>ID Card – ${fullPrintName}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:center;align-items:flex-start;font-family:'Calibri','Segoe UI',Arial,sans-serif;flex-wrap:wrap}.card{width:260px;height:430px;background:#fff;border:1px solid #ddd;position:relative;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.2);page-break-inside:avoid;flex-shrink:0}@media print{body{background:#fff;padding:10px;gap:20px}.card{box-shadow:none}}</style>
-</head><body>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:center;align-items:flex-start;font-family:'Calibri','Segoe UI',Arial,sans-serif;flex-wrap:wrap}
+.card{width:260px;height:430px;background:#fff;border:1px solid #ddd;position:relative;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.2);page-break-inside:avoid;flex-shrink:0}
+@media print{body{background:#fff;padding:10px;gap:20px}.card{box-shadow:none}}
+</style></head><body>
+
+<!-- FRONT CARD -->
 <div class="card">
   <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
   <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
-  <div style="position:absolute;top:30px;right:45px;z-index:2"><img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/></div>
-  <div style="position:absolute;top:148px;left:50%;transform:translateX(-50%);z-index:2;width:90px;height:108px;border:2px solid #aaa;border-radius:2px;overflow:hidden;background:#f5f5f5">${photoHtml}</div>
-  <div style="position:absolute;top:275px;left:50%;transform:translateX(-50%);font-weight:700;font-size:15px;letter-spacing:0.2px;line-height:1.2;color:#111;z-index:2;text-align:center;white-space:nowrap">${fullPrintName || "EMPLOYEE NAME"}</div>
+  <div style="position:absolute;top:30px;right:45px;z-index:2">
+    <img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
+  </div>
+  <div style="position:absolute;top:148px;left:50%;transform:translateX(-50%);z-index:2;width:90px;height:108px;border:2px solid #aaa;border-radius:2px;overflow:hidden;background:#f5f5f5">
+    ${photoHtml}
+  </div>
+  <div style="position:absolute;top:275px;left:50%;transform:translateX(-50%);font-weight:700;font-size:15px;letter-spacing:0.2px;line-height:1.2;color:#111;z-index:2;text-align:center;white-space:nowrap">
+    ${fullPrintName || "EMPLOYEE NAME"}
+  </div>
   <div style="position:absolute;top:292px;left:50%;transform:translateX(-50%);font-size:13px;color:#111;z-index:2;line-height:1.35;white-space:nowrap">
     <div style="display:flex"><span style="width:78px">Employee ID</span><span style="width:14px;text-align:center">:</span><span>${empId}</span></div>
     <div style="display:flex"><span style="width:78px">Designation</span><span style="width:14px;text-align:center">:</span><span>${designation}</span></div>
     <div style="display:flex"><span style="width:78px">Valid Till</span><span style="width:14px;text-align:center">:</span><span>${validTill}</span></div>
-    <div style="margin-top:14px"><img src="${signUrl}" style="width:130px;height:50px;object-fit:contain;display:block;margin-bottom:-12px" onerror="this.style.display='none'" alt="Signature"/><div style="font-size:13px;color:#111;line-height:1.2;font-weight:500">Authorised Sign</div></div>
+    <div style="margin-top:14px">
+      <img src="${signUrl}" style="width:130px;height:50px;object-fit:contain;display:block;margin-bottom:-12px" onerror="this.style.display='none'" alt="Signature"/>
+      <div style="font-size:13px;color:#111;line-height:1.2;font-weight:500">Authorised Sign</div>
+    </div>
   </div>
 </div>
+
+<!-- BACK CARD -->
 <div class="card">
   <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
   <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
-  <div style="position:absolute;top:30px;right:45px;z-index:2"><img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/></div>
+  <div style="position:absolute;top:30px;right:45px;z-index:2">
+    <img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
+  </div>
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2;padding:0 18px;padding-top:100px">
     <div style="font-weight:700;font-size:16px;color:#111;margin-bottom:2px">Insta ICT Solutions Pvt. Ltd.</div>
     <div style="font-size:13px;color:#333;line-height:1.3">201 &amp; 202, Imperial Plaza,</div>
     <div style="font-size:13px;color:#333;line-height:1.3;margin-bottom:4px">Jijai Nagar, Kothrud, Pune 411 038</div>
     <div style="font-size:13px;color:#1565C0;text-decoration:underline;margin-bottom:2px">www.instagrp.com</div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:#111;font-weight:600;margin-bottom:6px;flex-wrap:wrap"><span>Emergency Contact No :</span><span style="color:#333;font-weight:500">${emergencyContact}</span></div>
-    <div style="font-size:10.5px;color:#333;line-height:1.25;text-align:center;max-width:210px;font-weight:500">Property of Insta ICT Solutions.<br/>If found, please return to the Admin Team.</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:#111;font-weight:600;margin-bottom:6px;flex-wrap:wrap">
+      <span>Emergency Contact No :</span><span style="color:#333;font-weight:500">${emergencyContact}</span>
+    </div>
+    <div style="font-size:10.5px;color:#333;line-height:1.25;text-align:center;max-width:210px;font-weight:500">
+      Property of Insta ICT Solutions.<br/>If found, please return to the Admin Team.
+    </div>
   </div>
 </div>
+
 <script>setTimeout(()=>window.print(),400)</script>
 </body></html>`);
     pw.document.close();
   };
 
-  // ── Status badge ──────────────────────────────────────────────────────────
+  // ── Status badge ───────────────────────────────────────────────────────────
   const statusConfig = (() => {
     if (uploadState === "uploading")
       return {
@@ -1335,7 +1392,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
         bg: "#f0fdf4",
         border: "#bbf7d0",
       };
-    if (photoUrl)
+    if (photoExists && photoProxyUrl)
       return {
         icon: "✓",
         label: "Photo loaded from database",
@@ -1352,6 +1409,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
     };
   })();
 
+  // ── Styles ─────────────────────────────────────────────────────────────────
   const styles = {
     overlay: {
       position: "fixed",
@@ -1442,6 +1500,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
     }),
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       {showCropEditor && rawPhoto && (
@@ -1597,12 +1656,12 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
                   >
                     <CardFront
                       employee={employee}
-                      photoUrl={photoUrl}
+                      photoProxyUrl={photoProxyUrl}
                       manualPhoto={manualPhoto}
                       onUpload={handlePhotoUpload}
                       uploading={uploadState === "uploading"}
                       onEditClick={handleEditExisting}
-                      onPhotoError={handlePhotoError}
+                      onPhotoMissing={handlePhotoMissing}
                       validityDate={validityDate}
                     />
                   </div>
@@ -1630,7 +1689,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
 
             {/* RIGHT — controls */}
             <div style={styles.rightPanel}>
-              {/* Photo */}
+              {/* Photo section */}
               <div>
                 <div style={styles.sectionLabel}>Photo</div>
                 <div
@@ -1746,7 +1805,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
 
               <div style={{ height: 1, background: "#f1f5f9" }} />
 
-              {/* Validity */}
+              {/* Validity section */}
               <div>
                 <div style={styles.sectionLabel}>Validity Period</div>
                 <div
@@ -1866,7 +1925,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
 
               <div style={{ flex: 1 }} />
 
-              {/* Actions */}
+              {/* Action buttons */}
               <div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button

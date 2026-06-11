@@ -80,7 +80,7 @@ const SCALAR_FIELDS = [
   // Employment
   "joiningDate",
   "department",
-  "position", // DB column: position  (UI label: "Designation")
+  // NOTE: "position"/"designation" is handled explicitly below — not in SCALAR_FIELDS
   "circle",
   "projectName",
   "reportingManager",
@@ -126,6 +126,18 @@ function buildEmployeeFormData(employeeData) {
 
   const eid = employeeData.employeeId?.toString().trim();
   if (eid) fd.append("employeeId", eid);
+
+  // UI stores designation; backend reads position (DB column name).
+  // Append as both so either check in the controller succeeds.
+  const designation = employeeData.designation?.toString().trim();
+  if (designation) {
+    fd.append("position", designation);
+    fd.append("designation", designation);
+  }
+
+  // UI field name is "project"; backend/SCALAR_FIELDS expects "projectName".
+  const project = employeeData.project?.toString().trim();
+  if (project) fd.append("projectName", project);
 
   const docs = employeeData.documents || {};
   // Multer field names must match middleware .fields([...]) exactly
