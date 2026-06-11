@@ -1,10 +1,8 @@
 // src/services/employeeService.js
 // ─── Business logic: employee management ──────────────────────────────────────
 //
-// S3 CHANGE:
-//   • getNextEmployeeId() added as an alias for getNextId().
-//     AddEmp.jsx calls employeeService.getNextEmployeeId() on mount to display
-//     the real next DB-assigned employee ID before the form is submitted.
+// NOTE: employeeRepository lives at ../hooks/employeeRepository
+//       (the file header comment "src/repositories/..." is a legacy mistake)
 //
 import employeeRepository from "../hooks/employeeRepository";
 
@@ -29,7 +27,15 @@ const employeeService = {
   // ── Registration links ─────────────────────────────────────────────────────
   generateRegistrationLink: (data) =>
     employeeRepository.generateRegistrationLink(data),
+
+  // validateLink returns: { success, valid, isRejoin, prefillData, linkEmail, data }
+  // For rejoin links, prefillData contains ALL previous employee fields pre-populated.
   validateLink: (linkId) => employeeRepository.validateLink(linkId),
+
+  // Explicit rejoin prefill fetch — same endpoint, clearer call-site semantics.
+  // RegistrationForm should call this when isRejoin=true to get prefillData.
+  getRejoinPrefill: (linkId) => employeeRepository.getRejoinPrefill(linkId),
+
   getRecentRegistrationLinks: () =>
     employeeRepository.getRecentRegistrationLinks(),
   checkRejoinLink: (linkId) => employeeRepository.checkRejoinLink(linkId),
@@ -37,6 +43,14 @@ const employeeService = {
   // ── Submissions ────────────────────────────────────────────────────────────
   submitRegistration: (data, docs) =>
     employeeRepository.submitRegistration(data, docs),
+
+  // Public employee registration via one-time link
+  submitPublicRegistration: (linkId, formData) =>
+    employeeRepository.submitPublicRegistration(linkId, formData),
+
+  // Rejected employee re-submitting their form
+  resubmitRegistration: (token, formData) =>
+    employeeRepository.resubmitRegistration(token, formData),
   getPrefillData: (token) => employeeRepository.getPrefillData(token),
   getPendingSubmissions: () => employeeRepository.getPendingSubmissions(),
   approveSubmission: (id) => employeeRepository.approveSubmission(id),

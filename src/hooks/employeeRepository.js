@@ -186,11 +186,98 @@ const employeeRepository = {
       body: buildEmployeeFormData(employeeData),
     }),
 
-  update: (id, employeeData) =>
-    apiFetch(`/employees/${id}`, {
+  update: (id, employeeData) => {
+    // PUT /api/employees/:id uses express.json() — must send JSON, NOT FormData.
+    // Documents are uploaded separately via /upload-document endpoint.
+    const UPDATABLE_FIELDS = [
+      "firstName",
+      "lastName",
+      "fatherHusbandName",
+      "email",
+      "phone",
+      "altPhone",
+      "dob",
+      "gender",
+      "maritalStatus",
+      "educationalQualification",
+      "bloodGroup",
+      "panNumber",
+      "nameOnPan",
+      "aadhar",
+      "nameOnAadhar",
+      "uanNumber",
+      "familyMemberName",
+      "familyContactNo",
+      "familyWorkingStatus",
+      "familyEmployerName",
+      "familyEmployerContact",
+      "emergencyContactName",
+      "emergencyContactNo",
+      "emergencyContactAddress",
+      "emergencyContactRelation",
+      "permanentAddress",
+      "permanentPhone",
+      "permanentLandmark",
+      "permanentLatLong",
+      "localSameAsPermanent",
+      "localAddress",
+      "localPhone",
+      "localLandmark",
+      "localLatLong",
+      "ref1Name",
+      "ref1Designation",
+      "ref1Organization",
+      "ref1Address",
+      "ref1CityStatePin",
+      "ref1ContactNo",
+      "ref1Email",
+      "ref2Name",
+      "ref2Designation",
+      "ref2Organization",
+      "ref2Address",
+      "ref2CityStatePin",
+      "ref2ContactNo",
+      "ref2Email",
+      "ref3Name",
+      "ref3Designation",
+      "ref3Organization",
+      "ref3Address",
+      "ref3CityStatePin",
+      "ref3ContactNo",
+      "ref3Email",
+      "employeeId",
+      "joiningDate",
+      "department",
+      "designation",
+      "position",
+      "employmentType",
+      "circle",
+      "projectName",
+      "reportingManager",
+      "status",
+      "basicSalary",
+      "hra",
+      "otherAllowances",
+      "bankName",
+      "accountNumber",
+      "ifscCode",
+      "accountHolderName",
+      "bankBranch",
+      "address",
+      "city",
+      "state",
+      "zipCode",
+    ];
+    const payload = {};
+    UPDATABLE_FIELDS.forEach((k) => {
+      if (employeeData[k] !== undefined) payload[k] = employeeData[k];
+    });
+    return apiFetch(`/employees/${id}`, {
       method: "PUT",
-      body: buildUpdateFormData(employeeData),
-    }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
 
   updateStatus: (id, status, rejection_reason = "") =>
     apiFetch(`/employees/${id}/status`, {
@@ -210,6 +297,11 @@ const employeeRepository = {
       body: JSON.stringify(data),
     }),
   validateLink: (linkId) => apiFetch(`/registration-links/${linkId}/validate`),
+
+  // Convenience wrapper: calls validateLink and returns the full response.
+  // For rejoin links the response includes prefillData with all previous employee fields.
+  getRejoinPrefill: (linkId) =>
+    apiFetch(`/registration-links/${linkId}/validate`),
   getRecentRegistrationLinks: () => apiFetch("/registration-links"),
   checkRejoinLink: (linkId) => apiFetch(`/registration-links/rejoin/${linkId}`),
 

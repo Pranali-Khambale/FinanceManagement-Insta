@@ -1,13 +1,11 @@
 // src/Ui/EmployeeMng/Linkgen/RegistrationForm.jsx
-// ✅ FIXED: Every formData key matches the exact `name` / `fieldName` used in
-//           each child component AND the camelCase key the backend controller
-//           reads from req.body (buildCommonFields).
-//           • linkId injected into FormData before POST
-//           • resubmitToken injected for resubmit flow
-//           • confirmAccountNumber excluded from server payload (frontend-only)
-//           • submitPublicRegistration / resubmitRegistration called correctly
+// ✅ FIXED:
+//   1. useEffect on mount calls validateLink → detects isRejoin flag from backend
+//   2. prefillData returned by validateLink is applied to formData state
+//   3. isRejoin is no longer hardcoded false — it is set from the link's metadata
+//   4. isRejoin=true + linkId appended to FormData on submit (rejoin flow)
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -26,6 +24,96 @@ import Documents from "./Documents";
 // Medical Certificate + FARM-ToCli mandatory ONLY for these three roles in Telecom
 const FARM_TO_CLI_POSITIONS = ["dt engineer", "rigger", "technician"];
 
+const EMPTY_FORM = {
+  // ── Personal ──────────────────────────────────────────────────────────────
+  firstName: "",
+  fatherHusbandName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  altPhone: "",
+  dob: "",
+  gender: "",
+  maritalStatus: "",
+  educationalQualification: "",
+  bloodGroup: "",
+  panNumber: "",
+  nameOnPan: "",
+  aadhar: "",
+  nameOnAadhar: "",
+  uanNumber: "",
+  // ── Family ────────────────────────────────────────────────────────────────
+  familyMemberName: "",
+  familyContactNo: "",
+  familyWorkingStatus: "",
+  familyEmployerName: "",
+  familyEmployerContact: "",
+  // ── Emergency ─────────────────────────────────────────────────────────────
+  emergencyContactName: "",
+  emergencyContactNo: "",
+  emergencyContactAddress: "",
+  emergencyContactRelation: "",
+  // ── Permanent address ─────────────────────────────────────────────────────
+  permanentAddress: "",
+  permanentPhone: "",
+  permanentLandmark: "",
+  permanentLatLong: "",
+  // ── Local address ─────────────────────────────────────────────────────────
+  localSameAsPermanent: false,
+  localAddress: "",
+  localPhone: "",
+  localLandmark: "",
+  localLatLong: "",
+  // ── References ────────────────────────────────────────────────────────────
+  ref1Name: "",
+  ref1Designation: "",
+  ref1Organization: "",
+  ref1Address: "",
+  ref1CityStatePin: "",
+  ref1ContactNo: "",
+  ref1Email: "",
+  ref2Name: "",
+  ref2Designation: "",
+  ref2Organization: "",
+  ref2Address: "",
+  ref2CityStatePin: "",
+  ref2ContactNo: "",
+  ref2Email: "",
+  ref3Name: "",
+  ref3Designation: "",
+  ref3Organization: "",
+  ref3Address: "",
+  ref3CityStatePin: "",
+  ref3ContactNo: "",
+  ref3Email: "",
+  // ── Employment ────────────────────────────────────────────────────────────
+  joiningDate: "",
+  department: "",
+  position: "",
+  projectName: "",
+  circle: "",
+  reportingManager: "",
+  employmentType: "",
+  // ── Bank ──────────────────────────────────────────────────────────────────
+  bankName: "",
+  accountHolderName: "",
+  accountNumber: "",
+  confirmAccountNumber: "",
+  ifscCode: "",
+  bankBranch: "",
+  // ── Documents (File objects — never prefilled) ────────────────────────────
+  idPhoto: null,
+  aadharCard: null,
+  panCard: null,
+  resume: null,
+  bankPassbook: null,
+  medicalCertificate: null,
+  academicRecords: null,
+  payslip: null,
+  farmToCli: null,
+  otherCertificates: null,
+};
+
 const RegistrationForm = () => {
   const { linkId, token } = useParams();
   const navigate = useNavigate();
@@ -33,112 +121,158 @@ const RegistrationForm = () => {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRejoin] = useState(false);
+  const [isRejoin, setIsRejoin] = useState(false); // ✅ FIX: no longer hardcoded false
+  const [linkLoading, setLinkLoading] = useState(!isResubmit); // show spinner while validating link
+  const [linkError, setLinkError] = useState("");
   const [errors, setErrors] = useState({});
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // KEY RULE: every key here must EXACTLY match the `name` attribute in the
-  // child component that writes it, AND the camelCase name the backend reads.
-  //
-  // DB column          → backend reads (req.body key) → formData key here
-  // ─────────────────────────────────────────────────────────────────────────
-  const [formData, setFormData] = useState({
-    // ── Personal (PersonalInfo.jsx) ────────────────────────────────────────
-    firstName: "", // name="firstName"        → first_name
-    fatherHusbandName: "", // name="fatherHusbandName"→ father_husband_name
-    lastName: "", // name="lastName"         → last_name
-    email: "", // name="email"            → email
-    phone: "", // name="phone"            → phone
-    altPhone: "", // name="altPhone"         → alt_phone
-    dob: "", // name="dob"              → date_of_birth
-    gender: "", // name="gender"           → gender
-    maritalStatus: "", // name="maritalStatus"    → marital_status
-    educationalQualification: "", // name="educationalQualification" → educational_qualification
-    bloodGroup: "", // name="bloodGroup"       → blood_group
-    panNumber: "", // name="panNumber"        → pan_number
-    nameOnPan: "", // name="nameOnPan"        → name_on_pan
-    aadhar: "", // name="aadhar"           → aadhar_number
-    nameOnAadhar: "", // name="nameOnAadhar"     → name_on_aadhar
-    uanNumber: "", // name="uanNumber"        → uan_number
+  // ── FIX: validate the link on mount and apply prefillData for rejoin ──────
+  useEffect(() => {
+    // Resubmit flow uses a token, not a linkId — no need to validate here.
+    if (isResubmit) {
+      // Optionally: fetch prefill for resubmit via getPrefillData(token)
+      return;
+    }
+    if (!linkId) return;
 
-    // ── Family (PersonalInfo.jsx) ──────────────────────────────────────────
-    familyMemberName: "", // name="familyMemberName"   → family_member_name
-    familyContactNo: "", // name="familyContactNo"    → family_contact_no
-    familyWorkingStatus: "", // name="familyWorkingStatus"→ family_working_status
-    familyEmployerName: "", // name="familyEmployerName" → family_employer_name
-    familyEmployerContact: "", // name="familyEmployerContact"→family_employer_contact
+    const validateAndPrefill = async () => {
+      setLinkLoading(true);
+      setLinkError("");
+      try {
+        const response = await employeeService.validateLink(linkId);
 
-    // ── Emergency (PersonalInfo.jsx) ──────────────────────────────────────
-    emergencyContactName: "", // name="emergencyContactName"   → emergency_contact_name
-    emergencyContactNo: "", // name="emergencyContactNo"     → emergency_contact_no
-    emergencyContactAddress: "", // name="emergencyContactAddress"→ emergency_contact_address
-    emergencyContactRelation: "", // name="emergencyContactRelation"→emergency_contact_relation
+        if (!response?.valid) {
+          setLinkError(
+            response?.message ||
+              (response?.expired
+                ? "This registration link has expired."
+                : response?.used
+                  ? "This registration link has already been used."
+                  : "Invalid registration link."),
+          );
+          return;
+        }
 
-    // ── Permanent address (PersonalInfo.jsx) ──────────────────────────────
-    permanentAddress: "", // name="permanentAddress" → permanent_address
-    permanentPhone: "", // name="permanentPhone"   → permanent_phone
-    permanentLandmark: "", // name="permanentLandmark"→ permanent_landmark
-    permanentLatLong: "", // name="permanentLatLong" → permanent_lat_long
+        // ── Detect rejoin and apply prefill ──────────────────────────────
+        const rejoin = response.isRejoin === true;
+        setIsRejoin(rejoin);
 
-    // ── Local address (PersonalInfo.jsx) ──────────────────────────────────
-    localSameAsPermanent: false, // name="localSameAsPermanent"→local_same_as_permanent
-    localAddress: "", // name="localAddress"    → local_address
-    localPhone: "", // name="localPhone"      → local_phone
-    localLandmark: "", // name="localLandmark"   → local_landmark
-    localLatLong: "", // name="localLatLong"    → local_lat_long
+        if (rejoin) {
+          // Backend returns prefillData at top level AND inside data{}
+          const prefill = response.prefillData || response.data?.prefillData;
+          if (prefill) {
+            applyPrefillData(prefill);
+          }
+        }
+      } catch (err) {
+        setLinkError(
+          "Failed to validate the registration link. Please try again.",
+        );
+        console.error("[RegistrationForm] validateLink error:", err);
+      } finally {
+        setLinkLoading(false);
+      }
+    };
 
-    // ── References (PersonalInfo.jsx) — key = ref{n}{SubKey} ──────────────
-    ref1Name: "",
-    ref1Designation: "",
-    ref1Organization: "", // ref1_*
-    ref1Address: "",
-    ref1CityStatePin: "",
-    ref1ContactNo: "",
-    ref1Email: "",
-    ref2Name: "",
-    ref2Designation: "",
-    ref2Organization: "", // ref2_*
-    ref2Address: "",
-    ref2CityStatePin: "",
-    ref2ContactNo: "",
-    ref2Email: "",
-    ref3Name: "",
-    ref3Designation: "",
-    ref3Organization: "", // ref3_*
-    ref3Address: "",
-    ref3CityStatePin: "",
-    ref3ContactNo: "",
-    ref3Email: "",
+    validateAndPrefill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkId, isResubmit]);
 
-    // ── Employment (EmploymentDetails.jsx) ────────────────────────────────
-    joiningDate: "", // name="joiningDate"     → joining_date
-    department: "", // name="department"      → department
-    position: "", // name="position"        → position  (UI label: Designation)
-    projectName: "", // name="projectName"     → project_name
-    circle: "", // name="circle"          → circle
-    reportingManager: "", // name="reportingManager"→ reporting_manager
-    employmentType: "", // name="employmentType"  → employment_type
-
-    // ── Bank (BankDetailsinfo.jsx) ────────────────────────────────────────
-    bankName: "", // name="bankName"           → bank_name
-    accountHolderName: "", // name="accountHolderName"  → account_holder_name
-    accountNumber: "", // name="accountNumber"      → account_number
-    confirmAccountNumber: "", // name="confirmAccountNumber"— frontend validation only, NOT sent
-    ifscCode: "", // name="ifscCode"           → ifsc_code
-    bankBranch: "", // name="bankBranch"         → bank_branch
-
-    // ── Documents (Documents.jsx) — match multer .fields() names ─────────
-    idPhoto: null, // fieldName="idPhoto"           → id_photo_url
-    aadharCard: null, // fieldName="aadharCard"        → aadhar_card_url
-    panCard: null, // fieldName="panCard"           → pan_card_url
-    resume: null, // fieldName="resume"            → resume_url
-    bankPassbook: null, // fieldName="bankPassbook"      → bank_passbook_url
-    medicalCertificate: null, // fieldName="medicalCertificate"→ medical_certificate_url
-    academicRecords: null, // fieldName="academicRecords"   → academic_records_url
-    payslip: null, // fieldName="payslip"           → pay_slip_url
-    farmToCli: null, // fieldName="farmToCli"         → farm_to_cli_certificate_url
-    otherCertificates: null, // fieldName="otherCertificates" → other_certificates_url
-  });
+  // ── Apply all prefill fields from validateLink response ───────────────────
+  // Keys match exactly what buildPrefillData() returns in the backend controller.
+  // File fields (idPhoto etc.) are intentionally excluded — employee must re-upload.
+  const applyPrefillData = (prefill) => {
+    setFormData((prev) => ({
+      ...prev,
+      // Personal
+      firstName: prefill.firstName ?? prev.firstName,
+      lastName: prefill.lastName ?? prev.lastName,
+      fatherHusbandName: prefill.fatherHusbandName ?? prev.fatherHusbandName,
+      dob: prefill.dob ?? prev.dob,
+      gender: prefill.gender ?? prev.gender,
+      maritalStatus: prefill.maritalStatus ?? prev.maritalStatus,
+      educationalQualification:
+        prefill.educationalQualification ?? prev.educationalQualification,
+      bloodGroup: prefill.bloodGroup ?? prev.bloodGroup,
+      panNumber: prefill.panNumber ?? prev.panNumber,
+      nameOnPan: prefill.nameOnPan ?? prev.nameOnPan,
+      aadhar: prefill.aadhar ?? prev.aadhar,
+      nameOnAadhar: prefill.nameOnAadhar ?? prev.nameOnAadhar,
+      uanNumber: prefill.uanNumber ?? prev.uanNumber,
+      // Contact
+      email: prefill.email ?? prev.email,
+      phone: prefill.phone ?? prev.phone,
+      altPhone: prefill.altPhone ?? prev.altPhone,
+      // Permanent address
+      permanentAddress: prefill.permanentAddress ?? prev.permanentAddress,
+      permanentPhone: prefill.permanentPhone ?? prev.permanentPhone,
+      permanentLandmark: prefill.permanentLandmark ?? prev.permanentLandmark,
+      permanentLatLong: prefill.permanentLatLong ?? prev.permanentLatLong,
+      // Local address
+      localSameAsPermanent:
+        prefill.localSameAsPermanent ?? prev.localSameAsPermanent,
+      localAddress: prefill.localAddress ?? prev.localAddress,
+      localPhone: prefill.localPhone ?? prev.localPhone,
+      localLandmark: prefill.localLandmark ?? prev.localLandmark,
+      localLatLong: prefill.localLatLong ?? prev.localLatLong,
+      // Family
+      familyMemberName: prefill.familyMemberName ?? prev.familyMemberName,
+      familyContactNo: prefill.familyContactNo ?? prev.familyContactNo,
+      familyWorkingStatus:
+        prefill.familyWorkingStatus ?? prev.familyWorkingStatus,
+      familyEmployerName: prefill.familyEmployerName ?? prev.familyEmployerName,
+      familyEmployerContact:
+        prefill.familyEmployerContact ?? prev.familyEmployerContact,
+      // Emergency
+      emergencyContactName:
+        prefill.emergencyContactName ?? prev.emergencyContactName,
+      emergencyContactNo: prefill.emergencyContactNo ?? prev.emergencyContactNo,
+      emergencyContactAddress:
+        prefill.emergencyContactAddress ?? prev.emergencyContactAddress,
+      emergencyContactRelation:
+        prefill.emergencyContactRelation ?? prev.emergencyContactRelation,
+      // References
+      ref1Name: prefill.ref1Name ?? prev.ref1Name,
+      ref1Designation: prefill.ref1Designation ?? prev.ref1Designation,
+      ref1Organization: prefill.ref1Organization ?? prev.ref1Organization,
+      ref1Address: prefill.ref1Address ?? prev.ref1Address,
+      ref1CityStatePin: prefill.ref1CityStatePin ?? prev.ref1CityStatePin,
+      ref1ContactNo: prefill.ref1ContactNo ?? prev.ref1ContactNo,
+      ref1Email: prefill.ref1Email ?? prev.ref1Email,
+      ref2Name: prefill.ref2Name ?? prev.ref2Name,
+      ref2Designation: prefill.ref2Designation ?? prev.ref2Designation,
+      ref2Organization: prefill.ref2Organization ?? prev.ref2Organization,
+      ref2Address: prefill.ref2Address ?? prev.ref2Address,
+      ref2CityStatePin: prefill.ref2CityStatePin ?? prev.ref2CityStatePin,
+      ref2ContactNo: prefill.ref2ContactNo ?? prev.ref2ContactNo,
+      ref2Email: prefill.ref2Email ?? prev.ref2Email,
+      ref3Name: prefill.ref3Name ?? prev.ref3Name,
+      ref3Designation: prefill.ref3Designation ?? prev.ref3Designation,
+      ref3Organization: prefill.ref3Organization ?? prev.ref3Organization,
+      ref3Address: prefill.ref3Address ?? prev.ref3Address,
+      ref3CityStatePin: prefill.ref3CityStatePin ?? prev.ref3CityStatePin,
+      ref3ContactNo: prefill.ref3ContactNo ?? prev.ref3ContactNo,
+      ref3Email: prefill.ref3Email ?? prev.ref3Email,
+      // Employment
+      department: prefill.department ?? prev.department,
+      position: prefill.position ?? prev.position,
+      joiningDate: prefill.joiningDate ?? prev.joiningDate,
+      employmentType: prefill.employmentType ?? prev.employmentType,
+      reportingManager: prefill.reportingManager ?? prev.reportingManager,
+      circle: prefill.circle ?? prev.circle,
+      projectName: prefill.projectName ?? prev.projectName,
+      // Bank
+      bankName: prefill.bankName ?? prev.bankName,
+      accountNumber: prefill.accountNumber ?? prev.accountNumber,
+      ifscCode: prefill.ifscCode ?? prev.ifscCode,
+      accountHolderName: prefill.accountHolderName ?? prev.accountHolderName,
+      bankBranch: prefill.bankBranch ?? prev.bankBranch,
+      // confirmAccountNumber mirrors accountNumber so the bank step validates cleanly
+      confirmAccountNumber: prefill.accountNumber ?? prev.confirmAccountNumber,
+      // File fields intentionally omitted — employee must re-upload documents
+    }));
+  };
 
   const steps = [
     { id: 1, name: "Personal Info" },
@@ -243,15 +377,15 @@ const RegistrationForm = () => {
     try {
       const fd = new FormData();
 
-      // ── Step 1: routing tokens (required by resolveSubmissionContext) ──
+      // ── Routing tokens (required by resolveSubmissionContext middleware) ──
       if (isResubmit) {
-        fd.append("resubmitToken", token); // backend: req.body.resubmitToken
+        fd.append("resubmitToken", token);
       } else {
-        fd.append("linkId", linkId); // backend: req.body.linkId
-        if (isRejoin) fd.append("isRejoin", "true");
+        fd.append("linkId", linkId);
+        if (isRejoin) fd.append("isRejoin", "true"); // ✅ now actually true for rejoin links
       }
 
-      // ── Step 2: scalar fields — skip frontend-only keys ───────────────
+      // ── Scalar fields ─────────────────────────────────────────────────────
       const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
       const FILE_FIELDS = new Set([
         "idPhoto",
@@ -268,18 +402,18 @@ const RegistrationForm = () => {
 
       Object.entries(formData).forEach(([key, val]) => {
         if (FRONTEND_ONLY.has(key)) return;
-        if (FILE_FIELDS.has(key)) return; // handled below
+        if (FILE_FIELDS.has(key)) return;
         if (val === null || val === undefined) return;
         fd.append(key, String(val));
       });
 
-      // ── Step 3: file fields ────────────────────────────────────────────
+      // ── File fields ───────────────────────────────────────────────────────
       FILE_FIELDS.forEach((key) => {
         if (formData[key] instanceof File)
           fd.append(key, formData[key], formData[key].name);
       });
 
-      // ── Step 4: dispatch ───────────────────────────────────────────────
+      // ── Dispatch ──────────────────────────────────────────────────────────
       let res;
       if (isResubmit) {
         res = await employeeService.resubmitRegistration(token, fd);
@@ -303,19 +437,59 @@ const RegistrationForm = () => {
     }
   };
 
+  // ── Link validation loading / error states ────────────────────────────────
+  if (linkLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-3" />
+          <p className="text-slate-600 font-medium">
+            Validating your registration link…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (linkError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Link Invalid</h2>
+          <p className="text-gray-600">{linkError}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         {/* Step header */}
-        <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
-          <span className="text-white font-bold text-lg">
-            Employee Portal Registration
-          </span>
+        <div
+          className={`px-6 py-4 flex items-center justify-between ${isRejoin ? "bg-indigo-900" : "bg-slate-900"}`}
+        >
+          <div>
+            <span className="text-white font-bold text-lg">
+              {isRejoin
+                ? "Rejoin Registration"
+                : "Employee Portal Registration"}
+            </span>
+            {isRejoin && (
+              <p className="text-indigo-300 text-xs mt-0.5">
+                Your previous information has been pre-filled — please review
+                and update as needed.
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {steps.map((s) => (
               <div
                 key={s.id}
-                className={`w-3 h-3 rounded-full ${currentStep >= s.id ? "bg-blue-500" : "bg-slate-700"}`}
+                className={`w-3 h-3 rounded-full ${currentStep >= s.id ? "bg-blue-400" : "bg-slate-700"}`}
               />
             ))}
           </div>
