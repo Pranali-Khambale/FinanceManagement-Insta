@@ -2,8 +2,8 @@
 import axios from "axios";
 
 // export const BASE_URL = 'https://api-fin.instagrp.com/api';
-export const BASE_URL = "http://192.168.1.10:5000/api";
-// export const BASE_URL = "http://localhost:5000/api";
+// export const BASE_URL = "http://192.168.1.17:5000/api";
+export const BASE_URL = "http://localhost:5000/api";
 
 // ── Axios instance ───────────────────────────────────────────────────────────
 export const axiosClient = axios.create({

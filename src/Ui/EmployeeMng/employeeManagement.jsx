@@ -20,6 +20,7 @@ import ImportExcelModal from "./EmployeeExcel";
 import ViewEmployee from "./ViewEmployee";
 import EditEmployee from "./EditEmployee";
 import employeeService from "../../services/employeeService";
+import { SubmittedDocsPanel } from "./SubmittedDocsPanel";
 
 import { BASE_URL } from "../../api/client";
 
@@ -68,10 +69,11 @@ const EmployeeManagement = ({ showToast }) => {
     const maxId = Math.max(...ids, 0);
     return `EMP${String(maxId + 1).padStart(3, "0")}`;
   };
-  // ✅ FIXED — just await, errors bubble up to AddEmp.jsx's catch block
+
+  // ✅ FIXED — use showToast instead of undefined `toast`
   const handleAddEmployee = async (data) => {
     await employeeService.addEmployee(data);
-    toast("Employee added successfully!", "success");
+    showToast?.("Employee added successfully!", "success");
     setShowModal(false);
     fetchEmployees();
   };
@@ -334,7 +336,6 @@ const EmployeeManagement = ({ showToast }) => {
                         key={emp.id || emp.employee_id}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        {/* Employee */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">
@@ -351,29 +352,21 @@ const EmployeeManagement = ({ showToast }) => {
                             </div>
                           </div>
                         </td>
-
-                        {/* ID */}
                         <td className="px-6 py-4">
                           <span className="font-mono text-sm font-medium text-gray-700">
                             {empId}
                           </span>
                         </td>
-
-                        {/* Department */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-700">
                             {department || "—"}
                           </span>
                         </td>
-
-                        {/* Designation */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-700">
                             {designation || "—"}
                           </span>
                         </td>
-
-                        {/* Joining Date */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-500">
                             {joiningDate
@@ -383,8 +376,6 @@ const EmployeeManagement = ({ showToast }) => {
                               : "—"}
                           </span>
                         </td>
-
-                        {/* Status */}
                         <td className="px-6 py-4">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -398,8 +389,6 @@ const EmployeeManagement = ({ showToast }) => {
                             {normalizedStatus}
                           </span>
                         </td>
-
-                        {/* Actions */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1">
                             <button
@@ -482,6 +471,6 @@ const EmployeeManagement = ({ showToast }) => {
       )}
     </div>
   );
-};;
+};
 
 export default EmployeeManagement;

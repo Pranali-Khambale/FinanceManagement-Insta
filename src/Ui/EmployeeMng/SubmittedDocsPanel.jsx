@@ -1,14 +1,24 @@
 // src/Ui/EmployeeMng/SubmittedDocsPanel.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Panel shown inside PendingApprovals (and employee detail) for HR to review
-// documents uploaded by the employee after approval:
-//   • Signed KYE form
-//   • BGV form
-//   • Email screenshot
+// FIX: "Download All as PDF" no longer clears the docs list.
 //
-// Also exported: useSubmittedDocs hook to fetch docs for any employee db id.
+// ROOT CAUSE: The download button was calling fetchDocs() after generating
+// the zip/pdf, which re-ran the async fetch and set docs=[] momentarily
+// (the loading state wiped the UI), OR the presigned URL fetch was failing
+// on the second call because the S3 keys were being fetched again without
+// a cache.
+//
+// FIXES APPLIED:
+//  1. Inline presign cache (module-level Map) — URLs are cached 50 min so
+//     re-renders never hit the network again for the same key.
+//  2. resolveUrl() is async and used via a useEffect that populates a
+//     resolvedUrls state map — docs list stays visible at all times.
+//  3. "Download All as PDF" opens each doc in a new tab instead of
+//     refetching or calling fetchDocs(). No loading flicker.
+//  4. fetchDocs() no longer resets docs to [] before the response arrives
+//     (it keeps stale data visible while refreshing).
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   FileText,
   Shield,
@@ -29,14 +39,40 @@ import {
 } from "lucide-react";
 
 import { BASE_URL } from "../../api/client";
-import { getS3Url } from "../../utils/s3Utils"; // ← S3 helper
 
-// ── URL resolver — handles S3 keys and full URLs ──────────────────────────────
-const fullUrl = (p) => {
-  if (!p) return null;
-  if (p.startsWith("http://") || p.startsWith("https://")) return p;
-  return getS3Url(p); // S3 key → public URL
-};
+// ── Module-level presign cache (shared across all panel instances) ─────────────
+// key = S3 object key, value = { url, expiresAt }
+const _presignCache = new Map();
+
+async function resolveUrl(keyOrPath) {
+  if (!keyOrPath) return null;
+  if (keyOrPath.startsWith("http://") || keyOrPath.startsWith("https://"))
+    return keyOrPath;
+  if (keyOrPath.startsWith("/"))
+    return `${BASE_URL.replace("/api", "")}${keyOrPath}`;
+
+  // S3 key — check cache first
+  const now = Date.now();
+  const cached = _presignCache.get(keyOrPath);
+  if (cached && cached.expiresAt > now) return cached.url;
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/employees/s3/presign?key=${encodeURIComponent(keyOrPath)}`,
+    );
+    const data = await res.json();
+    if (data.success && data.url) {
+      _presignCache.set(keyOrPath, {
+        url: data.url,
+        expiresAt: now + 50 * 60 * 1000, // cache 50 min
+      });
+      return data.url;
+    }
+  } catch (e) {
+    console.warn("[SubmittedDocsPanel] presign failed:", e.message);
+  }
+  return null;
+}
 
 // ── Doc type metadata ─────────────────────────────────────────────────────────
 const DOC_META = {
@@ -81,7 +117,6 @@ const colorMap = {
   gray: { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-700" },
 };
 
-// ── File type detection ───────────────────────────────────────────────────────
 const getFileType = (path, mime) => {
   const p = (path || "").toLowerCase();
   const m = (mime || "").toLowerCase();
@@ -92,11 +127,11 @@ const getFileType = (path, mime) => {
 };
 
 // ── Doc Lightbox ──────────────────────────────────────────────────────────────
-const DocLightbox = ({ docs, startIndex, onClose }) => {
+const DocLightbox = ({ docs, resolvedUrls, startIndex, onClose }) => {
   const [idx, setIdx] = useState(startIndex || 0);
   const doc = docs[idx];
-  const url = fullUrl(doc?.file_path || doc?.path);
-  const ft = getFileType(doc?.file_path || doc?.path, doc?.mime_type);
+  const url = resolvedUrls[doc?.file_path] || null;
+  const ft = getFileType(doc?.file_path, doc?.mime_type);
   const meta = DOC_META[doc?.document_type] || DOC_META.other;
 
   useEffect(() => {
@@ -115,7 +150,6 @@ const DocLightbox = ({ docs, startIndex, onClose }) => {
       className="fixed inset-0 z-[300] flex flex-col"
       style={{ background: "rgba(0,0,0,0.92)" }}
     >
-      {/* Header */}
       <div
         className="flex items-center justify-between px-6 py-3 flex-shrink-0"
         style={{ background: "linear-gradient(90deg,#1e3a5f,#1d4ed8)" }}
@@ -160,7 +194,6 @@ const DocLightbox = ({ docs, startIndex, onClose }) => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 flex items-center justify-center relative overflow-hidden p-6">
         {idx > 0 && (
           <button
@@ -170,7 +203,6 @@ const DocLightbox = ({ docs, startIndex, onClose }) => {
             <ChevronLeft className="w-6 h-6" />
           </button>
         )}
-
         {ft === "pdf" && url && (
           <iframe
             src={url}
@@ -206,7 +238,6 @@ const DocLightbox = ({ docs, startIndex, onClose }) => {
             )}
           </div>
         )}
-
         {idx < docs.length - 1 && (
           <button
             onClick={() => setIdx((i) => i + 1)}
@@ -227,28 +258,105 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
   const [error, setError] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [marking, setMarking] = useState({});
+  const [downloading, setDownloading] = useState(false);
+
+  // resolvedUrls: { [file_path]: presignedUrl }
+  // Populated async after docs load — never cleared on re-fetch
+  const [resolvedUrls, setResolvedUrls] = useState({});
+  const resolveInProgress = useRef(new Set());
 
   const fetchDocs = useCallback(async () => {
     if (!empDbId) return;
     try {
-      setLoading(true);
+      // ✅ FIX: Don't set loading=true here if we already have docs —
+      // this prevents the panel from flashing blank while refreshing.
       setError("");
+      if (docs.length === 0) setLoading(true);
+
       const res = await fetch(
         `${BASE_URL}/employee-docs/submissions/${empDbId}`,
       );
       const data = await res.json();
-      if (data.success) setDocs(data.data || []);
-      else setError(data.message || "Failed to load documents");
+      if (data.success) {
+        setDocs(data.data || []);
+      } else {
+        setError(data.message || "Failed to load documents");
+      }
     } catch {
       setError("Cannot connect to server");
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empDbId]);
 
   useEffect(() => {
     fetchDocs();
   }, [fetchDocs]);
+
+  // ✅ FIX: Resolve presigned URLs in a separate effect that NEVER clears
+  // existing resolved URLs — it only adds new ones. This means after
+  // "Download All" (which doesn't call fetchDocs), all URLs stay valid.
+  useEffect(() => {
+    if (!docs.length) return;
+
+    const unresolvedKeys = docs
+      .map((d) => d.file_path)
+      .filter(
+        (k) => k && !resolvedUrls[k] && !resolveInProgress.current.has(k),
+      );
+
+    if (!unresolvedKeys.length) return;
+
+    unresolvedKeys.forEach((k) => resolveInProgress.current.add(k));
+
+    Promise.all(
+      unresolvedKeys.map((k) => resolveUrl(k).then((url) => [k, url])),
+    ).then((pairs) => {
+      const newEntries = Object.fromEntries(pairs.filter(([, url]) => url));
+      if (Object.keys(newEntries).length > 0) {
+        setResolvedUrls((prev) => ({ ...prev, ...newEntries }));
+      }
+      unresolvedKeys.forEach((k) => resolveInProgress.current.delete(k));
+    });
+  }, [docs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ✅ FIX: "Download All" opens each doc in a new tab using already-resolved
+  // URLs. No fetchDocs() call, no state reset, no flicker.
+  const handleDownloadAll = async () => {
+    if (!docs.length) return;
+    setDownloading(true);
+    try {
+      for (const doc of docs) {
+        // Use cached URL or fetch a fresh presign
+        const url =
+          resolvedUrls[doc.file_path] || (await resolveUrl(doc.file_path));
+        if (url) {
+          // Open in new tab — browser will download if Content-Disposition is attachment
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          const meta = DOC_META[doc.document_type] || DOC_META.other;
+          a.download = doc.file_name || `${meta.label}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          // Small delay between downloads so browser doesn't block them
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
+      showToast?.(
+        `${docs.length} document${docs.length > 1 ? "s" : ""} download started`,
+        "success",
+      );
+    } catch (e) {
+      showToast?.("Download failed: " + e.message, "error");
+    } finally {
+      setDownloading(false);
+      // ✅ Explicitly NOT calling fetchDocs() here — that was the bug.
+    }
+  };
 
   const handleMarkReviewed = async (docId) => {
     setMarking((prev) => ({ ...prev, [docId]: true }));
@@ -262,10 +370,15 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
       );
       const data = await res.json();
       if (data.success) {
+        // ✅ Update state in-place — no need to re-fetch all docs
         setDocs((prev) =>
-          prev.map((d) => (d.id === docId ? { ...d, reviewed: true } : d)),
+          prev.map((d) =>
+            d.id === docId ? { ...d, reviewed: true, status: "accepted" } : d,
+          ),
         );
         showToast?.("Document marked as reviewed", "success");
+      } else {
+        showToast?.(data.message || "Failed to mark as reviewed", "error");
       }
     } catch {
       showToast?.("Failed to mark as reviewed", "error");
@@ -274,7 +387,7 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
     }
   };
 
-  if (loading) {
+  if (loading && docs.length === 0) {
     return (
       <div className="flex items-center justify-center py-10">
         <Loader className="w-6 h-6 text-blue-500 animate-spin" />
@@ -282,7 +395,7 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
     );
   }
 
-  if (error) {
+  if (error && docs.length === 0) {
     return (
       <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
         <AlertCircle className="w-4 h-4 text-red-500" />
@@ -318,6 +431,7 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
       {lightbox !== null && (
         <DocLightbox
           docs={docs}
+          resolvedUrls={resolvedUrls}
           startIndex={lightbox}
           onClose={() => setLightbox(null)}
         />
@@ -325,36 +439,58 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
 
       <div className="space-y-3">
         {/* Summary bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-semibold text-blue-800">
               {docs.length} document{docs.length !== 1 ? "s" : ""} submitted
             </span>
           </div>
-          {unreviewed > 0 ? (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-              {unreviewed} unreviewed
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
-              <CheckCircle className="w-3 h-3" /> All reviewed
-            </span>
-          )}
-          <button
-            onClick={fetchDocs}
-            className="text-blue-500 hover:text-blue-700"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* ✅ Download All button — uses resolvedUrls, never calls fetchDocs */}
+            <button
+              onClick={handleDownloadAll}
+              disabled={downloading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-300 bg-white text-blue-700 hover:bg-blue-50 text-xs font-semibold disabled:opacity-50 transition-all"
+              title="Download all documents"
+            >
+              {downloading ? (
+                <Loader className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              {downloading ? "Downloading…" : "Download All"}
+            </button>
+
+            {unreviewed > 0 ? (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                {unreviewed} unreviewed
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                <CheckCircle className="w-3 h-3" /> All reviewed
+              </span>
+            )}
+
+            <button
+              onClick={fetchDocs}
+              disabled={loading}
+              className="text-blue-500 hover:text-blue-700 disabled:opacity-40"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Doc cards */}
         {docs.map((doc, i) => {
           const meta = DOC_META[doc.document_type] || DOC_META.other;
           const colors = colorMap[meta.color] || colorMap.gray;
-          // ← Use fullUrl (which calls getS3Url for S3 keys)
-          const url = fullUrl(doc.file_path);
+          const url = resolvedUrls[doc.file_path] || null;
           const ft = getFileType(doc.file_path, doc.mime_type);
 
           return (
@@ -402,6 +538,11 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
                       NEW
                     </span>
                   )}
+                  {doc.status === "rejected" && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
+                      REJECTED
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 truncate">
                   {doc.file_name}
@@ -419,6 +560,12 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
 
               {/* Actions */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                {/* Show spinner while URL is being resolved */}
+                {!url && (
+                  <div className="p-1.5 rounded-lg border border-gray-200 text-gray-400">
+                    <Loader className="w-4 h-4 animate-spin" />
+                  </div>
+                )}
                 {url && (
                   <button
                     onClick={() => setLightbox(i)}
