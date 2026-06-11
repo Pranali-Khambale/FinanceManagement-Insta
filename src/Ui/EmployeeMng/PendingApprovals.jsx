@@ -6,7 +6,7 @@ import {
   Briefcase, CreditCard, Shield, UserCircle, Building, FileCheck,
   Award, ExternalLink, Printer, Download, ChevronLeft, ChevronRight,
   X as XIcon, History, Upload, Check, Camera, File, ChevronDown, ChevronUp,
-  FolderOpen, CheckCheck,
+  FolderOpen, CheckCheck, Heart, BookOpen, Banknote, Radio,
 } from 'lucide-react';
 import employeeService from '../../services/employeeService';
 import { printKYEForm } from './KYEPrintForm';
@@ -327,7 +327,6 @@ const DocViewRow = ({ doc, onView }) => {
       }}
     >
       <div className="flex items-center gap-3 px-4 py-3">
-        {/* Thumbnail */}
         <div
           className="w-12 h-12 rounded-lg overflow-hidden border flex-shrink-0 flex items-center justify-center"
           style={{ borderColor: meta.color.border, background: ft === 'image' ? 'transparent' : meta.color.bg }}
@@ -352,7 +351,6 @@ const DocViewRow = ({ doc, onView }) => {
           )}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <p className="text-sm font-bold text-gray-900 truncate">{meta.label}</p>
@@ -582,19 +580,15 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
       {lightbox !== null && (
         <DocLightbox docs={docs} startIndex={lightbox} onClose={() => setLightbox(null)} />
       )}
-
       <div className="mx-5 mb-4">
-        {/* Toggle header */}
-        <button
-          onClick={() => setExpanded(p => !p)}
+        <button onClick={() => setExpanded(p => !p)}
           className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all mb-2"
           style={{
             background: allDone
               ? 'linear-gradient(90deg,#f0fdf4,#dcfce7)'
               : pending > 0 ? 'linear-gradient(90deg,#fefce8,#fef9c3)' : '#f8fafc',
             borderColor: allDone ? '#bbf7d0' : pending > 0 ? '#fde68a' : '#e2e8f0',
-          }}
-        >
+          }}>
           <div className="flex items-center gap-2.5">
             <div className="relative">
               <div className="w-2 h-2 rounded-full" style={{ background: allDone ? '#22c55e' : '#f59e0b' }} />
@@ -605,10 +599,8 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
             <span className="text-xs font-bold" style={{ color: allDone ? '#14532d' : '#92400e' }}>
               {allDone ? 'All Documents Reviewed' : `${pending} Document${pending > 1 ? 's' : ''} Pending Review`}
             </span>
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-              style={{ background: allDone ? '#bbf7d0' : '#fde68a', color: allDone ? '#14532d' : '#78350f' }}
-            >
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: allDone ? '#bbf7d0' : '#fde68a', color: allDone ? '#14532d' : '#78350f' }}>
               {docs.length} submitted
             </span>
           </div>
@@ -637,13 +629,7 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
               </div>
             )}
             {!loading && !error && docs.length > 0 && (
-              <BatchActionBar
-                docs={docs}
-                onAcceptAll={handleAcceptAll}
-                onRejectAll={handleRejectAll}
-                accepting={accepting}
-                rejecting={rejecting}
-              />
+              <BatchActionBar docs={docs} onAcceptAll={handleAcceptAll} onRejectAll={handleRejectAll} accepting={accepting} rejecting={rejecting} />
             )}
             {!loading && !error && docs.map(doc => (
               <DocViewRow key={doc.id} doc={doc} onView={d => setLightbox(docs.indexOf(d))} />
@@ -749,12 +735,8 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
         allDone ? 'border-green-200' : 'border-amber-200'
       }`}>
         <div className="h-0.5 w-full" style={{
-          background: allDone
-            ? 'linear-gradient(90deg,#22c55e,#16a34a)'
-            : 'linear-gradient(90deg,#f59e0b,#fbbf24,#fcd34d)',
+          background: allDone ? 'linear-gradient(90deg,#22c55e,#16a34a)' : 'linear-gradient(90deg,#f59e0b,#fbbf24,#fcd34d)',
         }} />
-
-        {/* Header */}
         <div className="px-5 pt-4 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3.5">
@@ -810,8 +792,6 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
             </div>
           </div>
         </div>
-
-        {/* Info row */}
         <div className="px-5 py-3 border-b border-gray-50">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {[
@@ -829,8 +809,6 @@ const DocReviewCard = ({ emp, onAllReviewed, showToast }) => {
             ))}
           </div>
         </div>
-
-        {/* Documents */}
         {expanded && (
           <div className="px-5 py-4">
             {loading && (
@@ -1083,24 +1061,41 @@ const FullFormViewer = ({ employee, onClose }) => {
   const [lightbox,        setLightbox]        = useState(null);
   const [resolvedDocUrls, setResolvedDocUrls] = useState({});
 
+  // ── Map DB document_type → display metadata ─────────────────────────────────
+  // Backend normalizes via FIELD_TO_DOC_TYPE:
+  //   idPhoto → 'photo'  |  aadharCard → 'aadhar_card'  |  panCard → 'pan_card'
+  //   bankPassbook → 'bank_passbook'  |  resume → 'resume'  |  payslip → 'payslip'
+  //   otherCertificates → 'other_certificates'  |  medicalCertificate → 'medical_certificate'
+  //   academicRecords → 'academic_records'  |  farmToCli → 'farm_to_cli'
   const DOC_DEFS = [
-    { type: 'idPhoto',            label: 'Employee Photo',      icon: <UserCircle className="w-4 h-4" /> },
-    { type: 'aadharCard',         label: 'Aadhaar Card',        icon: <CreditCard className="w-4 h-4" /> },
-    { type: 'panCard',            label: 'PAN Card',            icon: <FileCheck className="w-4 h-4" /> },
-    { type: 'resume',             label: 'Resume',              icon: <FileText className="w-4 h-4" /> },
-    { type: 'bankPassbook',       label: 'Bank Passbook',       icon: <Building className="w-4 h-4" /> },
-    { type: 'medicalCertificate', label: 'Medical Certificate', icon: <Shield className="w-4 h-4" /> },
-    { type: 'academicRecords',    label: 'Academic Records',    icon: <Award className="w-4 h-4" /> },
-    { type: 'payslip',            label: 'Pay Slip',            icon: <FileText className="w-4 h-4" /> },
-    { type: 'otherCertificates',  label: 'Other Certificates',  icon: <FileText className="w-4 h-4" /> },
+    { type: 'photo',               label: 'Employee Photo',         icon: <UserCircle className="w-4 h-4" /> },
+    { type: 'aadhar_card',         label: 'Aadhaar Card',           icon: <CreditCard className="w-4 h-4" /> },
+    { type: 'pan_card',            label: 'PAN Card',               icon: <FileCheck className="w-4 h-4" /> },
+    { type: 'resume',              label: 'Resume',                 icon: <FileText className="w-4 h-4" /> },
+    { type: 'bank_passbook',       label: 'Bank Passbook',          icon: <Building className="w-4 h-4" /> },
+    { type: 'medical_certificate', label: 'Medical Certificate',    icon: <Heart className="w-4 h-4" /> },
+    { type: 'academic_records',    label: 'Academic Records',       icon: <BookOpen className="w-4 h-4" /> },
+    { type: 'payslip',             label: 'Pay Slip',               icon: <Banknote className="w-4 h-4" /> },
+    { type: 'farm_to_cli',         label: 'FARM-ToCli Certificate', icon: <Radio className="w-4 h-4" /> },
+    { type: 'other_certificates',  label: 'Other Certificates',     icon: <Award className="w-4 h-4" /> },
   ];
 
   const uploadedDocs = DOC_DEFS.map(def => {
     const found = Array.isArray(employee.documents)
-      ? employee.documents.find(d => d.type === def.type || d.document_type === def.type)
+      ? employee.documents.find(d =>
+          // Match against 'type' (getPending uses json_build_object key 'type')
+          // Also check 'document_type' in case other endpoints use that key
+          (d.type ?? d.document_type) === def.type
+        )
       : null;
-    return { ...def, path: found?.path || found?.file_path || null };
+    return {
+      ...def,
+      path:      found?.path || found?.file_path || null,
+      mime_type: found?.mime_type || null,
+    };
   });
+
+  // Only show docs that have an actual file uploaded
   const availableDocs = uploadedDocs.filter(d => d.path);
 
   // Resolve all presigned URLs on mount / when employee changes
@@ -1222,6 +1217,8 @@ const FullFormViewer = ({ employee, onClose }) => {
                     <Field label="Employment Type"   value={employee.employment_type} />
                     <Field label="Joining Date"      value={formatDate(employee.joining_date)} />
                     <Field label="Reporting Manager" value={employee.reporting_manager} />
+                    {employee.circle && <Field label="Circle"       value={employee.circle} />}
+                    {employee.project_name && <Field label="Project" value={employee.project_name} />}
                   </div>
                 </div>
 
@@ -1293,8 +1290,15 @@ const FullFormViewer = ({ employee, onClose }) => {
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {/* All-docs count summary */}
+                  {availableDocs.length > 0 && (
+                    <p className="text-[10px] text-gray-400 mt-3 text-center">
+                      {availableDocs.length} of {DOC_DEFS.length} possible documents uploaded
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1374,7 +1378,6 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
             ? 'linear-gradient(90deg,#f59e0b,#fbbf24,#fcd34d)'
             : 'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)',
         }} />
-
         <div className="px-5 pt-4 pb-3.5 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3.5">
@@ -1411,7 +1414,6 @@ const EmployeeCard = ({ employee, onApprove, onReject, approving, rejecting, sho
                 </div>
               </div>
             </div>
-
             <div className="flex items-center gap-1.5">
               <button onClick={() => setShowFullForm(true)}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 text-xs font-medium">
@@ -1651,7 +1653,6 @@ const PendingApprovals = ({ showToast, onEmployeeApproved }) => {
         onCountLoaded={setDocPendingCount}
       />
 
-      {/* Empty state */}
       {!error && pendingList.length === 0 && docPendingCount === 0 && (
         <div className="bg-white border border-gray-200 rounded-2xl p-16 text-center shadow-sm">
           <div className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center"
