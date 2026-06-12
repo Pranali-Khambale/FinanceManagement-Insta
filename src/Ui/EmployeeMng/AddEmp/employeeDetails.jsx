@@ -37,21 +37,30 @@ const EmploymentDetails = ({ formData, handleInputChange, errors = {} }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
         {/* ── Employee ID — server-assigned, no badge ── */}
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-gray-700">
-            Employee ID
-          </label>
-          <input
-            type="text"
-            name="employeeId"
-            value="Will be assigned on save"
-            readOnly
-            className="w-full px-4 py-2.5 rounded-lg border-2 border-gray-200 bg-gray-50 outline-none font-mono tracking-wide text-gray-400 cursor-not-allowed"
-          />
-          <p className="text-xs text-gray-400">
-            Format: <span className="font-mono">Insta-YYMMxxxx</span> — auto-assigned by the server
-          </p>
-        </div>
+     {/* ── Employee ID — editable by admin ── */}
+<div className="space-y-2">
+  <label className="block text-sm font-semibold text-gray-700">
+    Employee ID <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="text"
+    name="employeeId"
+    value={formData.employeeId === 'Loading...' ? '' : formData.employeeId}
+    onChange={handleInputChange}
+    placeholder="e.g. Insta-26010001"
+    className={`w-full px-4 py-2.5 rounded-lg border-2 ${
+      errors.employeeId ? 'border-red-500 bg-red-50' : 'border-gray-300'
+    } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none font-mono tracking-wide`}
+  />
+  {errors.employeeId && (
+    <p className="text-xs text-red-600 flex items-center gap-1">
+      <AlertCircle className="w-3 h-3" />{errors.employeeId}
+    </p>
+  )}
+  <p className="text-xs text-gray-400">
+    Format: <span className="font-mono">Insta-YYMMxxxx</span>
+  </p>
+</div>
 
         {/* ── Joining Date ── */}
         <div className="space-y-2">

@@ -1,9 +1,4 @@
 // src/Ui/EmployeeMng/Linkgen/RegistrationForm.jsx
-// ✅ FIXED:
-//   1. useEffect on mount calls validateLink → detects isRejoin flag from backend
-//   2. prefillData returned by validateLink is applied to formData state
-//   3. isRejoin is no longer hardcoded false — it is set from the link's metadata
-//   4. isRejoin=true + linkId appended to FormData on submit (rejoin flow)
 
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -21,7 +16,6 @@ import EmploymentDetails from "./EmploymentDetails";
 import BankDetailsinfo from "./BankDetailsinfo";
 import Documents from "./Documents";
 
-// Medical Certificate + FARM-ToCli mandatory ONLY for these three roles in Telecom
 const FARM_TO_CLI_POSITIONS = ["dt engineer", "rigger", "technician"];
 
 const EMPTY_FORM = {
@@ -87,6 +81,7 @@ const EMPTY_FORM = {
   ref3ContactNo: "",
   ref3Email: "",
   // ── Employment ────────────────────────────────────────────────────────────
+  employeeId: "",          // ← employee fills this manually
   joiningDate: "",
   department: "",
   position: "",
@@ -121,19 +116,15 @@ const RegistrationForm = () => {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRejoin, setIsRejoin] = useState(false); // ✅ FIX: no longer hardcoded false
-  const [linkLoading, setLinkLoading] = useState(!isResubmit); // show spinner while validating link
+  const [isRejoin, setIsRejoin] = useState(false);
+  const [linkLoading, setLinkLoading] = useState(!isResubmit);
   const [linkError, setLinkError] = useState("");
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState(EMPTY_FORM);
 
-  // ── FIX: validate the link on mount and apply prefillData for rejoin ──────
+  // ── Validate link on mount ────────────────────────────────────────────────
   useEffect(() => {
-    // Resubmit flow uses a token, not a linkId — no need to validate here.
-    if (isResubmit) {
-      // Optionally: fetch prefill for resubmit via getPrefillData(token)
-      return;
-    }
+    if (isResubmit) return;
     if (!linkId) return;
 
     const validateAndPrefill = async () => {
@@ -154,21 +145,15 @@ const RegistrationForm = () => {
           return;
         }
 
-        // ── Detect rejoin and apply prefill ──────────────────────────────
         const rejoin = response.isRejoin === true;
         setIsRejoin(rejoin);
 
         if (rejoin) {
-          // Backend returns prefillData at top level AND inside data{}
           const prefill = response.prefillData || response.data?.prefillData;
-          if (prefill) {
-            applyPrefillData(prefill);
-          }
+          if (prefill) applyPrefillData(prefill);
         }
       } catch (err) {
-        setLinkError(
-          "Failed to validate the registration link. Please try again.",
-        );
+        setLinkError("Failed to validate the registration link. Please try again.");
         console.error("[RegistrationForm] validateLink error:", err);
       } finally {
         setLinkLoading(false);
@@ -179,106 +164,97 @@ const RegistrationForm = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkId, isResubmit]);
 
-  // ── Apply all prefill fields from validateLink response ───────────────────
-  // Keys match exactly what buildPrefillData() returns in the backend controller.
-  // File fields (idPhoto etc.) are intentionally excluded — employee must re-upload.
+  // ── Apply prefill (rejoin flow) ───────────────────────────────────────────
   const applyPrefillData = (prefill) => {
     setFormData((prev) => ({
       ...prev,
       // Personal
-      firstName: prefill.firstName ?? prev.firstName,
-      lastName: prefill.lastName ?? prev.lastName,
-      fatherHusbandName: prefill.fatherHusbandName ?? prev.fatherHusbandName,
-      dob: prefill.dob ?? prev.dob,
-      gender: prefill.gender ?? prev.gender,
-      maritalStatus: prefill.maritalStatus ?? prev.maritalStatus,
-      educationalQualification:
-        prefill.educationalQualification ?? prev.educationalQualification,
-      bloodGroup: prefill.bloodGroup ?? prev.bloodGroup,
-      panNumber: prefill.panNumber ?? prev.panNumber,
-      nameOnPan: prefill.nameOnPan ?? prev.nameOnPan,
-      aadhar: prefill.aadhar ?? prev.aadhar,
-      nameOnAadhar: prefill.nameOnAadhar ?? prev.nameOnAadhar,
-      uanNumber: prefill.uanNumber ?? prev.uanNumber,
+      firstName:                prefill.firstName               ?? prev.firstName,
+      lastName:                 prefill.lastName                ?? prev.lastName,
+      fatherHusbandName:        prefill.fatherHusbandName       ?? prev.fatherHusbandName,
+      dob:                      prefill.dob                     ?? prev.dob,
+      gender:                   prefill.gender                  ?? prev.gender,
+      maritalStatus:            prefill.maritalStatus           ?? prev.maritalStatus,
+      educationalQualification: prefill.educationalQualification ?? prev.educationalQualification,
+      bloodGroup:               prefill.bloodGroup              ?? prev.bloodGroup,
+      panNumber:                prefill.panNumber               ?? prev.panNumber,
+      nameOnPan:                prefill.nameOnPan               ?? prev.nameOnPan,
+      aadhar:                   prefill.aadhar                  ?? prev.aadhar,
+      nameOnAadhar:             prefill.nameOnAadhar            ?? prev.nameOnAadhar,
+      uanNumber:                prefill.uanNumber               ?? prev.uanNumber,
       // Contact
-      email: prefill.email ?? prev.email,
-      phone: prefill.phone ?? prev.phone,
-      altPhone: prefill.altPhone ?? prev.altPhone,
+      email:                    prefill.email                   ?? prev.email,
+      phone:                    prefill.phone                   ?? prev.phone,
+      altPhone:                 prefill.altPhone                ?? prev.altPhone,
       // Permanent address
-      permanentAddress: prefill.permanentAddress ?? prev.permanentAddress,
-      permanentPhone: prefill.permanentPhone ?? prev.permanentPhone,
-      permanentLandmark: prefill.permanentLandmark ?? prev.permanentLandmark,
-      permanentLatLong: prefill.permanentLatLong ?? prev.permanentLatLong,
+      permanentAddress:         prefill.permanentAddress        ?? prev.permanentAddress,
+      permanentPhone:           prefill.permanentPhone          ?? prev.permanentPhone,
+      permanentLandmark:        prefill.permanentLandmark       ?? prev.permanentLandmark,
+      permanentLatLong:         prefill.permanentLatLong        ?? prev.permanentLatLong,
       // Local address
-      localSameAsPermanent:
-        prefill.localSameAsPermanent ?? prev.localSameAsPermanent,
-      localAddress: prefill.localAddress ?? prev.localAddress,
-      localPhone: prefill.localPhone ?? prev.localPhone,
-      localLandmark: prefill.localLandmark ?? prev.localLandmark,
-      localLatLong: prefill.localLatLong ?? prev.localLatLong,
+      localSameAsPermanent:     prefill.localSameAsPermanent    ?? prev.localSameAsPermanent,
+      localAddress:             prefill.localAddress            ?? prev.localAddress,
+      localPhone:               prefill.localPhone              ?? prev.localPhone,
+      localLandmark:            prefill.localLandmark           ?? prev.localLandmark,
+      localLatLong:             prefill.localLatLong            ?? prev.localLatLong,
       // Family
-      familyMemberName: prefill.familyMemberName ?? prev.familyMemberName,
-      familyContactNo: prefill.familyContactNo ?? prev.familyContactNo,
-      familyWorkingStatus:
-        prefill.familyWorkingStatus ?? prev.familyWorkingStatus,
-      familyEmployerName: prefill.familyEmployerName ?? prev.familyEmployerName,
-      familyEmployerContact:
-        prefill.familyEmployerContact ?? prev.familyEmployerContact,
+      familyMemberName:         prefill.familyMemberName        ?? prev.familyMemberName,
+      familyContactNo:          prefill.familyContactNo         ?? prev.familyContactNo,
+      familyWorkingStatus:      prefill.familyWorkingStatus     ?? prev.familyWorkingStatus,
+      familyEmployerName:       prefill.familyEmployerName      ?? prev.familyEmployerName,
+      familyEmployerContact:    prefill.familyEmployerContact   ?? prev.familyEmployerContact,
       // Emergency
-      emergencyContactName:
-        prefill.emergencyContactName ?? prev.emergencyContactName,
-      emergencyContactNo: prefill.emergencyContactNo ?? prev.emergencyContactNo,
-      emergencyContactAddress:
-        prefill.emergencyContactAddress ?? prev.emergencyContactAddress,
-      emergencyContactRelation:
-        prefill.emergencyContactRelation ?? prev.emergencyContactRelation,
+      emergencyContactName:     prefill.emergencyContactName    ?? prev.emergencyContactName,
+      emergencyContactNo:       prefill.emergencyContactNo      ?? prev.emergencyContactNo,
+      emergencyContactAddress:  prefill.emergencyContactAddress ?? prev.emergencyContactAddress,
+      emergencyContactRelation: prefill.emergencyContactRelation ?? prev.emergencyContactRelation,
       // References
-      ref1Name: prefill.ref1Name ?? prev.ref1Name,
-      ref1Designation: prefill.ref1Designation ?? prev.ref1Designation,
-      ref1Organization: prefill.ref1Organization ?? prev.ref1Organization,
-      ref1Address: prefill.ref1Address ?? prev.ref1Address,
-      ref1CityStatePin: prefill.ref1CityStatePin ?? prev.ref1CityStatePin,
-      ref1ContactNo: prefill.ref1ContactNo ?? prev.ref1ContactNo,
-      ref1Email: prefill.ref1Email ?? prev.ref1Email,
-      ref2Name: prefill.ref2Name ?? prev.ref2Name,
-      ref2Designation: prefill.ref2Designation ?? prev.ref2Designation,
-      ref2Organization: prefill.ref2Organization ?? prev.ref2Organization,
-      ref2Address: prefill.ref2Address ?? prev.ref2Address,
-      ref2CityStatePin: prefill.ref2CityStatePin ?? prev.ref2CityStatePin,
-      ref2ContactNo: prefill.ref2ContactNo ?? prev.ref2ContactNo,
-      ref2Email: prefill.ref2Email ?? prev.ref2Email,
-      ref3Name: prefill.ref3Name ?? prev.ref3Name,
-      ref3Designation: prefill.ref3Designation ?? prev.ref3Designation,
-      ref3Organization: prefill.ref3Organization ?? prev.ref3Organization,
-      ref3Address: prefill.ref3Address ?? prev.ref3Address,
-      ref3CityStatePin: prefill.ref3CityStatePin ?? prev.ref3CityStatePin,
-      ref3ContactNo: prefill.ref3ContactNo ?? prev.ref3ContactNo,
-      ref3Email: prefill.ref3Email ?? prev.ref3Email,
-      // Employment
-      department: prefill.department ?? prev.department,
-      position: prefill.position ?? prev.position,
-      joiningDate: prefill.joiningDate ?? prev.joiningDate,
-      employmentType: prefill.employmentType ?? prev.employmentType,
-      reportingManager: prefill.reportingManager ?? prev.reportingManager,
-      circle: prefill.circle ?? prev.circle,
-      projectName: prefill.projectName ?? prev.projectName,
+      ref1Name:          prefill.ref1Name          ?? prev.ref1Name,
+      ref1Designation:   prefill.ref1Designation   ?? prev.ref1Designation,
+      ref1Organization:  prefill.ref1Organization  ?? prev.ref1Organization,
+      ref1Address:       prefill.ref1Address        ?? prev.ref1Address,
+      ref1CityStatePin:  prefill.ref1CityStatePin  ?? prev.ref1CityStatePin,
+      ref1ContactNo:     prefill.ref1ContactNo      ?? prev.ref1ContactNo,
+      ref1Email:         prefill.ref1Email          ?? prev.ref1Email,
+      ref2Name:          prefill.ref2Name          ?? prev.ref2Name,
+      ref2Designation:   prefill.ref2Designation   ?? prev.ref2Designation,
+      ref2Organization:  prefill.ref2Organization  ?? prev.ref2Organization,
+      ref2Address:       prefill.ref2Address        ?? prev.ref2Address,
+      ref2CityStatePin:  prefill.ref2CityStatePin  ?? prev.ref2CityStatePin,
+      ref2ContactNo:     prefill.ref2ContactNo      ?? prev.ref2ContactNo,
+      ref2Email:         prefill.ref2Email          ?? prev.ref2Email,
+      ref3Name:          prefill.ref3Name          ?? prev.ref3Name,
+      ref3Designation:   prefill.ref3Designation   ?? prev.ref3Designation,
+      ref3Organization:  prefill.ref3Organization  ?? prev.ref3Organization,
+      ref3Address:       prefill.ref3Address        ?? prev.ref3Address,
+      ref3CityStatePin:  prefill.ref3CityStatePin  ?? prev.ref3CityStatePin,
+      ref3ContactNo:     prefill.ref3ContactNo      ?? prev.ref3ContactNo,
+      ref3Email:         prefill.ref3Email          ?? prev.ref3Email,
+      // Employment — employeeId prefilled for rejoin (employee can still edit it)
+      employeeId:        prefill.employeeId         ?? prev.employeeId,
+      department:        prefill.department         ?? prev.department,
+      position:          prefill.position           ?? prev.position,
+      joiningDate:       prefill.joiningDate        ?? prev.joiningDate,
+      employmentType:    prefill.employmentType     ?? prev.employmentType,
+      reportingManager:  prefill.reportingManager   ?? prev.reportingManager,
+      circle:            prefill.circle             ?? prev.circle,
+      projectName:       prefill.projectName        ?? prev.projectName,
       // Bank
-      bankName: prefill.bankName ?? prev.bankName,
-      accountNumber: prefill.accountNumber ?? prev.accountNumber,
-      ifscCode: prefill.ifscCode ?? prev.ifscCode,
-      accountHolderName: prefill.accountHolderName ?? prev.accountHolderName,
-      bankBranch: prefill.bankBranch ?? prev.bankBranch,
-      // confirmAccountNumber mirrors accountNumber so the bank step validates cleanly
-      confirmAccountNumber: prefill.accountNumber ?? prev.confirmAccountNumber,
+      bankName:             prefill.bankName             ?? prev.bankName,
+      accountNumber:        prefill.accountNumber        ?? prev.accountNumber,
+      ifscCode:             prefill.ifscCode             ?? prev.ifscCode,
+      accountHolderName:    prefill.accountHolderName    ?? prev.accountHolderName,
+      bankBranch:           prefill.bankBranch           ?? prev.bankBranch,
+      confirmAccountNumber: prefill.accountNumber        ?? prev.confirmAccountNumber,
       // File fields intentionally omitted — employee must re-upload documents
     }));
   };
 
   const steps = [
-    { id: 1, name: "Personal Info" },
+    { id: 1, name: "Personal Info"      },
     { id: 2, name: "Employment Details" },
-    { id: 3, name: "Bank Details" },
-    { id: 4, name: "Document Upload" },
+    { id: 3, name: "Bank Details"       },
+    { id: 4, name: "Document Upload"    },
   ];
 
   const handleInputChange = (e) => {
@@ -294,72 +270,70 @@ const RegistrationForm = () => {
 
   const checkFarmToCliRequirement = () => {
     const dept = (formData.department || "").toLowerCase().trim();
-    const pos = (formData.position || "").toLowerCase().trim();
+    const pos  = (formData.position   || "").toLowerCase().trim();
     return dept === "telecom" && FARM_TO_CLI_POSITIONS.includes(pos);
   };
 
+  // ── Validation ──────────────────────────────────────────────────────────────
   const validateStep = (step) => {
     const e = {};
+
     if (step === 1) {
-      if (!formData.firstName) e.firstName = "First name is required";
-      if (!formData.lastName) e.lastName = "Last name is required";
-      if (!formData.dob) e.dob = "Date of birth is required";
-      if (!formData.email) e.email = "Email is required";
-      if (!formData.phone) e.phone = "Phone number is required";
-      if (!formData.panNumber) e.panNumber = "PAN number is required";
-      if (!formData.nameOnPan) e.nameOnPan = "Name on PAN is required";
-      if (!formData.aadhar) e.aadhar = "Aadhaar number is required";
-      if (!formData.nameOnAadhar)
-        e.nameOnAadhar = "Name on Aadhaar is required";
-      if (!formData.familyMemberName)
-        e.familyMemberName = "Family member name is required";
-      if (!formData.familyContactNo)
-        e.familyContactNo = "Family contact number is required";
-      if (!formData.familyWorkingStatus)
-        e.familyWorkingStatus = "Working status is required";
-      if (!formData.emergencyContactName)
-        e.emergencyContactName = "Emergency contact name is required";
-      if (!formData.emergencyContactNo)
-        e.emergencyContactNo = "Emergency contact number is required";
-      if (!formData.emergencyContactAddress)
-        e.emergencyContactAddress = "Emergency contact address is required";
-      if (!formData.emergencyContactRelation)
-        e.emergencyContactRelation = "Relation is required";
-      if (!formData.permanentAddress)
-        e.permanentAddress = "Permanent address is required";
-      if (!formData.permanentPhone)
-        e.permanentPhone = "Permanent phone is required";
+      if (!formData.firstName)             e.firstName             = "First name is required";
+      if (!formData.lastName)              e.lastName              = "Last name is required";
+      if (!formData.dob)                   e.dob                   = "Date of birth is required";
+      if (!formData.email)                 e.email                 = "Email is required";
+      if (!formData.phone)                 e.phone                 = "Phone number is required";
+      if (!formData.panNumber)             e.panNumber             = "PAN number is required";
+      if (!formData.nameOnPan)             e.nameOnPan             = "Name on PAN is required";
+      if (!formData.aadhar)                e.aadhar                = "Aadhaar number is required";
+      if (!formData.nameOnAadhar)          e.nameOnAadhar          = "Name on Aadhaar is required";
+      if (!formData.familyMemberName)      e.familyMemberName      = "Family member name is required";
+      if (!formData.familyContactNo)       e.familyContactNo       = "Family contact number is required";
+      if (!formData.familyWorkingStatus)   e.familyWorkingStatus   = "Working status is required";
+      if (!formData.emergencyContactName)  e.emergencyContactName  = "Emergency contact name is required";
+      if (!formData.emergencyContactNo)    e.emergencyContactNo    = "Emergency contact number is required";
+      if (!formData.emergencyContactAddress) e.emergencyContactAddress = "Emergency contact address is required";
+      if (!formData.emergencyContactRelation) e.emergencyContactRelation = "Relation is required";
+      if (!formData.permanentAddress)      e.permanentAddress      = "Permanent address is required";
+      if (!formData.permanentPhone)        e.permanentPhone        = "Permanent phone is required";
     }
+
     if (step === 2) {
-      if (!formData.department) e.department = "Department is required";
-      if (!formData.position) e.position = "Designation is required";
-      if (!formData.joiningDate) e.joiningDate = "Joining date is required";
-      if (!formData.employmentType)
-        e.employmentType = "Employment type is required";
+      // ── Employee ID ────────────────────────────────────────────────────────
+      if (!formData.employeeId?.trim())
+        e.employeeId = "Employee ID is required";
+      else if (!/^Insta-\d{8,}$/.test(formData.employeeId.trim()))
+        e.employeeId = "Format must be Insta-YYMMxxxx (e.g. Insta-26010001)";
+
+      if (!formData.department)    e.department    = "Department is required";
+      if (!formData.position)      e.position      = "Designation is required";
+      if (!formData.joiningDate)   e.joiningDate   = "Joining date is required";
+      if (!formData.employmentType) e.employmentType = "Employment type is required";
     }
+
     if (step === 3) {
-      if (!formData.bankName) e.bankName = "Bank name is required";
-      if (!formData.accountHolderName)
-        e.accountHolderName = "Account holder name is required";
-      if (!formData.accountNumber)
-        e.accountNumber = "Account number is required";
+      if (!formData.bankName)          e.bankName          = "Bank name is required";
+      if (!formData.accountHolderName) e.accountHolderName = "Account holder name is required";
+      if (!formData.accountNumber)     e.accountNumber     = "Account number is required";
       if (formData.confirmAccountNumber !== formData.accountNumber)
         e.confirmAccountNumber = "Account numbers do not match";
-      if (!formData.ifscCode) e.ifscCode = "IFSC code is required";
+      if (!formData.ifscCode)          e.ifscCode          = "IFSC code is required";
     }
+
     if (step === 4) {
-      if (!formData.idPhoto) e.idPhoto = "Photo is required";
-      if (!formData.aadharCard) e.aadharCard = "Aadhaar card copy is required";
-      if (!formData.resume) e.resume = "Resume is required";
+      if (!formData.idPhoto)     e.idPhoto     = "Photo is required";
+      if (!formData.aadharCard)  e.aadharCard  = "Aadhaar card copy is required";
+      if (!formData.resume)      e.resume      = "Resume is required";
       if (!formData.bankPassbook) e.bankPassbook = "Bank passbook is required";
       if (checkFarmToCliRequirement()) {
         if (!formData.farmToCli)
           e.farmToCli = "FARM-ToCli Certificate is mandatory for this role";
         if (!formData.medicalCertificate)
-          e.medicalCertificate =
-            "Medical Certificate is mandatory for this role";
+          e.medicalCertificate = "Medical Certificate is mandatory for this role";
       }
     }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -369,6 +343,7 @@ const RegistrationForm = () => {
   };
   const handlePrev = () => setCurrentStep((p) => p - 1);
 
+  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!validateStep(currentStep)) return;
@@ -377,27 +352,18 @@ const RegistrationForm = () => {
     try {
       const fd = new FormData();
 
-      // ── Routing tokens (required by resolveSubmissionContext middleware) ──
       if (isResubmit) {
         fd.append("resubmitToken", token);
       } else {
         fd.append("linkId", linkId);
-        if (isRejoin) fd.append("isRejoin", "true"); // ✅ now actually true for rejoin links
+        if (isRejoin) fd.append("isRejoin", "true");
       }
 
-      // ── Scalar fields ─────────────────────────────────────────────────────
       const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
       const FILE_FIELDS = new Set([
-        "idPhoto",
-        "aadharCard",
-        "panCard",
-        "resume",
-        "bankPassbook",
-        "medicalCertificate",
-        "academicRecords",
-        "payslip",
-        "farmToCli",
-        "otherCertificates",
+        "idPhoto", "aadharCard", "panCard", "resume", "bankPassbook",
+        "medicalCertificate", "academicRecords", "payslip",
+        "farmToCli", "otherCertificates",
       ]);
 
       Object.entries(formData).forEach(([key, val]) => {
@@ -407,13 +373,11 @@ const RegistrationForm = () => {
         fd.append(key, String(val));
       });
 
-      // ── File fields ───────────────────────────────────────────────────────
       FILE_FIELDS.forEach((key) => {
         if (formData[key] instanceof File)
           fd.append(key, formData[key], formData[key].name);
       });
 
-      // ── Dispatch ──────────────────────────────────────────────────────────
       let res;
       if (isResubmit) {
         res = await employeeService.resubmitRegistration(token, fd);
@@ -424,28 +388,22 @@ const RegistrationForm = () => {
       if (res?.success) {
         navigate("/success");
       } else {
-        setErrors({
-          submit: res?.message || "Submission failed. Please try again.",
-        });
+        setErrors({ submit: res?.message || "Submission failed. Please try again." });
       }
     } catch (err) {
-      setErrors({
-        submit: err?.message || "An error occurred while submitting.",
-      });
+      setErrors({ submit: err?.message || "An error occurred while submitting." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ── Link validation loading / error states ────────────────────────────────
+  // ── Link loading / error screens ───────────────────────────────────────────
   if (linkLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Loader className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-3" />
-          <p className="text-slate-600 font-medium">
-            Validating your registration link…
-          </p>
+          <p className="text-slate-600 font-medium">Validating your registration link…</p>
         </div>
       </div>
     );
@@ -465,23 +423,20 @@ const RegistrationForm = () => {
     );
   }
 
+  // ── Main render ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+
         {/* Step header */}
-        <div
-          className={`px-6 py-4 flex items-center justify-between ${isRejoin ? "bg-indigo-900" : "bg-slate-900"}`}
-        >
+        <div className={`px-6 py-4 flex items-center justify-between ${isRejoin ? "bg-indigo-900" : "bg-slate-900"}`}>
           <div>
             <span className="text-white font-bold text-lg">
-              {isRejoin
-                ? "Rejoin Registration"
-                : "Employee Portal Registration"}
+              {isRejoin ? "Rejoin Registration" : "Employee Portal Registration"}
             </span>
             {isRejoin && (
               <p className="text-indigo-300 text-xs mt-0.5">
-                Your previous information has been pre-filled — please review
-                and update as needed.
+                Your previous information has been pre-filled — please review and update as needed.
               </p>
             )}
           </div>
@@ -504,25 +459,13 @@ const RegistrationForm = () => {
           )}
 
           {currentStep === 1 && (
-            <PersonalInfo
-              formData={formData}
-              errors={errors}
-              onChange={handleInputChange}
-            />
+            <PersonalInfo formData={formData} errors={errors} onChange={handleInputChange} />
           )}
           {currentStep === 2 && (
-            <EmploymentDetails
-              formData={formData}
-              errors={errors}
-              onChange={handleInputChange}
-            />
+            <EmploymentDetails formData={formData} errors={errors} onChange={handleInputChange} />
           )}
           {currentStep === 3 && (
-            <BankDetailsinfo
-              formData={formData}
-              errors={errors}
-              onChange={handleInputChange}
-            />
+            <BankDetailsinfo formData={formData} errors={errors} onChange={handleInputChange} />
           )}
           {currentStep === 4 && (
             <Documents
@@ -558,27 +501,17 @@ const RegistrationForm = () => {
                 onClick={handleSubmit}
                 disabled={isSubmitting}
                 className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-lg font-medium transition-all disabled:opacity-50 shadow-sm ${
-                  isRejoin
-                    ? "bg-indigo-600 hover:bg-indigo-700"
-                    : "bg-green-600 hover:bg-green-700"
+                  isRejoin ? "bg-indigo-600 hover:bg-indigo-700" : "bg-green-600 hover:bg-green-700"
                 }`}
               >
                 {isSubmitting ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" /> Submitting…
-                  </>
+                  <><Loader className="w-4 h-4 animate-spin" /> Submitting…</>
                 ) : isRejoin ? (
-                  <>
-                    <UserCheck className="w-4 h-4" /> Submit Rejoin Request
-                  </>
+                  <><UserCheck className="w-4 h-4" /> Submit Rejoin Request</>
                 ) : isResubmit ? (
-                  <>
-                    <Check className="w-4 h-4" /> Resubmit Registration
-                  </>
+                  <><Check className="w-4 h-4" /> Resubmit Registration</>
                 ) : (
-                  <>
-                    <Check className="w-4 h-4" /> Submit Registration
-                  </>
+                  <><Check className="w-4 h-4" /> Submit Registration</>
                 )}
               </button>
             )}
