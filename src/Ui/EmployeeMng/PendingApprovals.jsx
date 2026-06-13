@@ -145,6 +145,48 @@ const getFileType = (path, mime) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
+// SUBMITTED-DOC TYPE NORMALIZATION
+// ── FIX: backend `employee_documents.document_type` is stored in snake_case
+// (e.g. "aadhar_card", "bank_passbook", "academic_records", "photo",
+// "pay_slip", "farm_to_cli") but DOC_DEFS in FullFormViewer uses camelCase
+// ("aadharCard", "bankPassbook", "academicRecords", "idPhoto", "payslip",
+// "farmToCli"). Without normalization, the `find()` comparison
+// `d.type === def.type` only succeeds for single-word types like "resume"
+// (where snake_case === camelCase by coincidence), causing every other
+// uploaded document to show as "Not uploaded".
+// ══════════════════════════════════════════════════════════════════════════════
+const DOC_TYPE_ALIASES = {
+  photo: "idPhoto",
+  id_photo: "idPhoto",
+  idPhoto: "idPhoto",
+  aadhar_card: "aadharCard",
+  aadharCard: "aadharCard",
+  pan_card: "panCard",
+  panCard: "panCard",
+  resume: "resume",
+  bank_passbook: "bankPassbook",
+  bankPassbook: "bankPassbook",
+  medical_certificate: "medicalCertificate",
+  medicalCertificate: "medicalCertificate",
+  academic_records: "academicRecords",
+  academicRecords: "academicRecords",
+  payslip: "payslip",
+  pay_slip: "payslip",
+  other_certificates: "otherCertificates",
+  otherCertificates: "otherCertificates",
+  farm_to_cli: "farmToCli",
+  farm_to_cli_certificate: "farmToCli",
+  farmToCli: "farmToCli",
+};
+
+const normalizeDocType = (t) => {
+  if (!t) return t;
+  if (DOC_TYPE_ALIASES[t]) return DOC_TYPE_ALIASES[t];
+  // Generic fallback: snake_case → camelCase (e.g. "some_new_doc" → "someNewDoc")
+  return t.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 // DOCUMENT TYPE METADATA
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -1610,10 +1652,17 @@ const FullFormViewer = ({ employee, onClose }) => {
     },
   ];
 
+  // ── FIX: normalize backend doc type (snake_case, e.g. "aadhar_card",
+  // "bank_passbook", "academic_records", "photo", "pay_slip") before matching
+  // against DOC_DEFS (camelCase) — see normalizeDocType() at top of file.
+  // Without this, only "resume" matched (snake_case === camelCase by
+  // coincidence) and every other uploaded document showed "Not uploaded".
   const uploadedDocs = DOC_DEFS.map((def) => {
     const found = Array.isArray(employee.documents)
       ? employee.documents.find(
-          (d) => d.type === def.type || d.document_type === def.type,
+          (d) =>
+            normalizeDocType(d.type) === def.type ||
+            normalizeDocType(d.document_type) === def.type,
         )
       : null;
     return { ...def, path: found?.path || found?.file_path || null };
