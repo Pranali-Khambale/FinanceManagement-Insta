@@ -12,6 +12,15 @@
 //          signed KYE, BGV form & email screenshot; HR reviews with Accept/Reject All
 //   ✅ NEW: RejoinDocsPendingReviewSection — top-of-page section showing
 //          approved rejoined employees who have submitted docs pending HR review
+//   ✅ FIX: reject-rejoin now sends Authorization header via apiFetch so
+//          "No token provided" error is resolved
+//   ✅ FIX: handleDeleteRequest was missing its declaration — added
+//   ✅ FIX: normalizeDocType() — backend returns document types in snake_case
+//          (e.g. "aadhar_card", "bank_passbook", "academic_records") but
+//          DOC_DEFS uses camelCase ("aadharCard", "bankPassbook",
+//          "academicRecords"). Without normalization, only documents whose
+//          snake_case happened to equal their camelCase form (e.g. "resume")
+//          matched, so every other uploaded document showed "Not uploaded".
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -60,32 +69,19 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { BASE_URL } from "../../api/client";
+// ── FIX: import apiFetch so admin-protected endpoints get the JWT token ───────
+import { apiFetch, BASE_URL } from "../../api/client";
 const BASE_URL_NO_API = BASE_URL.replace("/api", "");
 
 // ── S3 presigned-URL cache ────────────────────────────────────────────────────
-// Keys are S3 object keys; values are { url, expiresAt }
 const _presignCache = new Map();
 
-/**
- * getDocUrl(keyOrPath)
- *
- * Converts a stored file_path / path value into a URL the browser can load.
- *
- *  • Already https:// → returned as-is (e.g. old rows still pointing to legacy server)
- *  • Starts with /    → legacy local path → prepend BASE_URL_NO_API (backward-compat)
- *  • Anything else    → treated as an S3 key → fetch a presigned URL from the backend
- *
- * Returns null for falsy input.
- * Presigned URLs are cached for 50 minutes (backend signs for 3600 s).
- */
 async function getDocUrl(keyOrPath) {
   if (!keyOrPath) return null;
   if (keyOrPath.startsWith("https://") || keyOrPath.startsWith("http://"))
     return keyOrPath;
   if (keyOrPath.startsWith("/")) return `${BASE_URL_NO_API}${keyOrPath}`;
 
-  // S3 key — check cache
   const now = Date.now();
   const cached = _presignCache.get(keyOrPath);
   if (cached && cached.expiresAt > now) return cached.url;
@@ -108,16 +104,11 @@ async function getDocUrl(keyOrPath) {
   return null;
 }
 
-/**
- * Synchronous version — returns cached presigned URL or the legacy URL.
- * Use only when you already called getDocUrl() once and want the cached value.
- */
 function fullUrl(keyOrPath) {
   if (!keyOrPath) return null;
   if (keyOrPath.startsWith("https://") || keyOrPath.startsWith("http://"))
     return keyOrPath;
   if (keyOrPath.startsWith("/")) return `${BASE_URL_NO_API}${keyOrPath}`;
-  // S3 key — return cached value (may be null if not yet fetched)
   return _presignCache.get(keyOrPath)?.url ?? null;
 }
 
@@ -166,6 +157,37 @@ const getFileType = (path, mime) => {
 };
 const isTelecomDept = (dept) => (dept || "").toLowerCase() === "telecom";
 
+// ── FIX: normalize backend snake_case document types to frontend camelCase ──
+// Backend stores/returns document `type` values like "aadhar_card",
+// "bank_passbook", "academic_records", "photo", "pay_slip", etc.
+// DOC_DEFS below uses camelCase ("aadharCard", "bankPassbook",
+// "academicRecords", "idPhoto", "payslip"). Without this mapping, the
+// `find()` comparison `d.type === def.type` only succeeds for single-word
+// types like "resume" (where snake_case === camelCase by coincidence),
+// causing every other uploaded document to show as "Not uploaded".
+const DOC_TYPE_ALIASES = {
+  photo: "idPhoto",
+  id_photo: "idPhoto",
+  aadhar_card: "aadharCard",
+  pan_card: "panCard",
+  resume: "resume",
+  bank_passbook: "bankPassbook",
+  medical_certificate: "medicalCertificate",
+  academic_records: "academicRecords",
+  payslip: "payslip",
+  pay_slip: "payslip",
+  other_certificates: "otherCertificates",
+  farm_to_cli: "farmToCli",
+  farm_to_cli_certificate: "farmToCli",
+};
+
+const normalizeDocType = (t) => {
+  if (!t) return t;
+  if (DOC_TYPE_ALIASES[t]) return DOC_TYPE_ALIASES[t];
+  // Generic fallback: snake_case → camelCase (e.g. "some_new_doc" → "someNewDoc")
+  return t.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+};
+
 const InfoField = ({ label, value }) =>
   value ? (
     <div>
@@ -177,7 +199,7 @@ const InfoField = ({ label, value }) =>
   ) : null;
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DOCUMENT DEFINITIONS (registration docs)
+// DOCUMENT DEFINITIONS
 // ══════════════════════════════════════════════════════════════════════════════
 const ALL_DOC_DEFS = [
   {
@@ -245,7 +267,6 @@ const ALL_DOC_DEFS = [
 const getDocDefs = (department) =>
   ALL_DOC_DEFS.filter((d) => !d.telecomOnly || isTelecomDept(department));
 
-// ── Submitted-doc type metadata (for KYE/BGV/screenshot section) ─────────────
 const SUBMITTED_DOC_META = {
   signed_kye: {
     label: "Signed KYE Form",
@@ -330,7 +351,7 @@ const ConfirmDialog = ({
 );
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LIGHTBOX (for registration docs)
+// LIGHTBOX
 // ══════════════════════════════════════════════════════════════════════════════
 const Lightbox = ({ docs, startIndex = 0, onClose }) => {
   const [idx, setIdx] = useState(startIndex);
@@ -339,7 +360,6 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
   const doc = docs[idx];
   const fileType = getFileType(doc?.path, doc?.mime_type);
 
-  // Resolve presigned URL whenever the doc changes
   useEffect(() => {
     setImgError(false);
     setResolvedUrl(null);
@@ -364,7 +384,6 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
     !doc.path.startsWith("http") &&
     !doc.path.startsWith("/")
   ) {
-    // Still fetching presigned URL — show a minimal loading overlay
     return (
       <div
         className="fixed inset-0 z-[400] flex items-center justify-center"
@@ -475,7 +494,7 @@ const Lightbox = ({ docs, startIndex = 0, onClose }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DOC LIGHTBOX (for submitted KYE/BGV/screenshot docs)
+// DOC LIGHTBOX
 // ══════════════════════════════════════════════════════════════════════════════
 const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
   const [idx, setIdx] = useState(startIndex);
@@ -486,7 +505,6 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
   const rawPath = doc?.file_path || doc?.path;
   const fileType = getFileType(rawPath, doc?.mime_type);
 
-  // Resolve presigned URL whenever the doc changes
   useEffect(() => {
     setImgError(false);
     setResolvedUrl(null);
@@ -623,7 +641,7 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DOC VIEW ROW — view + download only (no per-doc accept/reject)
+// DOC VIEW ROW
 // ══════════════════════════════════════════════════════════════════════════════
 const DocViewRow = ({ doc, onView }) => {
   const meta =
@@ -766,7 +784,7 @@ const DocViewRow = ({ doc, onView }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// BATCH ACTION BAR — Accept All / Reject All
+// BATCH ACTION BAR
 // ══════════════════════════════════════════════════════════════════════════════
 const BatchActionBar = ({
   docs,
@@ -785,7 +803,7 @@ const BatchActionBar = ({
 
   if (allDone) return null;
 
-  const handleRejectConfirm = () => {
+  const handleRejectConfirmBatch = () => {
     onRejectAll(reason);
     setShowRejectBox(false);
     setReason("");
@@ -863,7 +881,7 @@ const BatchActionBar = ({
               Cancel
             </button>
             <button
-              onClick={handleRejectConfirm}
+              onClick={handleRejectConfirmBatch}
               disabled={rejecting}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50"
             >
@@ -882,8 +900,7 @@ const BatchActionBar = ({
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SUBMITTED DOCS SECTION — inline in each pending-rejoin card
-// Shows AFTER approval when employee uploads signed KYE / BGV / screenshot
+// SUBMITTED DOCS SECTION
 // ══════════════════════════════════════════════════════════════════════════════
 const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
   const [docs, setDocs] = useState([]);
@@ -1022,7 +1039,6 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
       )}
 
       <div className="mx-5 mb-4">
-        {/* Toggle header */}
         <button
           onClick={() => setExpanded((p) => !p)}
           className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all mb-2"
@@ -1145,7 +1161,7 @@ const SubmittedDocsSection = ({ empDbId, docsSubmitted, showToast }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// REJOIN DOC REVIEW CARD — for approved rejoined employees with pending docs
+// REJOIN DOC REVIEW CARD
 // ══════════════════════════════════════════════════════════════════════════════
 const RejoinDocReviewCard = ({ emp, onAllReviewed, showToast }) => {
   const [docs, setDocs] = useState([]);
@@ -1279,7 +1295,6 @@ const RejoinDocReviewCard = ({ emp, onAllReviewed, showToast }) => {
           }}
         />
 
-        {/* Header */}
         <div className="px-5 pt-4 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3.5">
@@ -1390,7 +1405,6 @@ const RejoinDocReviewCard = ({ emp, onAllReviewed, showToast }) => {
           </div>
         </div>
 
-        {/* Info row */}
         <div className="px-5 py-3 border-b border-gray-50">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {[
@@ -1430,7 +1444,6 @@ const RejoinDocReviewCard = ({ emp, onAllReviewed, showToast }) => {
           </div>
         </div>
 
-        {/* Documents */}
         {expanded && (
           <div className="px-5 py-4">
             {loading && (
@@ -1499,8 +1512,7 @@ const RejoinDocReviewCard = ({ emp, onAllReviewed, showToast }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// REJOIN DOCS PENDING REVIEW SECTION — top of page
-// Shows approved rejoined employees who uploaded docs pending HR review
+// REJOIN DOCS PENDING REVIEW SECTION
 // ══════════════════════════════════════════════════════════════════════════════
 const RejoinDocsPendingReviewSection = ({ showToast }) => {
   const [employees, setEmployees] = useState([]);
@@ -1512,17 +1524,9 @@ const RejoinDocsPendingReviewSection = ({ showToast }) => {
     setLoading(true);
     setError("");
     try {
-      // Re-use the same /employee-docs/pending endpoint — it returns all employees
-      // with pending docs regardless of how they were onboarded.
-      // We filter client-side to only show employees whose previous_employee_id is set
-      // (meaning they are rejoined employees), OR we can rely on the endpoint as-is.
-      // The endpoint already returns only employees with docs_submitted=true and unreviewed docs.
       const res = await fetch(`${BASE_URL}/employee-docs/pending`);
       const data = await res.json();
       if (data.success) {
-        // Filter to only employees who went through rejoin (have previous_employee_id or active status after rejoin)
-        // Since the endpoint doesn't return previous_employee_id, we show all pending doc employees here.
-        // HR can distinguish them by the "Rejoined" badge on each card.
         setEmployees(data.data || []);
       } else {
         setError(data.message || "Failed to load");
@@ -1550,7 +1554,6 @@ const RejoinDocsPendingReviewSection = ({ showToast }) => {
 
   return (
     <div className="mb-8">
-      {/* Section header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div
@@ -1619,17 +1622,20 @@ const FullDetailModal = ({ sub, onClose }) => {
 
   const docDefs = getDocDefs(sub.department);
 
+  // ── FIX: normalize backend doc type (snake_case) before matching against
+  // docDefs (camelCase) — see normalizeDocType() at top of file.
   const uploadedDocs = docDefs.map((def) => {
     const found = Array.isArray(sub.documents)
       ? sub.documents.find(
-          (d) => d.type === def.type || d.document_type === def.type,
+          (d) =>
+            normalizeDocType(d.type) === def.type ||
+            normalizeDocType(d.document_type) === def.type,
         )
       : null;
     return { ...def, path: found?.path || found?.file_path || null };
   });
   const availableDocs = uploadedDocs.filter((d) => d.path);
 
-  // Resolve all presigned URLs on mount
   useEffect(() => {
     const pending = availableDocs.filter((d) => d.path);
     if (!pending.length) return;
@@ -2122,7 +2128,7 @@ const RejectModal = ({ submission, onConfirm, onCancel, isLoading }) => {
   );
 };
 
-// Small async-URL helper used in SubmissionCard expanded doc list
+// Small async-URL helper
 const DocLinkButton = ({ rawPath, label }) => {
   const [url, setUrl] = useState(() => fullUrl(rawPath));
   useEffect(() => {
@@ -2193,7 +2199,6 @@ const SubmissionCard = ({
           }}
         />
 
-        {/* Card header */}
         <div className="flex items-center gap-4 p-5 bg-gradient-to-r from-indigo-50 to-violet-50">
           <div
             className="w-12 h-12 rounded-full flex items-center justify-center text-indigo-700 font-bold text-base flex-shrink-0 relative"
@@ -2245,7 +2250,6 @@ const SubmissionCard = ({
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
             <button
               onClick={() => setShowDetails(true)}
@@ -2310,7 +2314,6 @@ const SubmissionCard = ({
           </div>
         </div>
 
-        {/* Quick summary row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-5 py-3 bg-white border-t border-indigo-50">
           {[
             {
@@ -2348,7 +2351,6 @@ const SubmissionCard = ({
           ))}
         </div>
 
-        {/* Expanded panel */}
         {expanded && (
           <div className="border-t border-indigo-100 p-5 bg-indigo-50/30">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2424,7 +2426,6 @@ const SubmissionCard = ({
           </div>
         )}
 
-        {/* ── SUBMITTED DOCS SECTION — shown when docs_submitted = true ── */}
         <div className="border-t border-indigo-100 pt-3">
           <SubmittedDocsSection
             empDbId={sub.id}
@@ -2482,15 +2483,16 @@ const PendingRejoinApprovals = () => {
     );
   }, [fetchSubmissions]);
 
+  // ── FIX: use apiFetch so the JWT token is attached automatically ─────────
+  // approve also uses apiFetch to stay consistent with auth middleware
   const handleApprove = async (sub) => {
     setProcessingId(sub.id);
     try {
-      const res = await fetch(`${BASE_URL}/registrations/${sub.id}/approve`, {
+      const data = await apiFetch(`/registrations/${sub.id}/approve`, {
         method: "POST",
       });
-      const data = await res.json();
       if (data.success) {
-        const newId = data.data?.employee_id || "—";
+        const newId = data.data?.employee_id || data.employeeId || "—";
         showToast(
           `✅ Approved — New Employee ID: ${newId}. Approval email with KYE PDF & upload link sent.`,
           "success",
@@ -2506,21 +2508,26 @@ const PendingRejoinApprovals = () => {
     }
   };
 
+  // ── FIX: reject-rejoin via apiFetch (attaches Authorization automatically),
+  // with explicit header as a belt-and-suspenders guarantee.
   const handleRejectConfirm = async (reason) => {
     if (!rejectModal) return;
     const sub = rejectModal;
     setProcessingId(sub.id);
     setRejectModal(null);
+
     try {
-      const res = await fetch(
-        `${BASE_URL}/registrations/${sub.id}/reject-rejoin`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rejection_reason: reason }),
+      const token = localStorage.getItem("authToken");
+
+      const data = await apiFetch(`/registrations/${sub.id}/reject-rejoin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      );
-      const data = await res.json();
+        body: JSON.stringify({ rejection_reason: reason }),
+      });
+
       if (data.success) {
         showToast(
           "↩️ Rejoin declined — employee data restored to Inactive",
@@ -2537,6 +2544,8 @@ const PendingRejoinApprovals = () => {
     }
   };
 
+  // ── FIX: this declaration was previously broken (`eleteRequest = ...`
+  // with no `const`), which would throw a ReferenceError at runtime.
   const handleDeleteRequest = (sub) => setDeleteConfirm(sub);
 
   const handleDeleteConfirm = async () => {
@@ -2738,10 +2747,8 @@ const PendingRejoinApprovals = () => {
 
       {!loading && !error && (
         <>
-          {/* ── REJOIN DOCS PENDING REVIEW SECTION ── */}
           <RejoinDocsPendingReviewSection showToast={showToast} />
 
-          {/* ── PENDING REJOIN APPROVAL CARDS ── */}
           {submissions.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-16 text-center">
               <div

@@ -55,7 +55,7 @@ async function parseResponse(response) {
   console.log("[API] Response:", data);
 
   if (!response.ok) {
-    // ── FIX: include detail in the error message so it surfaces in the UI ──
+    // Include detail in the error message so it surfaces in the UI
     const detailSuffix = data.detail ? ` — ${data.detail}` : "";
     const message = (data.message || `HTTP ${response.status}`) + detailSuffix;
     const err = new Error(message);
@@ -64,16 +64,10 @@ async function parseResponse(response) {
     throw err;
   }
 
-  // ── FIX: also throw if success:false even on HTTP 200 ──
-  if (data.success === false) {
-    const detailSuffix = data.detail ? ` — ${data.detail}` : "";
-    const message = (data.message || "Request failed") + detailSuffix;
-    const err = new Error(message);
-    err.status = response.status;
-    err.data = data;
-    throw err;
-  }
-
+  // Always return data — callers check data.success themselves.
+  // Do NOT throw on success:false here; business-logic failures (e.g.
+  // "Employee not found", conflict errors) return success:false on HTTP 200
+  // and the caller needs to read data.message to show the right toast.
   return data;
 }
 
@@ -84,9 +78,17 @@ export async function apiFetch(path, options = {}) {
     headers: buildHeaders(options),
   });
 
+  // Only redirect to /login on 401 if there is no token at all (genuine
+  // session expiry). If we got a 401 with a token present, let parseResponse
+  // throw so the caller can show the error message instead of a silent redirect.
   if (response.status === 401) {
-    handleUnauthorized();
-    return;
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      handleUnauthorized();
+      return;
+    }
+    // Token exists but backend still returned 401 — fall through to
+    // parseResponse which will throw with the backend's error message.
   }
 
   return parseResponse(response);
@@ -111,6 +113,65 @@ export function buildQS(params = {}) {
     ),
   ).toString();
   return qs ? `?${qs}` : "";
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// GLOBAL FETCH INTERCEPTOR
+// ────────────────────────────────────────────────────────────────────────────
+// Some components in this codebase call the browser's native `fetch()`
+// directly (bypassing `apiFetch`) when hitting admin-protected endpoints —
+// e.g. POST /api/registrations/:id/reject-rejoin — without attaching the
+// Authorization header. This causes "No token provided." 401 errors even
+// though the user IS logged in and `authToken` exists in localStorage.
+//
+// Rather than hunt down and patch every raw `fetch()` call across the app,
+// we patch `window.fetch` ONCE here (this module is imported app-wide via
+// `axiosClient`/`apiFetch`, so it always runs early). For any request whose
+// URL targets our own API (BASE_URL), we automatically inject
+// `Authorization: Bearer <authToken>` if it isn't already present.
+//
+// This is purely additive — it never removes or overrides a header that a
+// caller explicitly set, and it does nothing for requests to other origins
+// (e.g. S3 presigned URLs, external services).
+// ════════════════════════════════════════════════════════════════════════════
+if (typeof window !== "undefined" && !window.__authFetchPatched) {
+  const originalFetch = window.fetch.bind(window);
+
+  window.fetch = (input, init = {}) => {
+    try {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof Request
+            ? input.url
+            : String(input);
+
+      const isApiRequest = url.startsWith(BASE_URL);
+
+      if (isApiRequest) {
+        const token = localStorage.getItem("authToken");
+
+        if (token) {
+          // Normalise headers into a plain object so we can check/merge safely
+          const existingHeaders = new Headers(init.headers || {});
+
+          if (!existingHeaders.has("Authorization")) {
+            existingHeaders.set("Authorization", `Bearer ${token}`);
+          }
+
+          init = { ...init, headers: existingHeaders };
+        }
+      }
+    } catch (e) {
+      // Never let header-injection break the actual request
+      console.warn("[authFetchPatch] failed to inject auth header:", e.message);
+    }
+
+    return originalFetch(input, init);
+  };
+
+  window.__authFetchPatched = true;
+  console.log("[client.js] Global fetch patched to auto-attach authToken");
 }
 
 export default axiosClient;
