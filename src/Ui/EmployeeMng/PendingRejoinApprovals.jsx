@@ -2798,7 +2798,7 @@ const PendingRejoinApprovals = () => {
                 {submissions.map((sub) => (
                   <SubmissionCard
                     key={sub.id}
-                    sub={sub}
+                    sub={sub}   
                     onApprove={handleApprove}
                     onReject={(s) => setRejectModal(s)}
                     onDelete={handleDeleteRequest}
