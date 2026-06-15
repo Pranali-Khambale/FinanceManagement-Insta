@@ -1,18 +1,7 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/Ui/Payroll/AdvanceEffectsPanel.jsx
-//
-// Shows the advance payment breakdown for a single employee in the payroll table.
-//
-// RULES (mirrors payrollController.js logic exactly):
-//   org_to_emp  → DEDUCTION  for primary employee (org gave money → recover via salary)
-//   emp_to_emp  → ADDITION   for payer   (they gave their own money → compensate via salary)
-//               → DEDUCTION  for recipient (they received money → recover via salary)
-//   other       → ADDITION   for primary employee (org paid vendor on their behalf → reimbursement)
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useEffect } from "react";
 import payrollService from "../../services/payrollService";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtINR(val) {
   const v = Number(val);
   if (!isFinite(v)) return "₹0.00";
@@ -45,9 +34,7 @@ const TYPE_META = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AdvanceEffectRow — one advance request's effect on this employee
-// ─────────────────────────────────────────────────────────────────────────────
+
 function AdvanceEffectRow({ effect }) {
   const effectCfg = EFFECT_LABEL[effect.effect_type] || EFFECT_LABEL.deduction;
   const typeMeta  = TYPE_META[effect.payment_type_key] || TYPE_META.org_to_emp;
@@ -141,9 +128,7 @@ function AdvanceEffectRow({ effect }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AdvanceEffectsPanel — full breakdown panel for one employee
-// ─────────────────────────────────────────────────────────────────────────────
+
 export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);

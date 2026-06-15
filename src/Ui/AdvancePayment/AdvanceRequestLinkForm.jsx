@@ -1,11 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/pages/AdvanceRequestForm.jsx
-// Public 3-step wizard — accessible WITHOUT login via emailed token link.
-// Route: /advance-request/:paymentTypeKey/:token
-//
-// IMPORTANT: This route must be placed OUTSIDE any auth guard in App.jsx:
-//   <Route path="/advance-request/:paymentTypeKey/:token" element={<AdvanceRequestForm />} />
-// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {

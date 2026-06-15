@@ -13,7 +13,7 @@ import {
 
 import advancePaymentService from "../../services/advancePaymentService";
 import GenerateLinkModal from "./GenerateLink";
-import AddRequestModal from "./AddRequest";
+import AddRequestModal from "./AddRequestModal";
 import ViewDetailModal from "./ViewDetail";
 import RejectReasonModal from "./RejectReasonModal";
 
