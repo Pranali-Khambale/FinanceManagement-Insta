@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import authService from "../services/authService";
+import { BASE_URL } from "../api/client";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]               = useState(() => authService.getUser());
+  const [user, setUser] = useState(() => authService.getUser());
   const [isAuthenticated, setIsAuthenticated] = useState(() => authService.isAuthenticated());
-  const [isInitializing, setIsInitializing]   = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // On mount — verify the stored token is still valid against the server
   useEffect(() => {
@@ -19,18 +20,31 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || "http://192.168.1.17:5000/api"}/auth/me`, {
+        const res = await fetch(`${BASE_URL}/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         if (res.ok) {
           const data = await res.json();
-          setUser(data.data.user);
-          setIsAuthenticated(true);
-        } else {
-          // Token rejected by server — clear everything
+          // Handle either { data: { user: {...} } } or { data: {...} }
+          const profile = data?.data?.user || data?.data || null;
+          if (profile) {
+            setUser(profile);
+            localStorage.setItem("user", JSON.stringify(profile));
+            setIsAuthenticated(true);
+          } else {
+            // Unexpected shape — keep existing stored user, don't log out
+            setIsAuthenticated(true);
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          // Token genuinely rejected by server — clear everything
           authService.logout();
           setIsAuthenticated(false);
           setUser(null);
+        } else {
+          // Some other server error (404, 500, etc.) — don't log the user out,
+          // just keep the locally stored session
+          setIsAuthenticated(true);
         }
       } catch {
         // Network error — keep the stored state, don't log out
