@@ -1,22 +1,8 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/Ui/Payroll/CarryForwardPanel.jsx
-//
-// PURPOSE:
-//   Shows carry-forward status per employee for a given payroll month.
-//   Appears as a collapsible panel inside PayrollTable or as a standalone modal.
-//
-//   Features:
-//   • Lists all advance deductions that were carried forward (rolled over)
-//   • Shows which month they moved TO
-//   • Carry-forward count (how many times rolled)
-//   • Status badge: original / carried-once / carried-multiple
-//   • Full timeline of carry-forward history per request
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 import React, { useState, useEffect, useCallback } from "react";
 import payrollService from "../../services/payrollService";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtINR(val) {
   return "₹" + Number(val || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,

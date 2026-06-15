@@ -1,8 +1,4 @@
-// src/Ui/Payroll/PayslipGenerator.js
-// PDF  → downloadPayslipPDF(employee)
-// Excel → downloadPayslipExcel(employee)
 
-/* ─── Normalize DB snake_case → camelCase ───────────────────────────────── */
 function _normalizeEmployee(emp) {
   return {
     ...emp,

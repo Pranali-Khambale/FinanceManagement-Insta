@@ -1,6 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/pages/AdvancePayment.jsx
-// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState } from "react";
 import { Link2, Download, Plus, History, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
@@ -8,10 +6,10 @@ import * as XLSX from "xlsx-js-style";
 import advancePaymentService from "../services/advancePaymentService";
 import AdvancePaymentDashboard from "../Ui/AdvancePayment/AdvancePaymentDashboard";
 import GenerateLinkModal       from "../Ui/AdvancePayment/GenerateLink";
-import AddRequestModal         from "../Ui/AdvancePayment/AddRequest";
-import PaymentHistory          from "../Ui/AdvancePayment/PaymentHistory";
+import AddRequestModal from "../Ui/AdvancePayment/AddRequestModal/index";
+import PaymentHistory from "../Ui/AdvancePayment/PaymentHistory/index.jsx";
 
-// ─── Date helpers ─────────────────────────────────────────────────────────────
+
 function fmtDate(raw) {
   if (!raw) return "—";
   const d = new Date(raw);

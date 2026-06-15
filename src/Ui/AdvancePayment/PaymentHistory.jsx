@@ -1,4 +1,4 @@
-// PaymentHistory.jsx · Enhanced Modal Card — full detail, taller layout
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Wallet,

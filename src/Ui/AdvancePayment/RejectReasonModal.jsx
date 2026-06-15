@@ -1,4 +1,4 @@
-// FILE: src/Ui/AdvancePayment/RejectReasonModal.jsx
+
 import { useState } from "react";
 import { X, AlertTriangle } from "lucide-react";
 

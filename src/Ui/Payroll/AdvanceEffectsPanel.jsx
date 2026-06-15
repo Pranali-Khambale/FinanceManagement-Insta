@@ -1,6 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/Ui/Payroll/AdvanceEffectsPanel.jsx
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useEffect } from "react";
 import payrollService from "../../services/payrollService";
 

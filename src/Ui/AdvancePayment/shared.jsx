@@ -1,7 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/Ui/AdvancePayment/shared.jsx
-// Reusable micro-components used across the module
-// ─────────────────────────────────────────────────────────────────────────────
+
 import { FileText } from "lucide-react";
 import { STATUS_CONFIG, PAYMENT_TYPES } from "../../data/content";
 

@@ -1,5 +1,4 @@
-// src/Ui/Payroll/ExportPayrollExcel.js
-// Exports the filtered payroll table data to a formatted Excel (.xlsx) file
+
 
 function computePayslip(emp) {
   const ratio          = (emp.monthDays || 31) > 0 ? (emp.pDays || 0) / (emp.monthDays || 31) : 1;
