@@ -14,7 +14,7 @@ import ViewEmployee           from "./ViewEmployee";
 import EditEmployee           from "./EditEmployee";
 import CombinedActivityLog    from "./Combinedactivitylogo";
 import EmployeeIDCardModal from "./EmployeeIDCard/index.jsx";
-import { DocsModal }          from "./ReviewedDocsSection";
+import { DocsModal }          from "./ReviewedDocsSections";
 
 // ── Split components ──────────────────────────────────────────────────────────
 import EmployeeAvatar         from "./components/EmployeeAvatar";
