@@ -38,22 +38,7 @@ function fullUrl(path) {
   return getS3Url(path);
 }
 
-// ── S3 key extractor ──────────────────────────────────────────────────────────
-// CRITICAL FIX: employeeController.resolveDocUrls() converts raw S3 keys
-// (e.g. "uploads/employee_docs/file.png") into full HTTPS URLs before
-// returning registration docs to the frontend. But the proxy endpoint
-// (/api/employees/s3/proxy?key=...) and presign endpoint
-// (/api/employees/s3/presign?key=...) both expect a raw S3 key — NOT a full URL.
-//
-// This function strips the S3 / CloudFront host prefix so we always pass
-// raw keys to backend endpoints, regardless of doc source (KYE, HR, Reg).
-//
-// Handles:
-//   https://<bucket>.s3.<region>.amazonaws.com/<key>   → <key>
-//   https://<bucket>.s3.amazonaws.com/<key>            → <key>
-//   https://<cloudfront-id>.cloudfront.net/<key>       → <key>
-//   https://any-custom-cdn.example.com/<key>           → <key>  (falls back gracefully)
-//   uploads/employee_docs/file.png                     → unchanged (already a key)
+
 function extractS3Key(urlOrKey) {
   if (!urlOrKey) return urlOrKey;
   // Already a raw key (no protocol) — return as-is
