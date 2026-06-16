@@ -1,11 +1,6 @@
 // src/Ui/EmployeeMng/Linkgen/RegistrationForm.jsx
-//
-// FIX: Resubmit flow now fetches previously submitted data via
-//      GET /api/registrations/prefill/:token and pre-fills all form fields,
-//      exactly the same way the rejoin flow uses applyPrefillData().
-//      The rejection reason is shown as a banner on step 1.
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -15,6 +10,8 @@ import {
   Loader,
   UserCheck,
   Info,
+  Save,
+  CheckCircle2,
 } from "lucide-react";
 import employeeService from "../../../services/employeeService";
 import PersonalInfo from "./PersonalInfo";
@@ -25,7 +22,6 @@ import Documents from "./Documents";
 const FARM_TO_CLI_POSITIONS = ["dt engineer", "rigger", "technician"];
 
 const EMPTY_FORM = {
-  // ── Personal ──────────────────────────────────────────────────────────────
   firstName: "",
   fatherHusbandName: "",
   lastName: "",
@@ -42,29 +38,24 @@ const EMPTY_FORM = {
   aadhar: "",
   nameOnAadhar: "",
   uanNumber: "",
-  // ── Family ────────────────────────────────────────────────────────────────
   familyMemberName: "",
   familyContactNo: "",
   familyWorkingStatus: "",
   familyEmployerName: "",
   familyEmployerContact: "",
-  // ── Emergency ─────────────────────────────────────────────────────────────
   emergencyContactName: "",
   emergencyContactNo: "",
   emergencyContactAddress: "",
   emergencyContactRelation: "",
-  // ── Permanent address ─────────────────────────────────────────────────────
   permanentAddress: "",
   permanentPhone: "",
   permanentLandmark: "",
   permanentLatLong: "",
-  // ── Local address ─────────────────────────────────────────────────────────
   localSameAsPermanent: false,
   localAddress: "",
   localPhone: "",
   localLandmark: "",
   localLatLong: "",
-  // ── References ────────────────────────────────────────────────────────────
   ref1Name: "",
   ref1Designation: "",
   ref1Organization: "",
@@ -86,7 +77,6 @@ const EMPTY_FORM = {
   ref3CityStatePin: "",
   ref3ContactNo: "",
   ref3Email: "",
-  // ── Employment ────────────────────────────────────────────────────────────
   employeeId: "",
   joiningDate: "",
   department: "",
@@ -95,14 +85,12 @@ const EMPTY_FORM = {
   circle: "",
   reportingManager: "",
   employmentType: "",
-  // ── Bank ──────────────────────────────────────────────────────────────────
   bankName: "",
   accountHolderName: "",
   accountNumber: "",
   confirmAccountNumber: "",
   ifscCode: "",
   bankBranch: "",
-  // ── Documents (File objects — never prefilled) ────────────────────────────
   idPhoto: null,
   aadharCard: null,
   panCard: null,
@@ -115,29 +103,89 @@ const EMPTY_FORM = {
   otherCertificates: null,
 };
 
+const FILE_FIELDS = new Set([
+  "idPhoto",
+  "aadharCard",
+  "panCard",
+  "resume",
+  "bankPassbook",
+  "medicalCertificate",
+  "academicRecords",
+  "payslip",
+  "farmToCli",
+  "otherCertificates",
+]);
+
+const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
+
+const STEP_LABELS = [
+  "Personal Info",
+  "Employment Details",
+  "Bank Details",
+  "Documents",
+];
+
+// ── Draft helpers ─────────────────────────────────────────────────────────────
+const getDraftKey = (id) => `reg_draft_${id || "unknown"}`;
+
+const saveDraft = (draftKey, formData, step) => {
+  try {
+    const scalarData = {};
+    Object.entries(formData).forEach(([k, v]) => {
+      if (!FILE_FIELDS.has(k)) scalarData[k] = v;
+    });
+    localStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        formData: scalarData,
+        savedStep: step,
+        savedAt: Date.now(),
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const loadDraft = (draftKey) => {
+  try {
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const clearDraft = (draftKey) => {
+  try {
+    localStorage.removeItem(draftKey);
+  } catch {}
+};
+
 const RegistrationForm = () => {
   const { linkId, token } = useParams();
   const navigate = useNavigate();
   const isResubmit = Boolean(token);
+  const draftKey = getDraftKey(linkId || token);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isRejoin, setIsRejoin] = useState(false);
-  const [linkLoading, setLinkLoading] = useState(true); // always true on mount; both flows load
+  const [linkLoading, setLinkLoading] = useState(true);
   const [linkError, setLinkError] = useState("");
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState(EMPTY_FORM);
-  // Rejection reason shown to the employee on resubmit
   const [rejectionReason, setRejectionReason] = useState("");
+  const [hasDraft, setHasDraft] = useState(false);
 
   // ── applyPrefillData ───────────────────────────────────────────────────────
-  // Shared helper used by both rejoin (from validateLink) and resubmit
-  // (from getPrefillData). Only scalar fields are applied — file fields are
-  // intentionally omitted so the employee must re-upload documents.
-  const applyPrefillData = (prefill) => {
+  const applyPrefillData = useCallback((prefill) => {
     setFormData((prev) => ({
       ...prev,
-      // Personal
       firstName: prefill.firstName ?? prev.firstName,
       lastName: prefill.lastName ?? prev.lastName,
       fatherHusbandName: prefill.fatherHusbandName ?? prev.fatherHusbandName,
@@ -152,23 +200,19 @@ const RegistrationForm = () => {
       aadhar: prefill.aadhar ?? prev.aadhar,
       nameOnAadhar: prefill.nameOnAadhar ?? prev.nameOnAadhar,
       uanNumber: prefill.uanNumber ?? prev.uanNumber,
-      // Contact
       email: prefill.email ?? prev.email,
       phone: prefill.phone ?? prev.phone,
       altPhone: prefill.altPhone ?? prev.altPhone,
-      // Permanent address
       permanentAddress: prefill.permanentAddress ?? prev.permanentAddress,
       permanentPhone: prefill.permanentPhone ?? prev.permanentPhone,
       permanentLandmark: prefill.permanentLandmark ?? prev.permanentLandmark,
       permanentLatLong: prefill.permanentLatLong ?? prev.permanentLatLong,
-      // Local address
       localSameAsPermanent:
         prefill.localSameAsPermanent ?? prev.localSameAsPermanent,
       localAddress: prefill.localAddress ?? prev.localAddress,
       localPhone: prefill.localPhone ?? prev.localPhone,
       localLandmark: prefill.localLandmark ?? prev.localLandmark,
       localLatLong: prefill.localLatLong ?? prev.localLatLong,
-      // Family
       familyMemberName: prefill.familyMemberName ?? prev.familyMemberName,
       familyContactNo: prefill.familyContactNo ?? prev.familyContactNo,
       familyWorkingStatus:
@@ -176,7 +220,6 @@ const RegistrationForm = () => {
       familyEmployerName: prefill.familyEmployerName ?? prev.familyEmployerName,
       familyEmployerContact:
         prefill.familyEmployerContact ?? prev.familyEmployerContact,
-      // Emergency
       emergencyContactName:
         prefill.emergencyContactName ?? prev.emergencyContactName,
       emergencyContactNo: prefill.emergencyContactNo ?? prev.emergencyContactNo,
@@ -184,7 +227,6 @@ const RegistrationForm = () => {
         prefill.emergencyContactAddress ?? prev.emergencyContactAddress,
       emergencyContactRelation:
         prefill.emergencyContactRelation ?? prev.emergencyContactRelation,
-      // References
       ref1Name: prefill.ref1Name ?? prev.ref1Name,
       ref1Designation: prefill.ref1Designation ?? prev.ref1Designation,
       ref1Organization: prefill.ref1Organization ?? prev.ref1Organization,
@@ -206,7 +248,6 @@ const RegistrationForm = () => {
       ref3CityStatePin: prefill.ref3CityStatePin ?? prev.ref3CityStatePin,
       ref3ContactNo: prefill.ref3ContactNo ?? prev.ref3ContactNo,
       ref3Email: prefill.ref3Email ?? prev.ref3Email,
-      // Employment
       employeeId: prefill.employeeId ?? prev.employeeId,
       department: prefill.department ?? prev.department,
       position: prefill.position ?? prev.position,
@@ -215,21 +256,17 @@ const RegistrationForm = () => {
       reportingManager: prefill.reportingManager ?? prev.reportingManager,
       circle: prefill.circle ?? prev.circle,
       projectName: prefill.projectName ?? prev.projectName,
-      // Bank
       bankName: prefill.bankName ?? prev.bankName,
       accountNumber: prefill.accountNumber ?? prev.accountNumber,
       ifscCode: prefill.ifscCode ?? prev.ifscCode,
       accountHolderName: prefill.accountHolderName ?? prev.accountHolderName,
       bankBranch: prefill.bankBranch ?? prev.bankBranch,
-      // Mirror accountNumber into confirmAccountNumber for resubmit convenience
       confirmAccountNumber: prefill.accountNumber ?? prev.confirmAccountNumber,
-      // File fields intentionally omitted — employee must re-upload documents
     }));
-  };
+  }, []);
 
   // ── Load data on mount ────────────────────────────────────────────────────
   useEffect(() => {
-    // ── RESUBMIT flow: fetch previously submitted data via token ─────────────
     if (isResubmit) {
       if (!token) {
         setLinkError("Invalid resubmission link — token is missing.");
@@ -242,7 +279,6 @@ const RegistrationForm = () => {
         setLinkError("");
         try {
           const response = await employeeService.getPrefillData(token);
-
           if (!response?.success) {
             setLinkError(
               response?.message ||
@@ -250,16 +286,19 @@ const RegistrationForm = () => {
             );
             return;
           }
-
           const data = response.data;
           if (data) {
-            // Show rejection reason as a banner above the form
-            if (data.rejectionReason) {
-              setRejectionReason(data.rejectionReason);
-            }
+            if (data.rejectionReason) setRejectionReason(data.rejectionReason);
             applyPrefillData(data);
+            clearDraft(draftKey);
           }
         } catch (err) {
+          const draft = loadDraft(draftKey);
+          if (draft?.formData) {
+            applyPrefillData(draft.formData);
+            if (draft.savedStep) setCurrentStep(draft.savedStep);
+            setHasDraft(true);
+          }
           setLinkError(
             "Failed to load your previous submission data. Please try again.",
           );
@@ -273,8 +312,13 @@ const RegistrationForm = () => {
       return;
     }
 
-    // ── NEW / REJOIN flow: validate the registration link ────────────────────
     if (!linkId) {
+      const draft = loadDraft(draftKey);
+      if (draft?.formData) {
+        applyPrefillData(draft.formData);
+        if (draft.savedStep) setCurrentStep(draft.savedStep);
+        setHasDraft(true);
+      }
       setLinkLoading(false);
       return;
     }
@@ -284,7 +328,6 @@ const RegistrationForm = () => {
       setLinkError("");
       try {
         const response = await employeeService.validateLink(linkId);
-
         if (!response?.valid) {
           setLinkError(
             response?.message ||
@@ -302,7 +345,17 @@ const RegistrationForm = () => {
 
         if (rejoin) {
           const prefill = response.prefillData || response.data?.prefillData;
-          if (prefill) applyPrefillData(prefill);
+          if (prefill) {
+            applyPrefillData(prefill);
+            clearDraft(draftKey);
+          }
+        } else {
+          const draft = loadDraft(draftKey);
+          if (draft?.formData) {
+            applyPrefillData(draft.formData);
+            if (draft.savedStep) setCurrentStep(draft.savedStep);
+            setHasDraft(true);
+          }
         }
       } catch (err) {
         setLinkError(
@@ -382,7 +435,6 @@ const RegistrationForm = () => {
         e.employeeId = "Employee ID is required";
       else if (!/^Insta-\d{8,}$/.test(formData.employeeId.trim()))
         e.employeeId = "Format must be Insta-YYMMxxxx (e.g. Insta-26010001)";
-
       if (!formData.department) e.department = "Department is required";
       if (!formData.position) e.position = "Designation is required";
       if (!formData.joiningDate) e.joiningDate = "Joining date is required";
@@ -419,9 +471,23 @@ const RegistrationForm = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleNext = () => {
-    if (validateStep(currentStep)) setCurrentStep((p) => p + 1);
+  // ── Save & Continue ───────────────────────────────────────────────────────
+  const handleSaveAndContinue = () => {
+    if (!validateStep(currentStep)) return;
+
+    setIsSaving(true);
+    const ok = saveDraft(draftKey, formData, currentStep + 1);
+    setIsSaving(false);
+
+    if (ok) setHasDraft(true);
+
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setCurrentStep((p) => p + 1);
+    }, 700);
   };
+
   const handlePrev = () => setCurrentStep((p) => p - 1);
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -439,20 +505,6 @@ const RegistrationForm = () => {
         fd.append("linkId", linkId);
         if (isRejoin) fd.append("isRejoin", "true");
       }
-
-      const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
-      const FILE_FIELDS = new Set([
-        "idPhoto",
-        "aadharCard",
-        "panCard",
-        "resume",
-        "bankPassbook",
-        "medicalCertificate",
-        "academicRecords",
-        "payslip",
-        "farmToCli",
-        "otherCertificates",
-      ]);
 
       Object.entries(formData).forEach(([key, val]) => {
         if (FRONTEND_ONLY.has(key)) return;
@@ -474,6 +526,7 @@ const RegistrationForm = () => {
       }
 
       if (res?.success) {
+        clearDraft(draftKey);
         navigate("/success");
       } else {
         setErrors({
@@ -540,34 +593,71 @@ const RegistrationForm = () => {
 
   // ── Main render ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 py-6 px-3 sm:py-12 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-        {/* Step header */}
-        <div
-          className={`px-6 py-4 flex items-center justify-between ${headerBg}`}
-        >
-          <div>
-            <span className="text-white font-bold text-lg">{headerTitle}</span>
-            {headerNote && (
-              <p
-                className={`text-xs mt-0.5 ${isRejoin ? "text-indigo-300" : "text-red-300"}`}
-              >
-                {headerNote}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {steps.map((s) => (
-              <div
-                key={s.id}
-                className={`w-3 h-3 rounded-full ${currentStep >= s.id ? "bg-blue-400" : "bg-slate-700"}`}
-              />
-            ))}
+        {/* ── Header ───────────────────────────────────────────────────────── */}
+        <div className={`px-4 sm:px-6 py-4 ${headerBg}`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-white font-bold text-base sm:text-lg block truncate">
+                {headerTitle}
+              </span>
+              {headerNote && (
+                <p
+                  className={`text-xs mt-0.5 ${isRejoin ? "text-indigo-300" : "text-red-300"}`}
+                >
+                  {headerNote}
+                </p>
+              )}
+            </div>
+
+            {/* Step progress */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              {steps.map((s, idx) => (
+                <React.Fragment key={s.id}>
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                        currentStep > s.id
+                          ? "bg-green-400 text-white"
+                          : currentStep === s.id
+                            ? "bg-blue-400 text-white ring-2 ring-white ring-offset-1 ring-offset-transparent"
+                            : "bg-slate-600 text-slate-400"
+                      }`}
+                    >
+                      {currentStep > s.id ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        s.id
+                      )}
+                    </div>
+                    <span className="hidden lg:block text-xs mt-1 text-slate-400 whitespace-nowrap">
+                      {s.name}
+                    </span>
+                  </div>
+                  {idx < steps.length - 1 && (
+                    <div
+                      className={`h-0.5 w-4 sm:w-6 rounded-full transition-all ${
+                        currentStep > s.id ? "bg-green-400" : "bg-slate-600"
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="p-8">
-          {/* Rejection reason banner — only shown on resubmit */}
+        {/* ── Draft restored notice ─────────────────────────────────────────── */}
+        {hasDraft && !isRejoin && !isResubmit && (
+          <div className="mx-4 sm:mx-6 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm text-blue-700">
+            <Info className="w-4 h-4 flex-shrink-0" />
+            <span>Your previously saved progress has been restored.</span>
+          </div>
+        )}
+
+        <div className="p-4 sm:p-8">
+          {/* ── Rejection reason banner ───────────────────────────────────── */}
           {isResubmit && rejectionReason && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3">
               <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -585,13 +675,15 @@ const RegistrationForm = () => {
             </div>
           )}
 
+          {/* ── Submit error ──────────────────────────────────────────────── */}
           {errors.submit && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-              <span>{errors.submit}</span>
+              <span className="text-sm">{errors.submit}</span>
             </div>
           )}
 
+          {/* ── Step content ──────────────────────────────────────────────── */}
           {currentStep === 1 && (
             <PersonalInfo
               formData={formData}
@@ -622,57 +714,88 @@ const RegistrationForm = () => {
             />
           )}
 
-          {/* Navigation */}
-          <div className="mt-8 pt-6 border-t flex justify-between items-center">
-            <button
-              type="button"
-              onClick={handlePrev}
-              disabled={currentStep === 1 || isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 text-slate-600 rounded-lg font-medium hover:bg-slate-100 transition-all disabled:opacity-30"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous
-            </button>
+          {/* ── Navigation ────────────────────────────────────────────────── */}
+          <div className="mt-8 pt-6 border-t">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3">
+              {/* Previous */}
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={currentStep === 1 || isSubmitting || isSaving}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 text-slate-600 rounded-lg font-medium hover:bg-slate-100 transition-all disabled:opacity-30 w-full sm:w-auto"
+              >
+                <ChevronLeft className="w-4 h-4" /> Previous
+              </button>
 
-            {currentStep < steps.length ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all shadow-sm"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-lg font-medium transition-all disabled:opacity-50 shadow-sm ${
-                  isRejoin
-                    ? "bg-indigo-600 hover:bg-indigo-700"
-                    : isResubmit
-                      ? "bg-orange-600 hover:bg-orange-700"
-                      : "bg-green-600 hover:bg-green-700"
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" /> Submitting…
-                  </>
-                ) : isRejoin ? (
-                  <>
-                    <UserCheck className="w-4 h-4" /> Submit Rejoin Request
-                  </>
-                ) : isResubmit ? (
-                  <>
-                    <Check className="w-4 h-4" /> Resubmit Registration
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" /> Submit Registration
-                  </>
-                )}
-              </button>
-            )}
+              {/* Right-side action */}
+              {currentStep < steps.length ? (
+                // ── Save & Continue ──────────────────────────────────────────
+                <button
+                  type="button"
+                  onClick={handleSaveAndContinue}
+                  disabled={isSaving || isSubmitting}
+                  className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm w-full sm:w-auto text-sm ${
+                    saveSuccess
+                      ? "bg-green-500 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" /> Saving…
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Saved!
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save & Continue
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                // ── Final step: Submit ───────────────────────────────────────
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className={`flex items-center justify-center gap-2 px-6 py-2.5 text-white rounded-lg font-medium transition-all disabled:opacity-50 shadow-sm w-full sm:w-auto ${
+                    isRejoin
+                      ? "bg-indigo-600 hover:bg-indigo-700"
+                      : isResubmit
+                        ? "bg-orange-600 hover:bg-orange-700"
+                        : "bg-green-600 hover:bg-green-700"
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" /> Submitting…
+                    </>
+                  ) : isRejoin ? (
+                    <>
+                      <UserCheck className="w-4 h-4" /> Submit Rejoin Request
+                    </>
+                  ) : isResubmit ? (
+                    <>
+                      <Check className="w-4 h-4" /> Resubmit Registration
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" /> Submit Registration
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Step indicator text */}
+            <p className="text-center text-xs text-slate-400 mt-4">
+              Step {currentStep} of {steps.length} —{" "}
+              {STEP_LABELS[currentStep - 1]}
+            </p>
           </div>
         </div>
       </div>
