@@ -12,15 +12,70 @@ import {
   LogOut,
 } from "lucide-react";
 
+// Tries multiple common storage shapes to find the logged-in user's name/email.
+function getLoggedInUser() {
+  // 1. Try a single JSON object stored under common keys
+  const jsonKeys = ["user", "userData", "currentUser", "authUser", "loggedInUser"];
+  for (const key of jsonKeys) {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        const name =
+          parsed.fullName || parsed.name || parsed.username || parsed.displayName;
+        const email = parsed.email;
+        if (name || email) {
+          return {
+            name: name || "Admin User",
+            email: email || "admin@company.com",
+          };
+        }
+      } catch {
+        // not JSON, ignore and fall through
+      }
+    }
+  }
+
+  // 2. Try flat keys directly
+  const flatNameKeys = ["fullName", "name", "username", "displayName"];
+  const flatEmailKeys = ["email", "userEmail"];
+
+  let name = null;
+  for (const key of flatNameKeys) {
+    const val = localStorage.getItem(key);
+    if (val) { name = val; break; }
+  }
+
+  let email = null;
+  for (const key of flatEmailKeys) {
+    const val = localStorage.getItem(key);
+    if (val) { email = val; break; }
+  }
+
+  return {
+    name: name || "Admin User",
+    email: email || "admin@company.com",
+  };
+}
+
 const Sidebar = ({ collapsed, setCollapsed, isMobile, mobileOpen, setMobileOpen }) => {
   const navigate  = useNavigate();
   const location  = useLocation();
 
-  const user = {
-    name:     localStorage.getItem("fullName") || "Admin User",
-    email:    localStorage.getItem("email")    || "admin@company.com",
-    initials: (localStorage.getItem("fullName") || "A").charAt(0).toUpperCase(),
-  };
+  const [user, setUser] = useState({
+    name: "Admin User",
+    email: "admin@company.com",
+    initials: "A",
+  });
+
+  useEffect(() => {
+    const { name, email } = getLoggedInUser();
+    setUser({
+      name,
+      email,
+      initials: name.charAt(0).toUpperCase(),
+    });
+  }, [location.pathname]); // re-check on every route change, e.g. right after login redirect
 
   const menu = [
     { id: "dashboard", label: "Dashboard",           Icon: LayoutDashboard, path: "/employee/dashboard"  },
