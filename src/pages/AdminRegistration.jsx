@@ -36,7 +36,11 @@ const AdminRegister = () => {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, [isRoleDropdownOpen]);
 
   const handleChange = (e) => {
@@ -120,10 +124,11 @@ const AdminRegister = () => {
     transition: "border-color 0.2s",
   });
 
-  const EyeBtn = ({ show, onToggle }) => (
+  const EyeBtn = ({ show, onToggle, label }) => (
     <button
       type="button"
       onClick={onToggle}
+      aria-label={label}
       style={{
         position: "absolute",
         right: 12,
@@ -205,17 +210,24 @@ const AdminRegister = () => {
         justifyContent: "center",
         fontFamily: '"Inter", "Segoe UI", sans-serif',
         padding: "24px",
+        boxSizing: "border-box",
       }}
     >
       <style>{`
+        * { -webkit-tap-highlight-color: transparent; }
+
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes slideInRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
+
+        .reg-outer {
+          width: 100%;
+          max-width: 900px;
+        }
 
         .reg-card {
           display: flex;
           flex-direction: row;
           width: 100%;
-          max-width: 900px;
           min-height: 560px;
           border-radius: 24px;
           overflow: hidden;
@@ -225,6 +237,7 @@ const AdminRegister = () => {
 
         .reg-form-panel {
           flex: 1;
+          min-width: 0;
           padding: 40px 44px;
           display: flex;
           flex-direction: column;
@@ -255,8 +268,46 @@ const AdminRegister = () => {
           margin-bottom: 14px;
         }
 
+        .reg-submit-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(37,99,235,0.4);
+        }
+
+        .sign-in-btn:active {
+          transform: scale(0.97);
+        }
+
+        /* ── Large desktop / wide screens ── */
+        @media (min-width: 1440px) {
+          .reg-outer { max-width: 980px; }
+          .reg-card { min-height: 600px; }
+          .reg-form-panel { padding: 48px 64px; }
+          .reg-blue-panel { width: 320px; padding: 56px 44px; }
+        }
+
+        /* ── Small laptop ── */
+        @media (min-width: 901px) and (max-width: 1100px) {
+          .reg-outer { max-width: 820px; }
+        }
+
+        /* ── Tablet ── */
+        @media (min-width: 641px) and (max-width: 900px) {
+          .reg-outer { max-width: 100%; }
+
+          .reg-blue-panel {
+            width: 220px;
+            padding: 40px 24px;
+          }
+
+          .reg-form-panel {
+            padding: 32px 28px;
+          }
+        }
+
         /* ── Mobile ── */
         @media (max-width: 640px) {
+          .reg-outer { max-width: 480px; }
+
           .reg-card {
             flex-direction: column;
             min-height: unset;
@@ -294,6 +345,8 @@ const AdminRegister = () => {
           .reg-form-panel {
             order: 2;
             padding: 28px 20px 32px;
+            max-height: none;
+            overflow-y: visible;
           }
 
           .reg-form-panel h2 {
@@ -304,6 +357,7 @@ const AdminRegister = () => {
           /* Stack 2-col grids on mobile */
           .reg-grid-2 {
             grid-template-columns: 1fr;
+            gap: 14px;
           }
 
           /* Full-width submit on mobile */
@@ -317,15 +371,41 @@ const AdminRegister = () => {
           }
         }
 
-        /* ── Tablet ── */
-        @media (min-width: 641px) and (max-width: 900px) {
-          .reg-blue-panel {
-            width: 220px;
-          }
-
+        /* ── Very small phones ── */
+        @media (max-width: 380px) {
           .reg-form-panel {
-            padding: 32px 28px;
+            padding: 22px 16px 26px !important;
           }
+          .reg-blue-panel {
+            padding: 22px 14px !important;
+          }
+          .reg-blue-panel h3 {
+            font-size: 18px !important;
+          }
+          input, button, select {
+            font-size: 14px !important;
+          }
+        }
+
+        /* ── Short / landscape phones ── */
+        @media (max-height: 480px) and (orientation: landscape) {
+          .reg-card {
+            flex-direction: row !important;
+            min-height: unset;
+          }
+          .reg-blue-panel {
+            display: none;
+          }
+          .reg-form-panel {
+            order: 1;
+            padding: 18px 24px;
+            max-height: 95vh;
+            overflow-y: auto;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .reg-card * { transition: none !important; animation-duration: 0.01ms !important; }
         }
       `}</style>
 
@@ -334,11 +414,12 @@ const AdminRegister = () => {
         <div
           style={{
             position: "fixed",
-            top: 24,
-            right: 24,
+            top: 16,
+            right: 16,
+            left: 16,
             zIndex: 9999,
-            minWidth: 280,
             maxWidth: 380,
+            marginLeft: "auto",
             background: toast.type === "success" ? "#f0fdf4" : "#fef2f2",
             border: `1px solid ${toast.type === "success" ? "#bbf7d0" : "#fecaca"}`,
             borderLeft: `4px solid ${toast.type === "success" ? "#22c55e" : "#ef4444"}`,
@@ -395,6 +476,7 @@ const AdminRegister = () => {
           </span>
           <button
             onClick={() => setToast(null)}
+            aria-label="Dismiss notification"
             style={{
               background: "none",
               border: "none",
@@ -423,501 +505,516 @@ const AdminRegister = () => {
       )}
 
       {/* ── Main Card ── */}
-      <div className="reg-card">
-        {/* ── LEFT: Register Form ── */}
-        <div className="reg-form-panel">
-          <h2
-            style={{
-              fontSize: 26,
-              fontWeight: 800,
-              color: "#0f172a",
-              margin: "0 0 24px",
-              letterSpacing: "-0.5px",
-            }}
-          >
-            Create Admin Account
-          </h2>
-
-          {/* API Error */}
-          {apiError && (
-            <div
+      <div className="reg-outer">
+        <div className="reg-card">
+          {/* ── LEFT: Register Form ── */}
+          <div className="reg-form-panel">
+            <h2
               style={{
-                background: "#fef2f2",
-                border: "1px solid #fecaca",
-                borderLeft: "4px solid #ef4444",
-                borderRadius: 10,
-                padding: "10px 14px",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 16,
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#0f172a",
+                margin: "0 0 24px",
+                letterSpacing: "-0.5px",
               }}
             >
-              <svg
-                width="15"
-                height="15"
-                fill="#ef4444"
-                viewBox="0 0 20 20"
-                style={{ flexShrink: 0 }}
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span style={{ fontSize: 13, color: "#dc2626" }}>{apiError}</span>
-            </div>
-          )}
+              Create Admin Account
+            </h2>
 
-          <form onSubmit={handleSubmit}>
-            {/* Row 1: Full Name + Username */}
-            <div className="reg-grid-2">
-              <div>
-                <Label>Full Name</Label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  placeholder="John Doe"
-                  style={inputStyle(errors.fullName)}
-                  onFocus={(e) =>
-                    (e.target.style.borderColor = errors.fullName
-                      ? "#ef4444"
-                      : "#3b82f6")
-                  }
-                  onBlur={(e) =>
-                    (e.target.style.borderColor = errors.fullName
-                      ? "#fca5a5"
-                      : "#dbeafe")
-                  }
-                />
-                <ErrorMsg msg={errors.fullName} />
-              </div>
-              <div>
-                <Label>Username</Label>
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  placeholder="admin_user"
-                  style={inputStyle(errors.username)}
-                  onFocus={(e) =>
-                    (e.target.style.borderColor = errors.username
-                      ? "#ef4444"
-                      : "#3b82f6")
-                  }
-                  onBlur={(e) =>
-                    (e.target.style.borderColor = errors.username
-                      ? "#fca5a5"
-                      : "#dbeafe")
-                  }
-                />
-                <ErrorMsg msg={errors.username} />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div style={{ marginBottom: 14 }}>
-              <Label>Email Address</Label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="admin@company.com"
-                style={inputStyle(errors.email)}
-                onFocus={(e) =>
-                  (e.target.style.borderColor = errors.email
-                    ? "#ef4444"
-                    : "#3b82f6")
-                }
-                onBlur={(e) =>
-                  (e.target.style.borderColor = errors.email
-                    ? "#fca5a5"
-                    : "#dbeafe")
-                }
-              />
-              <ErrorMsg msg={errors.email} />
-            </div>
-
-            {/* Row 2: Password + Confirm */}
-            <div className="reg-grid-2">
-              <div>
-                <Label>Password</Label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    style={{ ...inputStyle(errors.password), paddingRight: 42 }}
-                    onFocus={(e) =>
-                      (e.target.style.borderColor = errors.password
-                        ? "#ef4444"
-                        : "#3b82f6")
-                    }
-                    onBlur={(e) =>
-                      (e.target.style.borderColor = errors.password
-                        ? "#fca5a5"
-                        : "#dbeafe")
-                    }
-                  />
-                  <EyeBtn
-                    show={showPassword}
-                    onToggle={() => setShowPassword((p) => !p)}
-                  />
-                </div>
-                <ErrorMsg msg={errors.password} />
-              </div>
-              <div>
-                <Label>Confirm Password</Label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    style={{
-                      ...inputStyle(errors.confirmPassword),
-                      paddingRight: 42,
-                    }}
-                    onFocus={(e) =>
-                      (e.target.style.borderColor = errors.confirmPassword
-                        ? "#ef4444"
-                        : "#3b82f6")
-                    }
-                    onBlur={(e) =>
-                      (e.target.style.borderColor = errors.confirmPassword
-                        ? "#fca5a5"
-                        : "#dbeafe")
-                    }
-                  />
-                  <EyeBtn
-                    show={showConfirmPassword}
-                    onToggle={() => setShowConfirmPassword((p) => !p)}
-                  />
-                </div>
-                <ErrorMsg msg={errors.confirmPassword} />
-              </div>
-            </div>
-
-            {/* Role Dropdown */}
-            <div style={{ marginBottom: 14 }}>
-              <Label>Admin Role</Label>
+            {/* API Error */}
+            {apiError && (
               <div
-                className="role-dropdown-container"
-                style={{ position: "relative" }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsRoleDropdownOpen((p) => !p)}
-                  style={{
-                    ...inputStyle(false),
-                    cursor: "pointer",
-                    textAlign: "left",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span>
-                    {formData.role === "hr"
-                      ? "HR Administrator"
-                      : "Organization Administrator"}
-                  </span>
-                  <svg
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke="#93c5fd"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                    style={{
-                      transform: `rotate(${isRoleDropdownOpen ? 180 : 0}deg)`,
-                      transition: "transform 0.2s",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-                {isRoleDropdownOpen && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 4px)",
-                      left: 0,
-                      right: 0,
-                      background: "#fff",
-                      border: "1.5px solid #dbeafe",
-                      borderRadius: 10,
-                      overflow: "hidden",
-                      zIndex: 50,
-                      boxShadow: "0 8px 24px rgba(37,99,235,0.12)",
-                    }}
-                  >
-                    {[
-                      { value: "hr", label: "HR Administrator" },
-                      {
-                        value: "organization",
-                        label: "Organization Administrator",
-                      },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          setFormData((p) => ({ ...p, role: opt.value }));
-                          setIsRoleDropdownOpen(false);
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "11px 16px",
-                          background:
-                            formData.role === opt.value ? "#eff6ff" : "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: 14,
-                          color: "#0f172a",
-                          textAlign: "left",
-                          fontWeight: formData.role === opt.value ? 600 : 400,
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = "#eff6ff")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.background =
-                            formData.role === opt.value ? "#eff6ff" : "#fff")
-                        }
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Accept Terms */}
-            <div style={{ marginBottom: 20 }}>
-              <label
+                role="alert"
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  name="acceptTerms"
-                  checked={formData.acceptTerms}
-                  onChange={handleChange}
-                  style={{
-                    width: 15,
-                    height: 15,
-                    marginTop: 2,
-                    accentColor: "#2563eb",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                />
-                <span
-                  style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}
-                >
-                  I agree to the{" "}
-                  <button
-                    type="button"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "#3b82f6",
-                      fontWeight: 500,
-                      padding: 0,
-                      fontSize: 13,
-                    }}
-                  >
-                    Terms and Conditions
-                  </button>{" "}
-                  and{" "}
-                  <button
-                    type="button"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "#3b82f6",
-                      fontWeight: 500,
-                      padding: 0,
-                      fontSize: 13,
-                    }}
-                  >
-                    Privacy Policy
-                  </button>
-                </span>
-              </label>
-              <ErrorMsg msg={errors.acceptTerms} />
-            </div>
-
-            {/* Submit */}
-            <div
-              className="reg-submit-wrap"
-              style={{ display: "flex", justifyContent: "flex-start" }}
-            >
-              <button
-                type="submit"
-                disabled={loading}
-                className="reg-submit-btn"
-                style={{
-                  padding: "12px 48px",
-                  background: loading
-                    ? "#93c5fd"
-                    : "linear-gradient(135deg, #2563eb, #3b82f6)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 50,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  cursor: loading ? "not-allowed" : "pointer",
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  borderLeft: "4px solid #ef4444",
+                  borderRadius: 10,
+                  padding: "10px 14px",
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
-                  boxShadow: loading
-                    ? "none"
-                    : "0 4px 14px rgba(37,99,235,0.35)",
-                  transition: "all 0.2s",
+                  gap: 10,
+                  marginBottom: 16,
                 }}
               >
-                {loading ? (
-                  <>
+                <svg
+                  width="15"
+                  height="15"
+                  fill="#ef4444"
+                  viewBox="0 0 20 20"
+                  style={{ flexShrink: 0 }}
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span style={{ fontSize: 13, color: "#dc2626" }}>{apiError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              {/* Row 1: Full Name + Username */}
+              <div className="reg-grid-2">
+                <div>
+                  <Label>Full Name</Label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    placeholder="John Doe"
+                    style={inputStyle(errors.fullName)}
+                    onFocus={(e) =>
+                      (e.target.style.borderColor = errors.fullName
+                        ? "#ef4444"
+                        : "#3b82f6")
+                    }
+                    onBlur={(e) =>
+                      (e.target.style.borderColor = errors.fullName
+                        ? "#fca5a5"
+                        : "#dbeafe")
+                    }
+                  />
+                  <ErrorMsg msg={errors.fullName} />
+                </div>
+                <div>
+                  <Label>Username</Label>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    placeholder="admin_user"
+                    style={inputStyle(errors.username)}
+                    onFocus={(e) =>
+                      (e.target.style.borderColor = errors.username
+                        ? "#ef4444"
+                        : "#3b82f6")
+                    }
+                    onBlur={(e) =>
+                      (e.target.style.borderColor = errors.username
+                        ? "#fca5a5"
+                        : "#dbeafe")
+                    }
+                  />
+                  <ErrorMsg msg={errors.username} />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div style={{ marginBottom: 14 }}>
+                <Label>Email Address</Label>
+                <input
+                  type="email"
+                  name="email"
+                  inputMode="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="admin@company.com"
+                  style={inputStyle(errors.email)}
+                  onFocus={(e) =>
+                    (e.target.style.borderColor = errors.email
+                      ? "#ef4444"
+                      : "#3b82f6")
+                  }
+                  onBlur={(e) =>
+                    (e.target.style.borderColor = errors.email
+                      ? "#fca5a5"
+                      : "#dbeafe")
+                  }
+                />
+                <ErrorMsg msg={errors.email} />
+              </div>
+
+              {/* Row 2: Password + Confirm */}
+              <div className="reg-grid-2">
+                <div>
+                  <Label>Password</Label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="••••••••"
+                      style={{ ...inputStyle(errors.password), paddingRight: 42 }}
+                      onFocus={(e) =>
+                        (e.target.style.borderColor = errors.password
+                          ? "#ef4444"
+                          : "#3b82f6")
+                      }
+                      onBlur={(e) =>
+                        (e.target.style.borderColor = errors.password
+                          ? "#fca5a5"
+                          : "#dbeafe")
+                      }
+                    />
+                    <EyeBtn
+                      show={showPassword}
+                      onToggle={() => setShowPassword((p) => !p)}
+                      label={showPassword ? "Hide password" : "Show password"}
+                    />
+                  </div>
+                  <ErrorMsg msg={errors.password} />
+                </div>
+                <div>
+                  <Label>Confirm Password</Label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      placeholder="••••••••"
+                      style={{
+                        ...inputStyle(errors.confirmPassword),
+                        paddingRight: 42,
+                      }}
+                      onFocus={(e) =>
+                        (e.target.style.borderColor = errors.confirmPassword
+                          ? "#ef4444"
+                          : "#3b82f6")
+                      }
+                      onBlur={(e) =>
+                        (e.target.style.borderColor = errors.confirmPassword
+                          ? "#fca5a5"
+                          : "#dbeafe")
+                      }
+                    />
+                    <EyeBtn
+                      show={showConfirmPassword}
+                      onToggle={() => setShowConfirmPassword((p) => !p)}
+                      label={
+                        showConfirmPassword
+                          ? "Hide confirm password"
+                          : "Show confirm password"
+                      }
+                    />
+                  </div>
+                  <ErrorMsg msg={errors.confirmPassword} />
+                </div>
+              </div>
+
+              {/* Role Dropdown */}
+              <div style={{ marginBottom: 14 }}>
+                <Label>Admin Role</Label>
+                <div
+                  className="role-dropdown-container"
+                  style={{ position: "relative" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setIsRoleDropdownOpen((p) => !p)}
+                    aria-haspopup="listbox"
+                    aria-expanded={isRoleDropdownOpen}
+                    style={{
+                      ...inputStyle(false),
+                      cursor: "pointer",
+                      textAlign: "left",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>
+                      {formData.role === "hr"
+                        ? "HR Administrator"
+                        : "Organization Administrator"}
+                    </span>
                     <svg
-                      style={{ animation: "spin 1s linear infinite" }}
-                      width="18"
-                      height="18"
+                      width="16"
+                      height="16"
                       fill="none"
+                      stroke="#93c5fd"
+                      strokeWidth="2"
                       viewBox="0 0 24 24"
+                      style={{
+                        transform: `rotate(${isRoleDropdownOpen ? 180 : 0}deg)`,
+                        transition: "transform 0.2s",
+                        flexShrink: 0,
+                      }}
                     >
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="rgba(255,255,255,0.35)"
-                        strokeWidth="4"
-                      />
                       <path
-                        fill="white"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
                       />
                     </svg>
-                    Creating Account...
-                  </>
-                ) : (
-                  "Create Account"
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
+                  </button>
+                  {isRoleDropdownOpen && (
+                    <div
+                      role="listbox"
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        left: 0,
+                        right: 0,
+                        background: "#fff",
+                        border: "1.5px solid #dbeafe",
+                        borderRadius: 10,
+                        overflow: "hidden",
+                        zIndex: 50,
+                        boxShadow: "0 8px 24px rgba(37,99,235,0.12)",
+                      }}
+                    >
+                      {[
+                        { value: "hr", label: "HR Administrator" },
+                        {
+                          value: "organization",
+                          label: "Organization Administrator",
+                        },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="option"
+                          aria-selected={formData.role === opt.value}
+                          onClick={() => {
+                            setFormData((p) => ({ ...p, role: opt.value }));
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "11px 16px",
+                            background:
+                              formData.role === opt.value ? "#eff6ff" : "#fff",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: 14,
+                            color: "#0f172a",
+                            textAlign: "left",
+                            fontWeight: formData.role === opt.value ? 600 : 400,
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.background = "#eff6ff")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background =
+                              formData.role === opt.value ? "#eff6ff" : "#fff")
+                          }
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-        {/* ── RIGHT / TOP (mobile): Blue Panel ── */}
-        <div className="reg-blue-panel">
-          <div
-            style={{
-              position: "absolute",
-              top: -60,
-              right: -60,
-              width: 200,
-              height: 200,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.07)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: -40,
-              left: -40,
-              width: 160,
-              height: 160,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.07)",
-            }}
-          />
+              {/* Accept Terms */}
+              <div style={{ marginBottom: 20 }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="acceptTerms"
+                    checked={formData.acceptTerms}
+                    onChange={handleChange}
+                    style={{
+                      width: 15,
+                      height: 15,
+                      marginTop: 2,
+                      accentColor: "#2563eb",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}
+                  >
+                    I agree to the{" "}
+                    <button
+                      type="button"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#3b82f6",
+                        fontWeight: 500,
+                        padding: 0,
+                        fontSize: 13,
+                      }}
+                    >
+                      Terms and Conditions
+                    </button>{" "}
+                    and{" "}
+                    <button
+                      type="button"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#3b82f6",
+                        fontWeight: 500,
+                        padding: 0,
+                        fontSize: 13,
+                      }}
+                    >
+                      Privacy Policy
+                    </button>
+                  </span>
+                </label>
+                <ErrorMsg msg={errors.acceptTerms} />
+              </div>
 
-          <h3
-            style={{
-              color: "#fff",
-              fontSize: 26,
-              fontWeight: 800,
-              margin: "0 0 14px",
-              textAlign: "center",
-              lineHeight: 1.2,
-            }}
-          >
-            Have an Account?
-          </h3>
-          <p
-            className="blue-desc"
-            style={{
-              color: "rgba(255,255,255,0.80)",
-              fontSize: 14,
-              textAlign: "center",
-              margin: "0 0 32px",
-              lineHeight: 1.6,
-            }}
-          >
-            Sign in and continue managing your organization seamlessly!
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate("/login")}
-            className="sign-in-btn"
-            style={{
-              padding: "11px 36px",
-              background: "#fff",
-              color: "#2563eb",
-              border: "none",
-              borderRadius: 50,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
-              transition: "all 0.2s",
-              marginBottom: 48,
-              position: "relative",
-              zIndex: 1,
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.transform = "scale(1.04)")
-            }
-            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-          >
-            Sign In
-          </button>
-          <p
-            className="blue-footer"
-            style={{
-              position: "absolute",
-              bottom: 20,
-              color: "rgba(255,255,255,0.45)",
-              fontSize: 10,
-              letterSpacing: "1.5px",
-              textTransform: "uppercase",
-              textAlign: "center",
-            }}
-          >
-            Security • Excellence • Growth
-          </p>
+              {/* Submit */}
+              <div
+                className="reg-submit-wrap"
+                style={{ display: "flex", justifyContent: "flex-start" }}
+              >
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="reg-submit-btn"
+                  style={{
+                    padding: "12px 48px",
+                    background: loading
+                      ? "#93c5fd"
+                      : "linear-gradient(135deg, #2563eb, #3b82f6)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 50,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: loading ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    boxShadow: loading
+                      ? "none"
+                      : "0 4px 14px rgba(37,99,235,0.35)",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <svg
+                        style={{ animation: "spin 1s linear infinite" }}
+                        width="18"
+                        height="18"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="rgba(255,255,255,0.35)"
+                          strokeWidth="4"
+                        />
+                        <path
+                          fill="white"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                      Creating Account...
+                    </>
+                  ) : (
+                    "Create Account"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* ── RIGHT / TOP (mobile): Blue Panel ── */}
+          <div className="reg-blue-panel">
+            <div
+              style={{
+                position: "absolute",
+                top: -60,
+                right: -60,
+                width: 200,
+                height: 200,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.07)",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: -40,
+                left: -40,
+                width: 160,
+                height: 160,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.07)",
+              }}
+            />
+
+            <h3
+              style={{
+                color: "#fff",
+                fontSize: 26,
+                fontWeight: 800,
+                margin: "0 0 14px",
+                textAlign: "center",
+                lineHeight: 1.2,
+              }}
+            >
+              Have an Account?
+            </h3>
+            <p
+              className="blue-desc"
+              style={{
+                color: "rgba(255,255,255,0.80)",
+                fontSize: 14,
+                textAlign: "center",
+                margin: "0 0 32px",
+                lineHeight: 1.6,
+              }}
+            >
+              Sign in and continue managing your organization seamlessly!
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="sign-in-btn"
+              style={{
+                padding: "11px 36px",
+                background: "#fff",
+                color: "#2563eb",
+                border: "none",
+                borderRadius: 50,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+                transition: "all 0.2s",
+                marginBottom: 48,
+                position: "relative",
+                zIndex: 1,
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.transform = "scale(1.04)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              Sign In
+            </button>
+            <p
+              className="blue-footer"
+              style={{
+                position: "absolute",
+                bottom: 20,
+                color: "rgba(255,255,255,0.45)",
+                fontSize: 10,
+                letterSpacing: "1.5px",
+                textTransform: "uppercase",
+                textAlign: "center",
+              }}
+            >
+              Security • Excellence • Growth
+            </p>
+          </div>
         </div>
       </div>
     </div>

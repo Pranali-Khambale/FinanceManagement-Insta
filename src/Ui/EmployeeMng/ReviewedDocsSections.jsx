@@ -93,10 +93,10 @@ async function getPresignedUrl(filePath) {
   if (cached && cached.expiresAt > now) return cached.url;
 
   try {
-    const res = await fetch(
-      `${BASE_API}/employees/s3/presign?key=${encodeURIComponent(rawKey)}`,
-      { headers: getAuthHeaders(), credentials: "include" },
-    );
+   const res = await fetch(
+  `${BASE_API}/employees/s3/presign?key=${encodeURIComponent(rawKey)}`,
+  { headers: getAuthHeaders() },
+);
     if (!res.ok) {
       console.warn("[presign] HTTP", res.status, "for key:", rawKey);
       return fullUrl(rawKey);
@@ -398,15 +398,13 @@ async function fetchBytesViaProxy(s3KeyOrUrl) {
       throw new Error(`Direct fetch HTTP ${resp.status} – ${resp.statusText}`);
     return resp.arrayBuffer();
   }
-
   // Normal flow: use the proxy endpoint with the raw key
   const proxyUrl = `${BASE_API}/employees/s3/proxy?key=${encodeURIComponent(rawKey)}`;
   try {
-    const resp = await fetch(proxyUrl, {
-      headers: getAuthHeaders(),
-      credentials: "include",
-      cache: "no-store",
-    });
+  const resp = await fetch(proxyUrl, {
+  headers: getAuthHeaders(),
+  cache: "no-store",
+});
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
       throw new Error(`Proxy ${resp.status}: ${body.slice(0, 120)}`);
