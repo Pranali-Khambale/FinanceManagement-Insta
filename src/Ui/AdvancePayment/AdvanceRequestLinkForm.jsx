@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -23,27 +22,36 @@ function Field({ label, required, hint, children }) {
       <label style={css.label}>
         {label}
         {required && <span style={{ color: "#ef4444", marginLeft: 2 }}>*</span>}
-        {hint && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#cbd5e1", marginLeft: 6 }}>{hint}</span>}
+        {hint && (
+          <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#cbd5e1", marginLeft: 6 }}>
+            {hint}
+          </span>
+        )}
       </label>
       {children}
     </div>
   );
 }
 
-function TextInput({ name, type = "text", placeholder, value, onChange, prefix }) {
+function TextInput({ name, type = "text", placeholder, value, onChange, prefix, inputMode }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fafafa" }}>
-      {prefix && <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 500, flexShrink: 0 }}>{prefix}</span>}
-      <input name={name} type={type} placeholder={placeholder} value={value} onChange={onChange}
-        style={{ flex: 1, border: "none", outline: "none", fontSize: 13, color: "#1e293b", background: "transparent", fontFamily: "inherit" }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fafafa" }}>
+      {prefix && <span style={{ fontSize: 14, color: "#94a3b8", fontWeight: 500, flexShrink: 0 }}>{prefix}</span>}
+      <input
+        name={name} type={type} placeholder={placeholder} value={value} onChange={onChange}
+        inputMode={inputMode}
+        style={{ flex: 1, border: "none", outline: "none", fontSize: 15, color: "#1e293b", background: "transparent", fontFamily: "inherit", minWidth: 0 }}
+      />
     </div>
   );
 }
 
 function TextArea({ name, placeholder, value, onChange, rows = 3 }) {
   return (
-    <textarea name={name} placeholder={placeholder} value={value} onChange={onChange} rows={rows}
-      style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fafafa", fontSize: 13, color: "#1e293b", fontFamily: "inherit", resize: "vertical", lineHeight: 1.65, outline: "none", boxSizing: "border-box" }} />
+    <textarea
+      name={name} placeholder={placeholder} value={value} onChange={onChange} rows={rows}
+      style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fafafa", fontSize: 15, color: "#1e293b", fontFamily: "inherit", resize: "vertical", lineHeight: 1.65, outline: "none", boxSizing: "border-box" }}
+    />
   );
 }
 
@@ -53,20 +61,24 @@ function FileUpload({ label, required, hint, accept, file, onChange }) {
   return (
     <Field label={label} required={required}>
       {file ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 9, border: "1.5px solid #86efac", background: "#f0fdf4" }}>
-          <CheckCircle2 size={14} color="#16a34a" style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1, fontSize: 12, color: "#15803d", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
-          <button type="button" onClick={() => onChange(null)} style={{ border: "none", background: "none", cursor: "pointer", padding: 2, color: "#94a3b8", lineHeight: 1 }}><X size={13} /></button>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 12px", borderRadius: 9, border: "1.5px solid #86efac", background: "#f0fdf4" }}>
+          <CheckCircle2 size={15} color="#16a34a" style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 13, color: "#15803d", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+          <button type="button" onClick={() => onChange(null)} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, color: "#94a3b8", lineHeight: 1, flexShrink: 0 }}>
+            <X size={14} />
+          </button>
         </div>
       ) : (
-        <div onClick={() => ref.current?.click()}
+        <div
+          onClick={() => ref.current?.click()}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onChange(f); }}
-          style={{ padding: 18, borderRadius: 9, cursor: "pointer", textAlign: "center", border: `1.5px dashed ${dragging ? "#2563eb" : "#cbd5e1"}`, background: dragging ? "#eff6ff" : "#fafafa", transition: "all 0.15s" }}>
-          <Upload size={18} color={dragging ? "#2563eb" : "#94a3b8"} style={{ margin: "0 auto 6px", display: "block" }} />
-          <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>Click or drag &amp; drop</p>
-          {hint && <p style={{ margin: "3px 0 0", fontSize: 11, color: "#94a3b8" }}>{hint}</p>}
+          style={{ padding: "20px 16px", borderRadius: 9, cursor: "pointer", textAlign: "center", border: `1.5px dashed ${dragging ? "#2563eb" : "#cbd5e1"}`, background: dragging ? "#eff6ff" : "#fafafa", transition: "all 0.15s" }}
+        >
+          <Upload size={20} color={dragging ? "#2563eb" : "#94a3b8"} style={{ margin: "0 auto 8px", display: "block" }} />
+          <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Tap to choose or drag &amp; drop</p>
+          {hint && <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>{hint}</p>}
           <input ref={ref} type="file" accept={accept} style={{ display: "none" }} onChange={e => onChange(e.target.files[0] || null)} />
         </div>
       )}
@@ -83,7 +95,9 @@ function StepBar({ step, total = 3, labels }) {
           return (
             <div key={num} style={{ display: "flex", alignItems: "center", flex: num < total ? "1 1 auto" : "none" }}>
               <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: done ? "#dcfce7" : active ? "#2563eb" : "#f1f5f9", color: done ? "#16a34a" : active ? "#fff" : "#94a3b8", fontSize: 11, fontWeight: 700, transition: "all 0.2s" }}>
-                {done ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg> : num}
+                {done
+                  ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                  : num}
               </div>
               {num < total && <div style={{ flex: 1, height: 1.5, background: done ? "#2563eb" : "#e2e8f0", transition: "background 0.3s" }} />}
             </div>
@@ -92,7 +106,7 @@ function StepBar({ step, total = 3, labels }) {
       </div>
       <div style={{ display: "flex", marginTop: 6 }}>
         {labels.map((l, i) => (
-          <span key={i} style={{ flex: i < labels.length - 1 ? "1 1 auto" : "none", fontSize: 11, fontWeight: 600, color: i + 1 < step ? "#16a34a" : i + 1 === step ? "#1d4ed8" : "#94a3b8", transition: "color 0.2s" }}>{l}</span>
+          <span key={i} style={{ flex: i < labels.length - 1 ? "1 1 auto" : "none", fontSize: 10, fontWeight: 600, color: i + 1 < step ? "#16a34a" : i + 1 === step ? "#1d4ed8" : "#94a3b8", transition: "color 0.2s" }}>{l}</span>
         ))}
       </div>
     </div>
@@ -102,8 +116,8 @@ function StepBar({ step, total = 3, labels }) {
 function ErrorBox({ msg }) {
   if (!msg) return null;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9, background: "#fef2f2", border: "1px solid #fecaca", fontSize: 12, color: "#ef4444" }}>
-      <AlertCircle size={13} style={{ flexShrink: 0 }} /> {msg}
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", borderRadius: 9, background: "#fef2f2", border: "1px solid #fecaca", fontSize: 13, color: "#ef4444", lineHeight: 1.5 }}>
+      <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} /> {msg}
     </div>
   );
 }
@@ -111,7 +125,7 @@ function ErrorBox({ msg }) {
 function InfoStrip({ children }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", borderRadius: 9, background: "#f8fafc", border: "0.5px solid #f1f5f9" }}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.6" style={{ flexShrink: 0, marginTop: 1 }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.6" style={{ flexShrink: 0, marginTop: 1 }}>
         <circle cx="12" cy="12" r="9" /><line x1="12" y1="8" x2="12" y2="12" /><circle cx="12" cy="16" r=".5" fill="#94a3b8" />
       </svg>
       <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>{children}</p>
@@ -121,9 +135,9 @@ function InfoStrip({ children }) {
 
 function SummaryRow({ label, value, last, mono }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: last ? "none" : "0.5px dashed #e2e8f0" }}>
-      <span style={{ fontSize: 12, color: "#94a3b8" }}>{label}</span>
-      <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", fontFamily: mono ? "monospace" : "inherit" }}>{value}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: last ? "none" : "0.5px dashed #e2e8f0", gap: 12 }}>
+      <span style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", fontFamily: mono ? "monospace" : "inherit", textAlign: "right", wordBreak: "break-all" }}>{value}</span>
     </div>
   );
 }
@@ -176,7 +190,6 @@ export default function AdvanceRequestForm() {
     handleSubmit();
   };
 
-  // ── Uses createPublicRequest — sends NO Authorization header ─────────────
   const handleSubmit = async () => {
     setSubmitLoading(true);
     try {
@@ -204,12 +217,159 @@ export default function AdvanceRequestForm() {
     }
   };
 
+  const responsiveCss = `
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes popIn  { 0% { transform:scale(0.7); opacity:0; } 60% { transform:scale(1.1); } 100% { transform:scale(1); opacity:1; } }
+
+    /* Prevent iOS font bump on inputs */
+    input, textarea, select { font-size: 16px !important; }
+
+    .arf-page {
+      min-height: 100dvh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: linear-gradient(135deg,#f0f4ff,#e8eeff);
+      padding: 20px 16px 40px;
+    }
+
+    .arf-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(15,23,42,0.10);
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 480px;
+      margin-top: 16px;
+    }
+
+    .arf-header {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .arf-body {
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeUp 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    .arf-footer {
+      padding: 12px 18px 16px;
+      border-top: 1px solid #f1f5f9;
+      background: #fafbfc;
+      border-radius: 0 0 16px 16px;
+    }
+
+    .arf-footer-inner {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* 2-col grids collapse to 1-col on mobile */
+    .arf-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Status/loading/error full-page states */
+    .arf-state-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(15,23,42,0.10);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 440px;
+      margin-top: 16px;
+    }
+
+    /* Mobile */
+    @media (max-width: 480px) {
+      .arf-page {
+        align-items: flex-end;
+        padding: 0;
+        background: linear-gradient(135deg,#f0f4ff,#e8eeff);
+      }
+      .arf-card {
+        border-radius: 20px 20px 0 0;
+        max-width: 100%;
+        margin-top: 0;
+        min-height: 92dvh;
+        box-shadow: 0 -8px 30px rgba(15,23,42,0.12);
+      }
+      .arf-state-card {
+        border-radius: 20px 20px 0 0;
+        max-width: 100%;
+        margin-top: 0;
+        min-height: 60dvh;
+        justify-content: center;
+        box-shadow: 0 -8px 30px rgba(15,23,42,0.12);
+      }
+      .arf-header {
+        padding: 14px 16px 12px;
+      }
+      .arf-body {
+        padding: 14px 16px;
+        gap: 13px;
+      }
+      .arf-footer {
+        padding: 10px 16px 28px; /* extra bottom for home bar */
+      }
+      .arf-grid-2 {
+        grid-template-columns: 1fr;
+        gap: 13px;
+      }
+      .arf-footer-inner {
+        flex-direction: column-reverse;
+      }
+      .arf-back-btn {
+        width: 100% !important;
+        justify-content: center !important;
+      }
+    }
+
+    /* Tablet */
+    @media (min-width: 481px) and (max-width: 768px) {
+      .arf-page {
+        padding: 24px 20px 40px;
+        align-items: flex-start;
+      }
+      .arf-card {
+        max-width: 520px;
+      }
+      .arf-grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Desktop */
+    @media (min-width: 769px) {
+      .arf-page {
+        align-items: center;
+        padding: 40px 20px;
+        min-height: 100vh;
+      }
+      .arf-card {
+        max-width: 480px;
+        margin-top: 0;
+      }
+    }
+  `;
+
   // ── Token loading ─────────────────────────────────────────────────────────
   if (tokenValid === null) {
     return (
-      <div style={css.page}>
-        <style>{animations}</style>
-        <div style={{ ...css.card, padding: 40, gap: 12 }}>
+      <div className="arf-page">
+        <style>{responsiveCss}</style>
+        <div className="arf-state-card" style={{ padding: 40, gap: 12, textAlign: "center" }}>
           <Loader2 size={26} color="#2563eb" style={{ animation: "spin 1s linear infinite" }} />
           <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>Validating your link…</p>
         </div>
@@ -220,9 +380,9 @@ export default function AdvanceRequestForm() {
   // ── Invalid token ─────────────────────────────────────────────────────────
   if (!tokenValid) {
     return (
-      <div style={css.page}>
-        <style>{animations}</style>
-        <div style={{ ...css.card, padding: 40 }}>
+      <div className="arf-page">
+        <style>{responsiveCss}</style>
+        <div className="arf-state-card" style={{ padding: 40, alignItems: "center", textAlign: "center" }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
             <AlertCircle size={24} color="#ef4444" />
           </div>
@@ -240,45 +400,58 @@ export default function AdvanceRequestForm() {
     const meta = getTypeMeta(paymentTypeKey);
     const Icon = meta.icon;
     return (
-      <div style={css.page}>
-        <style>{animations}</style>
-        <div style={{ ...css.card, padding: 0, maxWidth: 440 }}>
-          <div style={{ padding: "18px 22px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: meta.color + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={18} color={meta.color} /></div>
+      <div className="arf-page">
+        <style>{responsiveCss}</style>
+        <div className="arf-card" style={{ maxWidth: 440 }}>
+          {/* Header */}
+          <div style={{ padding: "18px 18px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: meta.color + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Icon size={17} color={meta.color} />
+            </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>New advance request</p>
               <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>Type: {meta.label}</p>
             </div>
-            <div style={{ padding: "4px 11px", borderRadius: 99, background: meta.color + "12", border: `0.5px solid ${meta.color}44`, flexShrink: 0 }}>
+            <div style={{ padding: "4px 10px", borderRadius: 99, background: meta.color + "12", border: `0.5px solid ${meta.color}44`, flexShrink: 0 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: meta.color }}>Advance</span>
             </div>
           </div>
-          <div style={{ padding: "28px 24px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+
+          {/* Body */}
+          <div style={{ padding: "28px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
             <div style={{ width: 58, height: 58, borderRadius: "50%", background: "#EAF3DE", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, animation: "popIn .4s cubic-bezier(.34,1.56,.64,1) both" }}>
               <CheckCircle2 size={28} color="#3B6D11" />
             </div>
             <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1e293b", animation: "fadeUp .3s ease .2s both" }}>Request submitted!</p>
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "#64748b", lineHeight: 1.7, animation: "fadeUp .3s ease .3s both" }}>
               Your request has been received and is pending HR review.
-              {submitResult.email && <><br />A confirmation has been sent to <strong>{submitResult.email}</strong>.</>}
+              {submitResult.email && <><br />Confirmation sent to <strong>{submitResult.email}</strong>.</>}
             </p>
-            <div style={{ width: "100%", marginTop: 22, background: "#f8fafc", borderRadius: 12, border: "0.5px solid #e2e8f0", padding: "14px 16px", animation: "fadeUp .3s ease .42s both", textAlign: "left" }}>
+
+            <div style={{ width: "100%", marginTop: 22, background: "#f8fafc", borderRadius: 12, border: "0.5px solid #e2e8f0", padding: "14px 16px", animation: "fadeUp .3s ease .42s both", textAlign: "left", boxSizing: "border-box" }}>
               <SummaryRow label="Request ID" value={submitResult.id} mono />
               <SummaryRow label="Employee" value={`${submitResult.name} · ${submitResult.empId}`} />
               <SummaryRow label="Department" value={submitResult.dept} />
               <SummaryRow label="Date" value={submitResult.date} />
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 9, marginTop: 2 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 9, marginTop: 2, gap: 12 }}>
                 <span style={{ fontSize: 12, color: "#94a3b8" }}>Amount</span>
                 <span style={{ fontSize: 16, fontWeight: 700, color: meta.color }}>₹ {submitResult.amount.toLocaleString("en-IN")}</span>
               </div>
             </div>
+
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 16, padding: "6px 14px", borderRadius: 99, background: "#EAF3DE", border: "0.5px solid #97C459", animation: "fadeUp .3s ease .54s both" }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#639922" }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: "#3B6D11" }}>Pending approval</span>
             </div>
           </div>
-          <div style={{ padding: "12px 22px 16px", borderTop: "1px solid #f1f5f9", background: "#fafbfc" }}>
-            <button onClick={() => window.close?.()} style={{ width: "100%", padding: "10px 16px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Done</button>
+
+          <div style={{ padding: "12px 18px 20px", borderTop: "1px solid #f1f5f9", background: "#fafbfc", borderRadius: "0 0 16px 16px" }}>
+            <button
+              onClick={() => window.close?.()}
+              style={{ width: "100%", padding: "11px 16px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+            >
+              Done
+            </button>
           </div>
         </div>
       </div>
@@ -290,32 +463,48 @@ export default function AdvanceRequestForm() {
   const Icon = meta.icon;
 
   return (
-    <div style={css.page}>
-      <style>{animations}</style>
-      <div style={{ ...css.card, padding: 0, maxWidth: 480 }}>
-        <div style={{ padding: "20px 22px 16px", borderBottom: "1px solid #f1f5f9" }}>
+    <div className="arf-page">
+      <style>{responsiveCss}</style>
+      <div className="arf-card">
+
+        {/* Header */}
+        <div className="arf-header">
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: meta.color + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={17} color={meta.color} /></div>
-            <div>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: meta.color + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Icon size={17} color={meta.color} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Advance payment request</p>
-              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>{tokenMeta?.short_label || meta.label} · {meta.subtitle}</p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {tokenMeta?.short_label || meta.label} · {meta.subtitle}
+              </p>
             </div>
           </div>
-          <StepBar step={step} total={3} labels={["Your info", "Amount & reason", "Attachment"]} />
+          <StepBar step={step} total={3} labels={["Your info", "Amount & reason", "Attachments"]} />
         </div>
 
+        {/* Step 1 */}
         {step === 1 && (
-          <div style={css.body}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Field label="Full name" required><TextInput name="name" placeholder="John Doe" value={form.name} onChange={onChange} /></Field>
-              <Field label="Employee ID" required><TextInput name="empId" placeholder="EMP-001" value={form.empId} onChange={onChange} /></Field>
+          <div className="arf-body">
+            <div className="arf-grid-2">
+              <Field label="Full name" required>
+                <TextInput name="name" placeholder="John Doe" value={form.name} onChange={onChange} />
+              </Field>
+              <Field label="Employee ID" required>
+                <TextInput name="empId" placeholder="EMP-001" value={form.empId} onChange={onChange} />
+              </Field>
             </div>
-            <Field label="Department" required><TextInput name="dept" placeholder="Engineering" value={form.dept} onChange={onChange} /></Field>
+            <Field label="Department" required>
+              <TextInput name="dept" placeholder="Engineering" value={form.dept} onChange={onChange} />
+            </Field>
             <Field label="Your email" hint="for confirmation">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fafafa" }}>
-                <Mail size={13} color="#94a3b8" style={{ flexShrink: 0 }} />
-                <input name="empEmail" type="email" placeholder="you@company.com" value={form.empEmail} onChange={onChange}
-                  style={{ flex: 1, border: "none", outline: "none", fontSize: 13, color: "#1e293b", background: "transparent", fontFamily: "inherit" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fafafa" }}>
+                <Mail size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
+                <input
+                  name="empEmail" type="email" inputMode="email" autoComplete="email"
+                  placeholder="you@company.com" value={form.empEmail} onChange={onChange}
+                  style={{ flex: 1, border: "none", outline: "none", fontSize: 15, color: "#1e293b", background: "transparent", fontFamily: "inherit", minWidth: 0 }}
+                />
               </div>
             </Field>
             <InfoStrip>Enter your email to receive a confirmation once your request is submitted.</InfoStrip>
@@ -323,66 +512,101 @@ export default function AdvanceRequestForm() {
           </div>
         )}
 
+        {/* Step 2 */}
         {step === 2 && (
-          <div style={css.body}>
-            <Field label="Amount (₹)" required><TextInput name="amount" type="number" placeholder="5000" prefix="₹" value={form.amount} onChange={onChange} /></Field>
+          <div className="arf-body">
+            <Field label="Amount (₹)" required>
+              <TextInput name="amount" type="number" inputMode="decimal" placeholder="5000" prefix="₹" value={form.amount} onChange={onChange} />
+            </Field>
             {paymentTypeKey === "emp_to_emp" && (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Field label="Recipient emp ID" required><TextInput name="toEmpId" placeholder="EMP-002" value={form.toEmpId} onChange={onChange} /></Field>
-                  <Field label="Recipient name" required><TextInput name="toEmpName" placeholder="Jane Smith" value={form.toEmpName} onChange={onChange} /></Field>
+                <div className="arf-grid-2">
+                  <Field label="Recipient emp ID" required>
+                    <TextInput name="toEmpId" placeholder="EMP-002" value={form.toEmpId} onChange={onChange} />
+                  </Field>
+                  <Field label="Recipient name" required>
+                    <TextInput name="toEmpName" placeholder="Jane Smith" value={form.toEmpName} onChange={onChange} />
+                  </Field>
                 </div>
-                <Field label="Recipient department" hint="optional"><TextInput name="toEmpDept" placeholder="Marketing" value={form.toEmpDept} onChange={onChange} /></Field>
+                <Field label="Recipient department" hint="optional">
+                  <TextInput name="toEmpDept" placeholder="Marketing" value={form.toEmpDept} onChange={onChange} />
+                </Field>
               </>
             )}
             {paymentTypeKey === "other" && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Field label="Vendor name" required><TextInput name="vendorName" placeholder="ABC Supplies Ltd." value={form.vendorName} onChange={onChange} /></Field>
-                <Field label="Invoice / ref #" hint="optional"><TextInput name="vendorRef" placeholder="INV-2026-001" value={form.vendorRef} onChange={onChange} /></Field>
+              <div className="arf-grid-2">
+                <Field label="Vendor name" required>
+                  <TextInput name="vendorName" placeholder="ABC Supplies Ltd." value={form.vendorName} onChange={onChange} />
+                </Field>
+                <Field label="Invoice / ref #" hint="optional">
+                  <TextInput name="vendorRef" placeholder="INV-2026-001" value={form.vendorRef} onChange={onChange} />
+                </Field>
               </div>
             )}
-            <Field label="Reason" required><TextArea name="reason" placeholder="Briefly explain why you need this advance…" value={form.reason} onChange={onChange} /></Field>
+            <Field label="Reason" required>
+              <TextArea name="reason" placeholder="Briefly explain why you need this advance…" value={form.reason} onChange={onChange} />
+            </Field>
             <ErrorBox msg={error} />
           </div>
         )}
 
+        {/* Step 3 */}
         {step === 3 && (
-          <div style={css.body}>
-            <FileUpload label="Payment screenshot" required accept="image/png,image/jpeg,image/webp" file={screenshotFile} onChange={setScreenshotFile} hint="PNG, JPG, WEBP · max 5 MB" />
-            <FileUpload label="Supporting document" hint="optional" accept="image/png,image/jpeg,image/webp,application/pdf" file={proofFile} onChange={setProofFile} />
+          <div className="arf-body">
+            <FileUpload
+              label="Payment screenshot" required
+              accept="image/png,image/jpeg,image/webp"
+              file={screenshotFile} onChange={setScreenshotFile}
+              hint="PNG, JPG, WEBP · max 5 MB"
+            />
+            <FileUpload
+              label="Supporting document" hint="optional"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
+              file={proofFile} onChange={setProofFile}
+            />
             <InfoStrip>Supporting doc is optional — invoices, approval emails, or receipts welcome.</InfoStrip>
             <ErrorBox msg={error} />
           </div>
         )}
 
-        <div style={{ padding: "12px 22px 16px", borderTop: "1px solid #f1f5f9", background: "#fafbfc", display: "flex", gap: 8 }}>
-          {step > 1 && (
-            <button onClick={() => { setStep(s => s - 1); setError(""); }}
-              style={{ padding: "10px 14px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              ← Back
+        {/* Footer */}
+        <div className="arf-footer">
+          <div className="arf-footer-inner">
+            {step > 1 && (
+              <button
+                className="arf-back-btn"
+                onClick={() => { setStep(s => s - 1); setError(""); }}
+                style={{ padding: "11px 14px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, whiteSpace: "nowrap" }}
+              >
+                ← Back
+              </button>
+            )}
+            <button
+              onClick={handleNext}
+              disabled={submitLoading}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 16px", borderRadius: 9, border: "none", background: submitLoading ? "#cbd5e1" : meta.color, color: submitLoading ? "#94a3b8" : "#fff", fontSize: 14, fontWeight: 700, cursor: submitLoading ? "not-allowed" : "pointer", boxShadow: submitLoading ? "none" : `0 4px 14px ${meta.color}40`, transition: "all 0.15s", whiteSpace: "nowrap" }}
+            >
+              {submitLoading
+                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Submitting…</>
+                : step < 3
+                  ? "Continue →"
+                  : <><Send size={14} /> Submit request</>}
             </button>
-          )}
-          <button onClick={handleNext} disabled={submitLoading}
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 9, border: "none", background: submitLoading ? "#cbd5e1" : meta.color, color: submitLoading ? "#94a3b8" : "#fff", fontSize: 13, fontWeight: 700, cursor: submitLoading ? "not-allowed" : "pointer", boxShadow: submitLoading ? "none" : `0 4px 14px ${meta.color}40` }}>
-            {submitLoading
-              ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Submitting…</>
-              : step < 3 ? "Continue →" : <><Send size={14} /> Submit request</>}
-          </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-const animations = `
-  @keyframes spin   { to { transform: rotate(360deg); } }
-  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes popIn  { 0% { transform:scale(0.7); opacity:0; } 60% { transform:scale(1.1); } 100% { transform:scale(1); opacity:1; } }
-`;
-
 const css = {
-  page:  { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#f0f4ff,#e8eeff)", padding: 20 },
-  card:  { background: "#fff", borderRadius: 16, boxShadow: "0 12px 40px rgba(15,23,42,0.10)", display: "flex", flexDirection: "column", alignItems: "center", width: "100%" },
-  body:  { padding: "20px 22px", display: "flex", flexDirection: "column", gap: 13, width: "100%", animation: "fadeUp 0.2s ease", boxSizing: "border-box" },
-  label: { display: "block", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 },
+  label: {
+    display: "block",
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: "0.07em",
+    marginBottom: 6,
+  },
 };

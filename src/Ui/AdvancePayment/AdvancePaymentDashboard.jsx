@@ -40,6 +40,30 @@ const statusColors = {
   },
 };
 
+// Column order matches table headers below. Each entry controls when that
+// column appears so the table stays usable without horizontal scroll on
+// phones, and fills in progressively on bigger screens.
+//   Request ID   -> sm+
+//   Employee     -> always
+//   Department   -> md+
+//   Amount       -> always
+//   Date         -> sm+
+//   Reason       -> lg+
+//   Proof/Adj.   -> md+
+//   Status       -> always
+//   Actions      -> always
+const columnVisibility = [
+  "hidden sm:table-cell",
+  "",
+  "hidden md:table-cell",
+  "",
+  "hidden sm:table-cell",
+  "hidden lg:table-cell",
+  "hidden md:table-cell",
+  "",
+  "",
+];
+
 function Badge({ status }) {
   const c = statusColors[status] || statusColors.pending;
   return (
@@ -63,22 +87,28 @@ function StatCard({
   loading,
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col gap-2 sm:gap-3 hover:shadow-md transition-shadow">
       <div
-        className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iconBg}`}
+        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center ${iconBg}`}
       >
-        <Icon size={22} className={iconColor} />
+        <Icon size={20} className={iconColor} />
       </div>
       <div>
-        <p className="text-2xl font-bold text-slate-800">
+        <p className="text-xl sm:text-2xl font-bold text-slate-800">
           {loading ? (
-            <span className="inline-block w-16 h-7 bg-slate-100 rounded animate-pulse" />
+            <span className="inline-block w-16 h-6 sm:h-7 bg-slate-100 rounded animate-pulse" />
           ) : (
             value
           )}
         </p>
-        <p className="text-sm font-medium text-slate-600 mt-0.5">{label}</p>
-        {subText && <p className={`text-xs mt-0.5 ${subColor}`}>{subText}</p>}
+        <p className="text-xs sm:text-sm font-medium text-slate-600 mt-0.5 truncate">
+          {label}
+        </p>
+        {subText && (
+          <p className={`text-[11px] sm:text-xs mt-0.5 ${subColor} truncate`}>
+            {subText}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -86,7 +116,7 @@ function StatCard({
 
 function EmptyState({ message = "No requests found" }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
+    <div className="flex flex-col items-center justify-center py-16 text-center px-4">
       <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
         <FileText size={24} className="text-slate-400" />
       </div>
@@ -100,7 +130,10 @@ function SkeletonRow() {
   return (
     <tr className="border-b border-slate-50">
       {Array.from({ length: 9 }).map((_, i) => (
-        <td key={i} className="px-5 py-4">
+        <td
+          key={i}
+          className={`px-3 sm:px-5 py-3 sm:py-4 ${columnVisibility[i]}`}
+        >
           <div className="h-4 bg-slate-100 rounded animate-pulse" />
         </td>
       ))}
@@ -119,25 +152,27 @@ function RequestTable({
 }) {
   if (!loading && !rows.length) return <EmptyState />;
 
+  const headers = [
+    "Request ID",
+    "Employee",
+    "Department",
+    "Amount",
+    "Date",
+    "Reason",
+    showAdjusted ? "Adjusted In" : "Proof",
+    "Status",
+    "Actions",
+  ];
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-100 bg-slate-50/60">
-            {[
-              "Request ID",
-              "Employee",
-              "Department",
-              "Amount",
-              "Date",
-              "Reason",
-              showAdjusted ? "Adjusted In" : "Proof",
-              "Status",
-              "Actions",
-            ].map((h) => (
+            {headers.map((h, i) => (
               <th
                 key={h}
-                className="text-left px-5 py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap"
+                className={`text-left px-3 sm:px-5 py-3 sm:py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap ${columnVisibility[i]}`}
               >
                 {h}
               </th>
@@ -163,16 +198,18 @@ function RequestTable({
                     key={r.id}
                     className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors"
                   >
-                    <td className="px-5 py-4 font-mono text-xs font-bold text-slate-500 whitespace-nowrap">
+                    <td
+                      className={`px-3 sm:px-5 py-3 sm:py-4 font-mono text-xs font-bold text-slate-500 whitespace-nowrap ${columnVisibility[0]}`}
+                    >
                       {r.request_code}
                     </td>
 
-                    <td className="px-5 py-4">
+                    <td className="px-3 sm:px-5 py-3 sm:py-4">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0">
                           {initials}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-semibold text-slate-800 whitespace-nowrap">
                             {empName || "—"}
                           </p>
@@ -181,23 +218,29 @@ function RequestTable({
                       </div>
                     </td>
 
-                    <td className="px-5 py-4 text-slate-600 whitespace-nowrap">
+                    <td
+                      className={`px-3 sm:px-5 py-3 sm:py-4 text-slate-600 whitespace-nowrap ${columnVisibility[2]}`}
+                    >
                       {r.emp_dept}
                     </td>
-                    <td className="px-5 py-4 font-bold text-slate-800 whitespace-nowrap">
+                    <td className="px-3 sm:px-5 py-3 sm:py-4 font-bold text-slate-800 whitespace-nowrap">
                       {fmt(r.amount)}
                     </td>
-                    <td className="px-5 py-4 text-slate-500 whitespace-nowrap">
+                    <td
+                      className={`px-3 sm:px-5 py-3 sm:py-4 text-slate-500 whitespace-nowrap ${columnVisibility[4]}`}
+                    >
                       {r.request_date?.slice(0, 10)}
                     </td>
 
-                    <td className="px-5 py-4 text-slate-600 max-w-[160px]">
+                    <td
+                      className={`px-3 sm:px-5 py-3 sm:py-4 text-slate-600 max-w-[160px] ${columnVisibility[5]}`}
+                    >
                       <span className="truncate block" title={r.reason}>
                         {r.reason}
                       </span>
                     </td>
 
-                    <td className="px-5 py-4">
+                    <td className={`px-3 sm:px-5 py-3 sm:py-4 ${columnVisibility[6]}`}>
                       {showAdjusted ? (
                         <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg font-semibold">
                           {r.adjusted_in || "—"}
@@ -214,11 +257,11 @@ function RequestTable({
                       )}
                     </td>
 
-                    <td className="px-5 py-4">
+                    <td className="px-3 sm:px-5 py-3 sm:py-4">
                       <Badge status={r.status} />
                     </td>
 
-                    <td className="px-5 py-4">
+                    <td className="px-3 sm:px-5 py-3 sm:py-4">
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => onView(r)}
@@ -337,8 +380,8 @@ export default function AdvancePaymentDashboard() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           icon={Users}
           label="Total Requests"
@@ -382,56 +425,58 @@ export default function AdvancePaymentDashboard() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-        <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-          <div className="flex bg-slate-100 rounded-xl p-1 gap-1 w-fit">
-            {[
-              { key: "pending", label: "Pending", count: stats?.pending ?? 0 },
-              {
-                key: "approved",
-                label: "Approved",
-                count: stats?.approved ?? 0,
-              },
-              {
-                key: "rejected",
-                label: "Rejected",
-                count: stats?.rejected ?? 0,
-              },
-            ].map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
-                  activeTab === t.key
-                    ? "bg-white text-slate-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {t.label}
-                <span
-                  className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+          <div className="overflow-x-auto -mx-1 px-1 sm:overflow-visible sm:mx-0 sm:px-0">
+            <div className="flex bg-slate-100 rounded-xl p-1 gap-1 w-fit">
+              {[
+                { key: "pending", label: "Pending", count: stats?.pending ?? 0 },
+                {
+                  key: "approved",
+                  label: "Approved",
+                  count: stats?.approved ?? 0,
+                },
+                {
+                  key: "rejected",
+                  label: "Rejected",
+                  count: stats?.rejected ?? 0,
+                },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
                     activeTab === t.key
-                      ? "bg-indigo-100 text-indigo-700"
-                      : "bg-slate-200 text-slate-500"
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
-                  {t.count}
-                </span>
-              </button>
-            ))}
+                  {t.label}
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                      activeTab === t.key
+                        ? "bg-indigo-100 text-indigo-700"
+                        : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
+                    {t.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => {
                 fetchStats();
                 fetchRequests();
               }}
-              className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
+              className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-colors shrink-0"
               title="Refresh"
             >
               <RefreshCw size={15} />
             </button>
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <Search
                 size={14}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -440,14 +485,14 @@ export default function AdvancePaymentDashboard() {
                 placeholder="Search name or ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 w-56"
+                className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 w-full sm:w-56"
               />
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="px-5 py-3 bg-red-50 border-b border-red-100 text-sm text-red-600">
+          <div className="px-4 sm:px-5 py-3 bg-red-50 border-b border-red-100 text-sm text-red-600">
             {error}
           </div>
         )}

@@ -23,7 +23,11 @@ export default function InfoRow({ label, value, mono = false, color }) {
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
-          maxWidth: 170,
+          // Was a fixed 170px — too wide for narrow expanded panels once the
+          // detail grids reflow to a single column on small screens, and too
+          // restrictive on wide desktop panels where more room is available.
+          // Scales with the available space instead of a hardcoded ceiling.
+          maxWidth: "60%",
         }}
       >
         {value || "—"}

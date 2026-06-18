@@ -16,6 +16,44 @@ import Av from "./Av";
 import Chip from "./Chip";
 import InfoRow from "./InfoRow";
 
+// `ph-ev-row` is presumably a 4-up flex/grid row (avatar+name | meta | amount
+// | chevron) defined in theme.js. On mobile that's too many siblings fighting
+// for width in one line, so we let it wrap into two stacked rows: identity on
+// top, amount+chevron pinned to the right of that same top row, and the meta
+// (status chip, tags, reason) flows full-width underneath.
+// `ph-detail-4` / `ph-detail-2` (the expanded sections) reflow from
+// 4-up / 2-up to a 2-up / 1-up grid so each stat keeps enough width to read.
+const EV_RESPONSIVE_CSS = `
+@media (max-width: 640px) {
+  .ph-ev-row {
+    flex-wrap: wrap !important;
+    row-gap: 8px;
+  }
+  .ph-ev-row > div:nth-child(2) {
+    order: 3;
+    flex-basis: 100%;
+    min-width: 100% !important;
+  }
+  .ph-detail-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .ph-detail-4 > div {
+    border-right: none !important;
+    border-bottom: 1px solid #EEEEEC;
+  }
+  .ph-detail-4 > div:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .ph-detail-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-detail-2 > div:first-child {
+    border-right: none !important;
+    border-bottom: 1px solid #EEEEEC;
+  }
+}
+`;
+
 export default function EvCard({ r }) {
   const [open, setOpen] = useState(false);
   const isAdv = r.eventType === "advance";
@@ -24,14 +62,15 @@ export default function EvCard({ r }) {
 
   return (
     <div style={{ borderBottom: "1px solid #EEEEEC" }}>
+      <style>{EV_RESPONSIVE_CSS}</style>
       <div
         className="ph-row ph-ev-row"
         style={{ background: "#fff", cursor: "pointer" }}
         onClick={() => setOpen((o) => !o)}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Av name={r.emp_name} size={32} />
-          <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <Av name={r.emp_name} size={{ base: 28, sm: 32 }} />
+          <div style={{ minWidth: 0 }}>
             <p
               style={{
                 fontSize: 13,
@@ -98,6 +137,7 @@ export default function EvCard({ r }) {
                 fontSize: 11,
                 fontWeight: 600,
                 color: isAdv ? T.t600 : T.r600,
+                whiteSpace: "nowrap",
               }}
             >
               {isAdv ? (
@@ -116,6 +156,7 @@ export default function EvCard({ r }) {
                   color: "#3730A3",
                   border: "1px solid #C7D2FE",
                   fontSize: 9,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {r.payment_type_label}
@@ -139,6 +180,7 @@ export default function EvCard({ r }) {
                   background: T.t100,
                   padding: "2px 6px",
                   borderRadius: 3,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {r.request_code}
@@ -227,6 +269,7 @@ export default function EvCard({ r }) {
                 style={{
                   padding: "11px 14px",
                   borderRight: i < 3 ? "1px solid #EEEEEC" : "none",
+                  minWidth: 0,
                 }}
               >
                 <div
@@ -255,6 +298,7 @@ export default function EvCard({ r }) {
                     fontSize: 13,
                     fontWeight: 600,
                     color: "#323130",
+                    overflowWrap: "break-word",
                     fontFamily:
                       label === "Days Ago"
                         ? "'IBM Plex Mono',monospace"

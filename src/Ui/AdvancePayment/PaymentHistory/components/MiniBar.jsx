@@ -1,7 +1,11 @@
 export default function MiniBar({ pct, showPct = true, height = 4 }) {
-  const fg = pct >= 75 ? "#16A34A" : pct >= 40 ? "#E08A00" : "#E8384F";
+  const clamped = Math.max(0, Math.min(100, pct));
+  const fg = clamped >= 75 ? "#16A34A" : clamped >= 40 ? "#E08A00" : "#E8384F";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div
+      className="ph-minibar"
+      style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}
+    >
       <div
         style={{
           flex: 1,
@@ -9,13 +13,13 @@ export default function MiniBar({ pct, showPct = true, height = 4 }) {
           borderRadius: 99,
           background: "#EEEEEC",
           overflow: "hidden",
-          minWidth: 50,
+          minWidth: 0,
         }}
       >
         <div
           className="ph-pbar"
           style={{
-            "--w": `${pct}%`,
+            "--w": `${clamped}%`,
             height: "100%",
             borderRadius: 99,
             background: fg,
@@ -29,11 +33,12 @@ export default function MiniBar({ pct, showPct = true, height = 4 }) {
             fontWeight: 600,
             fontFamily: "'IBM Plex Mono',monospace",
             color: fg,
-            minWidth: 30,
+            minWidth: 28,
             textAlign: "right",
+            flexShrink: 0,
           }}
         >
-          {pct}%
+          {clamped}%
         </span>
       )}
     </div>

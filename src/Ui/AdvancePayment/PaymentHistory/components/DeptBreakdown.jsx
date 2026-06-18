@@ -3,6 +3,27 @@ import { Building2 } from "lucide-react";
 import { T } from "../constants/theme";
 import { inrK } from "../utils/formatters";
 
+// Scoped responsive rules for this component only. `ph-dept-row` is assumed
+// to be a 3-column grid/flex row defined in theme.js (label | bar | amount).
+// On mobile we override it to stack into 2 rows: label+amount on top,
+// the progress bar full-width below — so percentages and rupee figures
+// never get squeezed into an unreadable sliver.
+const DEPT_RESPONSIVE_CSS = `
+@media (max-width: 640px) {
+  .ph-dept-row {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-areas: "label amount" "bar bar" !important;
+    row-gap: 6px;
+    column-gap: 8px;
+    align-items: center !important;
+  }
+  .ph-dept-row > div:nth-child(1) { grid-area: label; min-width: 0; }
+  .ph-dept-row > div:nth-child(2) { grid-area: bar; }
+  .ph-dept-row > div:nth-child(3) { grid-area: amount; text-align: right !important; min-width: auto !important; }
+}
+`;
+
 export default function DeptBreakdown({ empGroups, loading }) {
   const depts = useMemo(() => {
     const m = {};
@@ -34,6 +55,7 @@ export default function DeptBreakdown({ empGroups, loading }) {
         overflow: "hidden",
       }}
     >
+      <style>{DEPT_RESPONSIVE_CSS}</style>
       <div
         style={{
           display: "flex",
@@ -41,6 +63,7 @@ export default function DeptBreakdown({ empGroups, loading }) {
           gap: 7,
           padding: "11px 14px",
           borderBottom: "1px solid #E3E3E0",
+          flexWrap: "wrap",
         }}
       >
         <Building2 size={13} style={{ color: T.b1 }} />
@@ -65,7 +88,7 @@ export default function DeptBreakdown({ empGroups, loading }) {
             d.adv > 0 ? Math.min(100, Math.round((d.ded / d.adv) * 100)) : 0;
           return (
             <div key={d.dept} className="ph-dept-row">
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <p
                   style={{
                     fontSize: 11,
@@ -82,7 +105,7 @@ export default function DeptBreakdown({ empGroups, loading }) {
                   {d.count} emp{d.count !== 1 ? "s" : ""}
                 </p>
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     height: 6,

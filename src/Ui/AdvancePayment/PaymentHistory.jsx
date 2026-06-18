@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Wallet,
@@ -178,6 +177,178 @@ const CSS = `
   .ph-tl-dot{position:absolute;left:16px;width:13px;height:13px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center}
 
   .ph-badge-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:10px;font-weight:700;line-height:1}
+
+  /* ════════════════════════════════════════════════════════════════════
+     RESPONSIVE LAYOUT — desktop defaults below, overridden at
+     tablet (≤1023px) and mobile (≤640px) breakpoints further down.
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* header */
+  .ph-hdr-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .ph-hdr-left{display:flex;align-items:center;gap:13px;min-width:0}
+  .ph-hdr-icon{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .ph-hdr-textwrap{min-width:0}
+  .ph-hdr-title{font-size:20px;font-weight:700;color:#fff;letter-spacing:-.03em;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ph-hdr-sub{font-size:12px;color:rgba(255,255,255,.58);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ph-hdr-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .ph-hdr-btn{width:38px;height:38px;border-radius:9px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+  /* kpi grid */
+  .ph-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex-shrink:0}
+  .ph-kpi-card{padding:14px 16px}
+  .ph-kpi-icon-box{position:absolute;right:11px;top:11px;width:34px;height:34px;border-radius:8px}
+  .ph-kpi-label{font-size:10px}
+  .ph-kpi-value{font-size:24px}
+  .ph-kpi-sub{font-size:10px}
+
+  /* recovery tracker */
+  .ph-tracker-hdr{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #EEEEEC;flex-wrap:wrap}
+  .ph-tracker-bar-wrap{flex:1 1 120px;margin-left:4px;min-width:80px}
+  .ph-tracker-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+
+  /* dept breakdown */
+  .ph-card-hdr{display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid #E3E3E0}
+  .ph-dept-list{padding:9px 14px;display:flex;flex-direction:column;gap:7px}
+  .ph-dept-row{display:grid;grid-template-columns:140px 1fr auto;gap:10px;align-items:center}
+  .ph-dept-name-col{min-width:0}
+  .ph-dept-amt-col{min-width:64px}
+
+  /* approved requests */
+  .ph-req-section-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #E3E3E0;flex-wrap:wrap;gap:8px}
+  .ph-req-hdr-row{padding:11px 14px}
+  .ph-req-detail-grid{display:grid;grid-template-columns:repeat(3,1fr)}
+  .ph-req-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:11px 14px}
+
+  /* ledger toolbar */
+  .ph-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#F7F7F6;border-bottom:1px solid #E3E3E0;flex-wrap:wrap}
+  .ph-view-tabs{display:flex;background:#fff;border:1px solid #CECEC9;border-radius:7px;padding:2px;gap:1px}
+  .ph-filter-tabs{display:flex;background:#fff;border:1px solid #CECEC9;border-radius:7px;padding:2px;gap:1px}
+  .ph-search-wrap{position:relative;flex:1 1 180px;max-width:260px}
+  .ph-toolbar-count{font-size:10px;color:#888885;white-space:nowrap}
+  .ph-emp-list{padding:10px}
+
+  /* month section */
+  .ph-month-hdr{padding:10px 14px}
+  .ph-month-icon{width:28px;height:28px}
+  .ph-month-label{font-size:14px}
+
+  /* employee card */
+  .ph-emp-hdr{padding:13px 14px}
+  .ph-emp-summary-grid{display:grid;grid-template-columns:repeat(5,1fr);background:#F7F7F6;border-bottom:1px solid #E3E3E0}
+
+  /* event row */
+  .ph-ev-row{grid-template-columns:auto 1fr auto;gap:10px;padding:12px 14px}
+  .ph-ev-name{font-size:13px;max-width:140px}
+  .ph-ev-type{font-size:11px}
+  .ph-ev-amount{font-size:16px}
+  .ph-ev-trail{gap:8px}
+  .ph-ev-timeline-grid{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #EEEEEC}
+  .ph-ev-info-grid{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #EEEEEC}
+
+  /* footer */
+  .ph-footer-left{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden}
+  .ph-footer-divider{width:1px;height:14px;background:#E3E3E0;display:block;flex-shrink:0}
+  .ph-close-btn{padding:7px 24px}
+
+  /* generic helper hidden only on very small phones */
+  .ph-hide-xs{display:inline-flex}
+
+  /* ───────────────────────── TABLET (≤1023px) ───────────────────────── */
+  @media (max-width:1023px){
+    .ph-overlay{padding:12px}
+    .ph-kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .ph-tracker-grid{grid-template-columns:repeat(2,1fr)}
+    .ph-tracker-grid > div:nth-child(2n){border-right:none!important}
+    .ph-tracker-grid > div:nth-child(-n+2){border-bottom:1px solid #EEEEEC}
+    .ph-ev-timeline-grid{grid-template-columns:repeat(2,1fr)}
+    .ph-ev-timeline-grid > div:nth-child(2n){border-right:none!important}
+    .ph-ev-timeline-grid > div:nth-child(-n+2){border-bottom:1px solid #EEEEEC}
+    .ph-emp-summary-grid{grid-template-columns:repeat(3,1fr)}
+    .ph-emp-summary-grid > div:nth-child(3){border-right:none!important}
+    .ph-emp-summary-grid > div:nth-child(-n+3){border-bottom:1px solid #E3E3E0}
+    .ph-dept-row{grid-template-columns:110px 1fr auto}
+    .ph-search-wrap{max-width:220px}
+  }
+
+  /* ───────────────────────── MOBILE (≤640px) ───────────────────────── */
+  @media (max-width:640px){
+    .ph-overlay{padding:0}
+    .ph-card{border-radius:0;height:100vh;max-height:none;max-width:100%}
+    .ph-hdr{padding:14px 14px 12px}
+    .ph-hdr-left{gap:9px}
+    .ph-hdr-icon{width:36px;height:36px;border-radius:9px}
+    .ph-hdr-title{font-size:15px}
+    .ph-hdr-sub{font-size:10px;margin-top:3px}
+    .ph-hdr-btn{width:30px;height:30px;border-radius:7px}
+
+    .ph-body{padding:8px;gap:8px}
+
+    .ph-kpi-grid{grid-template-columns:repeat(2,1fr);gap:6px}
+    .ph-kpi-card{padding:10px 11px}
+    .ph-kpi-icon-box{width:26px;height:26px;right:8px;top:8px;border-radius:7px}
+    .ph-kpi-label{font-size:8.5px}
+    .ph-kpi-value{font-size:18px}
+    .ph-kpi-sub{font-size:9px}
+
+    .ph-tracker-hdr{padding:9px 11px}
+    .ph-tracker-bar-wrap{flex-basis:100%;order:3;margin-left:0;margin-top:4px}
+    .ph-tracker-grid{grid-template-columns:repeat(2,1fr)}
+    .ph-tracker-grid > div{padding:9px 11px!important}
+    .ph-tracker-grid > div p:first-child{font-size:8.5px!important}
+    .ph-tracker-grid > div p:nth-child(2){font-size:14px!important}
+
+    .ph-card-hdr{padding:9px 11px}
+    .ph-dept-list{padding:8px 11px;gap:9px}
+    .ph-dept-row{grid-template-columns:78px 1fr 52px;gap:7px}
+    .ph-dept-name-col p:first-child{font-size:10px!important}
+
+    .ph-req-section-hdr{padding:9px 11px}
+    .ph-req-hdr-row{padding:9px 11px;gap:7px!important}
+    .ph-req-detail-grid{grid-template-columns:1fr 1fr}
+    .ph-req-detail-grid > div:nth-child(2n){border-right:none!important}
+    .ph-req-detail-grid > div:nth-child(-n+2){border-bottom:1px solid #EEEEEC}
+    .ph-req-info-grid{grid-template-columns:1fr;padding:9px 11px;gap:12px}
+
+    .ph-toolbar{padding:8px}
+    .ph-view-tabs,.ph-filter-tabs{width:100%}
+    .ph-search-wrap{flex-basis:100%;max-width:none;order:3}
+    .ph-toolbar-count{order:4;flex-basis:100%}
+    .ph-emp-list{padding:7px}
+
+    .ph-month-hdr{padding:8px 11px}
+    .ph-month-icon{width:24px;height:24px}
+    .ph-month-label{font-size:12.5px}
+
+    .ph-emp-hdr{padding:10px 11px;gap:8px!important}
+    .ph-emp-summary-grid{grid-template-columns:repeat(2,1fr)}
+    .ph-emp-summary-grid > div:nth-child(2n){border-right:none!important}
+    .ph-emp-summary-grid > div:nth-child(-n+4){border-bottom:1px solid #E3E3E0}
+    .ph-emp-summary-grid > div:last-child{border-right:none!important}
+
+    .ph-ev-row{padding:9px 11px;gap:7px}
+    .ph-ev-name{font-size:12px;max-width:96px}
+    .ph-ev-type-text{display:none}
+    .ph-ev-amount{font-size:13.5px}
+    .ph-ev-trail{gap:5px}
+    .ph-ev-timeline-grid{grid-template-columns:1fr 1fr}
+    .ph-ev-timeline-grid > div{padding:9px 11px!important}
+    .ph-ev-info-grid{grid-template-columns:1fr}
+    .ph-ev-info-grid > div{border-right:none!important;border-bottom:1px solid #EEEEEC;padding:9px 11px!important}
+    .ph-ev-info-grid > div:last-child{border-bottom:none}
+
+    .ph-footer{padding:9px 11px;flex-wrap:wrap;gap:8px}
+    .ph-footer-left{flex-basis:100%;order:2}
+    .ph-close-btn{flex:1;padding:9px 0;text-align:center}
+
+    .ph-hide-xs{display:none!important}
+  }
+
+  /* ─────────────────────── EXTRA SMALL (≤380px) ─────────────────────── */
+  @media (max-width:380px){
+    .ph-kpi-grid{grid-template-columns:1fr 1fr;gap:5px}
+    .ph-dept-row{grid-template-columns:64px 1fr 46px}
+    .ph-ev-name{max-width:76px}
+  }
 `;
 
 // helpers
@@ -424,24 +595,19 @@ function KpiCard({
 }) {
   return (
     <div
-      className="ph-kpi"
+      className="ph-kpi ph-kpi-card"
       style={{
         background: "#fff",
         borderRadius: 10,
         border: "1px solid #E3E3E0",
-        padding: "14px 16px",
         position: "relative",
         overflow: "hidden",
       }}
     >
       <div
+        className="ph-kpi-icon-box"
         style={{
           position: "absolute",
-          right: 11,
-          top: 11,
-          width: 34,
-          height: 34,
-          borderRadius: 8,
           background: `${color}18`,
           display: "flex",
           alignItems: "center",
@@ -451,8 +617,8 @@ function KpiCard({
         <Icon size={15} style={{ color }} />
       </div>
       <p
+        className="ph-kpi-label"
         style={{
-          fontSize: 10,
           fontWeight: 600,
           color: "#888885",
           textTransform: "uppercase",
@@ -473,8 +639,8 @@ function KpiCard({
       ) : (
         <>
           <p
+            className="ph-kpi-value"
             style={{
-              fontSize: 24,
               fontWeight: 600,
               color: "#111110",
               fontFamily: "'IBM Plex Mono',monospace",
@@ -493,7 +659,11 @@ function KpiCard({
               flexWrap: "wrap",
             }}
           >
-            {sub && <p style={{ fontSize: 10, color: "#888885" }}>{sub}</p>}
+            {sub && (
+              <p className="ph-kpi-sub" style={{ color: "#888885" }}>
+                {sub}
+              </p>
+            )}
             {trend !== undefined && (
               <span
                 style={{
@@ -523,6 +693,7 @@ function KpiCard({
 function InfoRow({ label, value, mono = false, color }) {
   return (
     <div
+      className="ph-info-row"
       style={{
         display: "flex",
         justifyContent: "space-between",
@@ -536,6 +707,7 @@ function InfoRow({ label, value, mono = false, color }) {
         {label}
       </span>
       <span
+        className="ph-info-row-value"
         style={{
           fontSize: 12,
           fontWeight: 500,
@@ -564,27 +736,23 @@ function EvCard({ r, expanded = false }) {
     <div style={{ borderBottom: "1px solid #EEEEEC" }}>
       {/* main row */}
       <div
-        className="ph-row"
+        className="ph-row ph-ev-row"
         style={{
           display: "grid",
-          gridTemplateColumns: "auto 1fr auto auto",
           alignItems: "center",
-          gap: 10,
-          padding: "12px 14px",
           background: "#fff",
           cursor: "pointer",
         }}
         onClick={() => setOpen((o) => !o)}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="ph-ev-id" style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Av name={r.emp_name} size={32} />
           <div>
             <p
+              className="ph-ev-name"
               style={{
-                fontSize: 13,
                 fontWeight: 600,
                 color: "#111110",
-                maxWidth: 140,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -611,6 +779,7 @@ function EvCard({ r, expanded = false }) {
               </span>
               {r.emp_dept && (
                 <span
+                  className="ph-hide-xs"
                   style={{
                     fontSize: 10,
                     color: "#65635F",
@@ -627,7 +796,7 @@ function EvCard({ r, expanded = false }) {
           </div>
         </div>
 
-        <div style={{ minWidth: 0 }}>
+        <div className="ph-ev-mid" style={{ minWidth: 0 }}>
           <div
             style={{
               display: "flex",
@@ -638,11 +807,11 @@ function EvCard({ r, expanded = false }) {
             }}
           >
             <span
+              className="ph-ev-type"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 3,
-                fontSize: 11,
                 fontWeight: 600,
                 color: isAdv ? T.t600 : T.r600,
               }}
@@ -652,12 +821,14 @@ function EvCard({ r, expanded = false }) {
               ) : (
                 <ArrowDownRight size={11} />
               )}
-              {isAdv ? "Advance Disbursed" : "Salary Deduction"}
+              <span className="ph-ev-type-text">
+                {isAdv ? "Advance Disbursed" : "Salary Deduction"}
+              </span>
             </span>
             <Chip type={statusType} />
             {r.payment_type_label && (
               <span
-                className="ph-tag"
+                className="ph-tag ph-hide-xs"
                 style={{
                   background: "#F0F4FF",
                   color: "#3730A3",
@@ -670,6 +841,7 @@ function EvCard({ r, expanded = false }) {
             )}
           </div>
           <div
+            className="ph-hide-xs"
             style={{
               display: "flex",
               alignItems: "center",
@@ -709,29 +881,31 @@ function EvCard({ r, expanded = false }) {
           </div>
         </div>
 
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <p
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              fontFamily: "'IBM Plex Mono',monospace",
-              color: isAdv ? T.t700 : T.r700,
-              letterSpacing: "-.03em",
-            }}
-          >
-            {isAdv ? "+" : "−"}
-            {inr(r.amount)}
-          </p>
-          <p style={{ fontSize: 10, color: "#ADADAA", marginTop: 2 }}>
-            {r.month}
-          </p>
-        </div>
+        <div className="ph-ev-trail" style={{ display: "flex", alignItems: "center" }}>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <p
+              className="ph-ev-amount"
+              style={{
+                fontWeight: 700,
+                fontFamily: "'IBM Plex Mono',monospace",
+                color: isAdv ? T.t700 : T.r700,
+                letterSpacing: "-.03em",
+              }}
+            >
+              {isAdv ? "+" : "−"}
+              {inr(r.amount)}
+            </p>
+            <p style={{ fontSize: 10, color: "#ADADAA", marginTop: 2 }}>
+              {r.month}
+            </p>
+          </div>
 
-        <ChevronDown
-          size={13}
-          className={`ph-chev${open ? " open" : ""}`}
-          style={{ color: "#ADADAA", flexShrink: 0 }}
-        />
+          <ChevronDown
+            size={13}
+            className={`ph-chev${open ? " open" : ""}`}
+            style={{ color: "#ADADAA", flexShrink: 0 }}
+          />
+        </div>
       </div>
 
       {/* expanded detail */}
@@ -741,13 +915,7 @@ function EvCard({ r, expanded = false }) {
           style={{ background: "#FAFAF9", borderTop: "1px solid #EEEEEC" }}
         >
           {/* timeline row */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4,1fr)",
-              borderBottom: "1px solid #EEEEEC",
-            }}
-          >
+          <div className="ph-ev-timeline-grid">
             {[
               {
                 label: "Request Date",
@@ -820,14 +988,7 @@ function EvCard({ r, expanded = false }) {
           </div>
 
           {/* detail info */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 0,
-              borderBottom: "1px solid #EEEEEC",
-            }}
-          >
+          <div className="ph-ev-info-grid">
             <div
               style={{ padding: "11px 14px", borderRight: "1px solid #EEEEEC" }}
             >
@@ -903,14 +1064,13 @@ function MonthSec({ month, rows }) {
   return (
     <div style={{ borderBottom: "1px solid #EEEEEC" }}>
       <button
-        className="ph-btn ph-row"
+        className="ph-btn ph-row ph-month-hdr"
         onClick={() => setOpen((o) => !o)}
         style={{
           width: "100%",
           display: "flex",
           alignItems: "center",
           gap: 9,
-          padding: "10px 14px",
           background: open ? "#F7F7F6" : "#fff",
           borderBottom: open ? "1px solid #EEEEEC" : "none",
           textAlign: "left",
@@ -918,9 +1078,8 @@ function MonthSec({ month, rows }) {
         }}
       >
         <div
+          className="ph-month-icon"
           style={{
-            width: 28,
-            height: 28,
             borderRadius: 6,
             background: T.t100,
             display: "flex",
@@ -938,9 +1097,10 @@ function MonthSec({ month, rows }) {
               alignItems: "center",
               gap: 7,
               marginBottom: 2,
+              flexWrap: "wrap",
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#1E1D1C" }}>
+            <span className="ph-month-label" style={{ fontWeight: 600, color: "#1E1D1C" }}>
               {month}
             </span>
             <span
@@ -956,6 +1116,7 @@ function MonthSec({ month, rows }) {
             </span>
             {done > 0 && (
               <span
+                className="ph-hide-xs"
                 style={{
                   fontSize: 10,
                   color: T.g600,
@@ -970,6 +1131,7 @@ function MonthSec({ month, rows }) {
             )}
             {upcoming > 0 && (
               <span
+                className="ph-hide-xs"
                 style={{
                   fontSize: 10,
                   color: T.v600,
@@ -982,7 +1144,7 @@ function MonthSec({ month, rows }) {
               </span>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {adv > 0 && (
               <span
                 style={{
@@ -1065,6 +1227,7 @@ function EmpCard({ empId, empName, empDept, rows }) {
 
   return (
     <div
+      className="ph-emp-card"
       style={{
         background: "#fff",
         borderRadius: 10,
@@ -1075,14 +1238,13 @@ function EmpCard({ empId, empName, empDept, rows }) {
       }}
     >
       <button
-        className="ph-btn ph-row"
+        className="ph-btn ph-row ph-emp-hdr"
         onClick={() => setOpen((o) => !o)}
         style={{
           width: "100%",
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "13px 14px",
           background: "#fff",
           borderBottom: open ? "1px solid #E3E3E0" : "none",
           textAlign: "left",
@@ -1117,6 +1279,7 @@ function EmpCard({ empId, empName, empDept, rows }) {
             </span>
             {empDept && (
               <span
+                className="ph-hide-xs"
                 style={{
                   fontSize: 10,
                   color: "#65635F",
@@ -1133,6 +1296,7 @@ function EmpCard({ empId, empName, empDept, rows }) {
           {ta > 0 && (
             <>
               <div
+                className="ph-emp-stats-line"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -1165,6 +1329,7 @@ function EmpCard({ empId, empName, empDept, rows }) {
                 </span>
                 {rem > 0 && (
                   <span
+                    className="ph-hide-xs"
                     style={{
                       fontSize: 10,
                       color: T.r600,
@@ -1176,11 +1341,12 @@ function EmpCard({ empId, empName, empDept, rows }) {
                     Due {inr(rem)}
                   </span>
                 )}
-                <span style={{ fontSize: 10, color: "#888885" }}>
+                <span className="ph-hide-xs" style={{ fontSize: 10, color: "#888885" }}>
                   {doneInstallments}/{totalInstallments} EMIs
                 </span>
                 {upcomingInstallments > 0 && (
                   <span
+                    className="ph-hide-xs"
                     style={{
                       fontSize: 10,
                       color: T.v600,
@@ -1208,14 +1374,7 @@ function EmpCard({ empId, empName, empDept, rows }) {
         <div className="ph-up">
           {/* summary strip */}
           {ta > 0 && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(5,1fr)",
-                background: "#F7F7F6",
-                borderBottom: "1px solid #E3E3E0",
-              }}
-            >
+            <div className="ph-emp-summary-grid">
               {[
                 { l: "Advanced", v: inr(ta), c: T.a600, sub: "total" },
                 {
@@ -1320,21 +1479,21 @@ function ReqRow({ req }) {
   return (
     <div style={{ borderBottom: "1px solid #EEEEEC" }}>
       <button
-        className="ph-btn ph-row"
+        className="ph-btn ph-row ph-req-hdr-row"
         onClick={() => setOpen((o) => !o)}
         style={{
           width: "100%",
           display: "flex",
           alignItems: "center",
           gap: 9,
-          padding: "11px 14px",
           background: "transparent",
           textAlign: "left",
           transition: "background .1s",
+          flexWrap: "wrap",
         }}
       >
         <Av name={req.emp_name} size={30} />
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="ph-req-mid" style={{ flex: 1, minWidth: 0 }}>
           <p
             style={{
               fontSize: 13,
@@ -1372,6 +1531,7 @@ function ReqRow({ req }) {
             )}
             {req.emp_dept && (
               <span
+                className="ph-hide-xs"
                 style={{
                   fontSize: 10,
                   color: "#65635F",
@@ -1385,6 +1545,7 @@ function ReqRow({ req }) {
             )}
             {req.payment_type_label && (
               <span
+                className="ph-hide-xs"
                 style={{
                   fontSize: 10,
                   color: "#3730A3",
@@ -1398,41 +1559,39 @@ function ReqRow({ req }) {
             )}
           </div>
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0, marginRight: 6 }}>
-          <p
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              color: "#111110",
-              fontFamily: "'IBM Plex Mono',monospace",
-              letterSpacing: "-.03em",
-            }}
-          >
-            {inr(req.amount)}
-          </p>
-          {age !== null && (
-            <p style={{ fontSize: 10, color: "#ADADAA" }}>{age}d ago</p>
-          )}
+        <div className="ph-req-trail" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{ textAlign: "right" }}>
+            <p
+              style={{
+                fontSize: 15,
+                fontWeight: 700,
+                color: "#111110",
+                fontFamily: "'IBM Plex Mono',monospace",
+                letterSpacing: "-.03em",
+              }}
+            >
+              {inr(req.amount)}
+            </p>
+            {age !== null && (
+              <p style={{ fontSize: 10, color: "#ADADAA" }}>{age}d ago</p>
+            )}
+          </div>
+          <span className="ph-hide-xs">
+            <Chip type="advance" />
+          </span>
+          <ChevronDown
+            size={12}
+            className={`ph-chev${open ? " open" : ""}`}
+            style={{ color: "#ADADAA" }}
+          />
         </div>
-        <Chip type="advance" />
-        <ChevronDown
-          size={12}
-          className={`ph-chev${open ? " open" : ""}`}
-          style={{ color: "#ADADAA" }}
-        />
       </button>
       {open && (
         <div
           className="ph-up"
           style={{ background: "#FAFAF9", borderTop: "1px solid #EEEEEC" }}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3,1fr)",
-              borderBottom: "1px solid #EEEEEC",
-            }}
-          >
+          <div className="ph-req-detail-grid">
             {[
               { l: "Requested", v: fmtD(req.request_date), icon: Calendar },
               { l: "Approved", v: fmtD(req.reviewed_at), icon: BadgeCheck },
@@ -1472,14 +1631,7 @@ function ReqRow({ req }) {
               </div>
             ))}
           </div>
-          <div
-            style={{
-              padding: "11px 14px",
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 8,
-            }}
-          >
+          <div className="ph-req-info-grid">
             <div>
               <p
                 style={{
@@ -1569,11 +1721,11 @@ function DeptBreakdown({ empGroups, loading }) {
       }}
     >
       <div
+        className="ph-card-hdr"
         style={{
           display: "flex",
           alignItems: "center",
           gap: 7,
-          padding: "11px 14px",
           borderBottom: "1px solid #E3E3E0",
         }}
       >
@@ -1581,13 +1733,13 @@ function DeptBreakdown({ empGroups, loading }) {
         <span style={{ fontSize: 12, fontWeight: 600, color: "#1E1D1C" }}>
           Department Breakdown
         </span>
-        <span style={{ fontSize: 10, color: "#888885", marginLeft: 2 }}>
+        <span className="ph-hide-xs" style={{ fontSize: 10, color: "#888885", marginLeft: 2 }}>
           top 5 departments
         </span>
       </div>
       <div
+        className="ph-dept-list"
         style={{
-          padding: "9px 14px",
           display: "flex",
           flexDirection: "column",
           gap: 7,
@@ -1600,14 +1752,14 @@ function DeptBreakdown({ empGroups, loading }) {
           return (
             <div
               key={d.dept}
+              className="ph-dept-row"
               style={{
                 display: "grid",
-                gridTemplateColumns: "140px 1fr auto",
                 alignItems: "center",
                 gap: 10,
               }}
             >
-              <div>
+              <div className="ph-dept-name-col">
                 <p
                   style={{
                     fontSize: 11,
@@ -1624,7 +1776,7 @@ function DeptBreakdown({ empGroups, loading }) {
                   {d.count} emp{d.count !== 1 ? "s" : ""}
                 </p>
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     height: 6,
@@ -1674,7 +1826,7 @@ function DeptBreakdown({ empGroups, loading }) {
                   </span>
                 </div>
               </div>
-              <div style={{ textAlign: "right", minWidth: 64 }}>
+              <div className="ph-dept-amt-col" style={{ textAlign: "right" }}>
                 <p
                   style={{
                     fontSize: 12,
@@ -1972,69 +2124,26 @@ export default function PaymentHistory({ onClose }) {
           {/* ── HEADER ── */}
           <div className="ph-hdr">
             {/* top bar */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
-                <div
-                  style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: 12,
-                    background: "rgba(255,255,255,.18)",
-                    border: "1px solid rgba(255,255,255,.3)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
+            <div className="ph-hdr-top">
+              <div className="ph-hdr-left">
+                <div className="ph-hdr-icon">
                   <Wallet size={22} style={{ color: "#fff" }} />
                 </div>
-                <div>
-                  <p
-                    style={{
-                      fontSize: 20,
-                      fontWeight: 700,
-                      color: "#fff",
-                      letterSpacing: "-.03em",
-                      lineHeight: 1,
-                    }}
-                  >
+                <div className="ph-hdr-textwrap">
+                  <p className="ph-hdr-title">
                     Salary Advance History
                   </p>
-                  <p
-                    style={{
-                      fontSize: 12,
-                      color: "rgba(255,255,255,.58)",
-                      marginTop: 5,
-                    }}
-                  >
+                  <p className="ph-hdr-sub">
                     Advance disbursal &amp; EMI deduction recovery · all
                     employees
                   </p>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="ph-hdr-actions">
                 <button
-                  className="ph-btn"
+                  className="ph-btn ph-hdr-btn"
                   onClick={load}
                   disabled={loading}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 9,
-                    background: "rgba(255,255,255,.12)",
-                    border: "1px solid rgba(255,255,255,.2)",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
                   title="Refresh"
                 >
                   {loading ? (
@@ -2047,19 +2156,8 @@ export default function PaymentHistory({ onClose }) {
                   )}
                 </button>
                 <button
-                  className="ph-btn"
+                  className="ph-btn ph-hdr-btn"
                   onClick={onClose}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 9,
-                    background: "rgba(255,255,255,.12)",
-                    border: "1px solid rgba(255,255,255,.2)",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
                   title="Close"
                 >
                   <X size={17} />
@@ -2107,14 +2205,7 @@ export default function PaymentHistory({ onClose }) {
             )}
 
             {/* KPI grid */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: 8,
-                flexShrink: 0,
-              }}
-            >
+            <div className="ph-kpi-grid">
               <KpiCard
                 label="Total Disbursed"
                 icon={CircleDollarSign}
@@ -2160,15 +2251,7 @@ export default function PaymentHistory({ onClose }) {
                   flexShrink: 0,
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "11px 14px",
-                    borderBottom: "1px solid #EEEEEC",
-                  }}
-                >
+                <div className="ph-tracker-hdr">
                   <TrendingUp
                     size={14}
                     style={{ color: T.t500, flexShrink: 0 }}
@@ -2178,7 +2261,7 @@ export default function PaymentHistory({ onClose }) {
                   >
                     Recovery Tracker
                   </span>
-                  <div style={{ flex: 1, marginLeft: 4 }}>
+                  <div className="ph-tracker-bar-wrap">
                     <MiniBar pct={recPct} height={7} />
                   </div>
                   <span
@@ -2193,12 +2276,7 @@ export default function PaymentHistory({ onClose }) {
                     {recPct}% recovered
                   </span>
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4,1fr)",
-                  }}
-                >
+                <div className="ph-tracker-grid">
                   {[
                     {
                       l: "Total Disbursed",
@@ -2294,15 +2372,7 @@ export default function PaymentHistory({ onClose }) {
                   flexShrink: 0,
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "11px 14px",
-                    borderBottom: "1px solid #E3E3E0",
-                  }}
-                >
+                <div className="ph-req-section-hdr">
                   <div
                     style={{ display: "flex", alignItems: "center", gap: 8 }}
                   >
@@ -2326,7 +2396,7 @@ export default function PaymentHistory({ onClose }) {
                   <div
                     style={{ display: "flex", alignItems: "center", gap: 10 }}
                   >
-                    <span style={{ fontSize: 10, color: "#888885" }}>
+                    <span className="ph-hide-xs" style={{ fontSize: 10, color: "#888885" }}>
                       Total approved amount
                     </span>
                     <span
@@ -2363,29 +2433,9 @@ export default function PaymentHistory({ onClose }) {
               }}
             >
               {/* toolbar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "10px 12px",
-                  background: "#F7F7F6",
-                  borderBottom: "1px solid #E3E3E0",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div className="ph-toolbar">
                 {/* view tabs */}
-                <div
-                  style={{
-                    display: "flex",
-                    background: "#fff",
-                    border: "1px solid #CECEC9",
-                    borderRadius: 7,
-                    padding: 2,
-                    gap: 1,
-                  }}
-                >
+                <div className="ph-view-tabs">
                   {[
                     { k: "month", label: "By Month", Icon: Calendar },
                     { k: "employee", label: "By Employee", Icon: Users },
@@ -2399,6 +2449,7 @@ export default function PaymentHistory({ onClose }) {
                         style={{
                           display: "flex",
                           alignItems: "center",
+                          justifyContent: "center",
                           gap: 5,
                           padding: "6px 12px",
                           borderRadius: 5,
@@ -2407,6 +2458,7 @@ export default function PaymentHistory({ onClose }) {
                           fontSize: 11,
                           fontWeight: 500,
                           transition: "all .14s",
+                          flex: "1 1 auto",
                         }}
                       >
                         <Icon size={11} />
@@ -2417,16 +2469,7 @@ export default function PaymentHistory({ onClose }) {
                 </div>
 
                 {/* type filter */}
-                <div
-                  style={{
-                    display: "flex",
-                    background: "#fff",
-                    border: "1px solid #CECEC9",
-                    borderRadius: 7,
-                    padding: 2,
-                    gap: 1,
-                  }}
-                >
+                <div className="ph-filter-tabs">
                   {[
                     { k: "all", label: "All" },
                     { k: "advance", label: "Advance" },
@@ -2446,6 +2489,7 @@ export default function PaymentHistory({ onClose }) {
                           fontSize: 11,
                           fontWeight: 500,
                           transition: "all .14s",
+                          flex: "1 1 auto",
                         }}
                       >
                         {label}
@@ -2455,7 +2499,7 @@ export default function PaymentHistory({ onClose }) {
                 </div>
 
                 {/* search */}
-                <div style={{ position: "relative", flex: 1, maxWidth: 260 }}>
+                <div className="ph-search-wrap" style={{ position: "relative" }}>
                   <Search
                     size={11}
                     style={{
@@ -2518,13 +2562,7 @@ export default function PaymentHistory({ onClose }) {
                 </div>
 
                 {!loading && !error && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: "#888885",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <span className="ph-hide-xs ph-toolbar-count">
                     {filtered.length} event{filtered.length !== 1 ? "s" : ""}
                     {search && <em> · "{search}"</em>}
                   </span>
@@ -2543,7 +2581,7 @@ export default function PaymentHistory({ onClose }) {
                   <MonthSec key={month} month={month} rows={rows} />
                 ))
               ) : (
-                <div style={{ padding: "10px", background: "#F2F2F0" }}>
+                <div className="ph-emp-list" style={{ background: "#F2F2F0" }}>
                   {empGroups.map((g) => (
                     <EmpCard
                       key={g.empId}
@@ -2561,7 +2599,7 @@ export default function PaymentHistory({ onClose }) {
 
           {/* ── FOOTER ── */}
           <div className="ph-footer">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="ph-footer-left">
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <span
                   style={{
@@ -2584,15 +2622,8 @@ export default function PaymentHistory({ onClose }) {
                   {search && <em> · "{search}"</em>}
                 </span>
               </div>
-              <span
-                style={{
-                  width: 1,
-                  height: 14,
-                  background: "#E3E3E0",
-                  display: "block",
-                }}
-              />
-              <span style={{ fontSize: 11, color: "#ADADAA" }}>
+              <span className="ph-footer-divider" />
+              <span className="ph-hide-xs" style={{ fontSize: 11, color: "#ADADAA" }}>
                 {uniqueEmps} employees · {reqs.length} requests · refreshed{" "}
                 {new Date().toLocaleTimeString("en-IN", {
                   hour: "2-digit",
@@ -2602,10 +2633,9 @@ export default function PaymentHistory({ onClose }) {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button
-                className="ph-btn"
+                className="ph-btn ph-close-btn"
                 onClick={onClose}
                 style={{
-                  padding: "7px 24px",
                   borderRadius: 7,
                   border: "1px solid #CECEC9",
                   background: "#fff",

@@ -1,10 +1,19 @@
 import { FileText, AlertTriangle } from "lucide-react";
 import { T } from "../constants/theme";
 
+const STATE_RESPONSIVE_CSS = `
+@media (max-width: 480px) {
+  .ph-state-wrap { padding: 36px 16px !important; }
+  .ph-state-icon { width: 44px !important; height: 44px !important; margin-bottom: 11px !important; }
+}
+`;
+
 export function EmptyState({ search, onClear }) {
   return (
-    <div style={{ padding: "60px 16px", textAlign: "center" }}>
+    <div className="ph-state-wrap" style={{ padding: "60px 16px", textAlign: "center" }}>
+      <style>{STATE_RESPONSIVE_CSS}</style>
       <div
+        className="ph-state-icon"
         style={{
           width: 52,
           height: 52,
@@ -28,7 +37,7 @@ export function EmptyState({ search, onClear }) {
       >
         No records found
       </p>
-      <p style={{ fontSize: 13, color: "#888885", marginBottom: 18 }}>
+      <p style={{ fontSize: 13, color: "#888885", marginBottom: 18, overflowWrap: "break-word" }}>
         {search
           ? `No results for "${search}"`
           : "No salary advance history yet."}
@@ -56,8 +65,10 @@ export function EmptyState({ search, onClear }) {
 
 export function ErrState({ msg, onRetry }) {
   return (
-    <div style={{ padding: "60px 16px", textAlign: "center" }}>
+    <div className="ph-state-wrap" style={{ padding: "60px 16px", textAlign: "center" }}>
+      <style>{STATE_RESPONSIVE_CSS}</style>
       <div
+        className="ph-state-icon"
         style={{
           width: 52,
           height: 52,
@@ -81,7 +92,7 @@ export function ErrState({ msg, onRetry }) {
       >
         Failed to load data
       </p>
-      <p style={{ fontSize: 13, color: "#888885", marginBottom: 18 }}>{msg}</p>
+      <p style={{ fontSize: 13, color: "#888885", marginBottom: 18, overflowWrap: "break-word" }}>{msg}</p>
       <button
         className="ph-btn"
         onClick={onRetry}
