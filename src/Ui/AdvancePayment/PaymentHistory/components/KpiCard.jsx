@@ -2,6 +2,14 @@ import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { T } from "../constants/theme";
 import { inrK } from "../utils/formatters";
 
+const KPI_RESPONSIVE_CSS = `
+@media (max-width: 640px) {
+  .ph-kpi { padding: 11px 12px !important; }
+  .ph-kpi-icon { width: 28px !important; height: 28px !important; right: 9px !important; top: 9px !important; }
+  .ph-kpi-value { font-size: 19px !important; }
+}
+`;
+
 export default function KpiCard({
   label,
   value,
@@ -24,7 +32,9 @@ export default function KpiCard({
         overflow: "hidden",
       }}
     >
+      <style>{KPI_RESPONSIVE_CSS}</style>
       <div
+        className="ph-kpi-icon"
         style={{
           position: "absolute",
           right: 11,
@@ -48,6 +58,10 @@ export default function KpiCard({
           textTransform: "uppercase",
           letterSpacing: ".08em",
           marginBottom: 8,
+          paddingRight: 38,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}
       >
         {label}
@@ -63,6 +77,7 @@ export default function KpiCard({
       ) : (
         <>
           <p
+            className="ph-kpi-value"
             style={{
               fontSize: 24,
               fontWeight: 600,
@@ -71,6 +86,7 @@ export default function KpiCard({
               letterSpacing: "-.04em",
               lineHeight: 1,
               marginBottom: 5,
+              overflowWrap: "break-word",
             }}
           >
             {value}
@@ -93,6 +109,7 @@ export default function KpiCard({
                   display: "flex",
                   alignItems: "center",
                   gap: 2,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {trend >= 0 ? (

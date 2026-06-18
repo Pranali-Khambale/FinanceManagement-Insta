@@ -13,6 +13,10 @@ export default function Chip({ type, size = "sm" }) {
         border: `1px solid ${c.border}`,
         padding: p,
         fontSize: fs,
+        whiteSpace: "nowrap",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
       }}
     >
       <span

@@ -37,6 +37,51 @@ if (typeof document !== "undefined" && !document.getElementById("ph-fonts")) {
   document.head.appendChild(l);
 }
 
+// Responsive overrides layered on top of the base CSS string from theme.js.
+// Kept separate so the original theme file doesn't need to be touched —
+// these rules win on cascade order since they're injected after CSS.
+const RESPONSIVE_CSS = `
+/* ---------- Tablet (<=900px) ---------- */
+@media (max-width: 900px) {
+  .ph-overlay { padding: 12px; }
+  .ph-card { max-width: 100%; }
+  .ph-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ph-tracker-grid { grid-template-columns: repeat(2, 1fr); }
+  .ph-tracker-grid > div:nth-child(2) { border-right: none; }
+  .ph-toolbar { flex-wrap: wrap; row-gap: 8px; }
+  .ph-toolbar > div[style*="flex: 1"] { max-width: 100% !important; flex-basis: 100%; order: 4; }
+  .ph-footer { flex-wrap: wrap; row-gap: 8px; }
+}
+
+/* ---------- Mobile (<=640px) ---------- */
+@media (max-width: 640px) {
+  .ph-overlay { padding: 0; align-items: flex-end; }
+  .ph-card { max-width: 100%; max-height: 100vh; height: 100%; border-radius: 0; }
+  .ph-hdr { padding: 14px 16px; }
+  .ph-hdr-row { flex-wrap: wrap; row-gap: 10px; }
+  .ph-hdr-title { font-size: 15px !important; }
+  .ph-hdr-sub { display: none; }
+  .ph-body { padding: 12px; gap: 10px; }
+  .ph-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .ph-tracker-grid { grid-template-columns: repeat(2, 1fr); }
+  .ph-tracker-grid > div { border-right: none !important; border-bottom: 1px solid #EEEEEC; }
+  .ph-tracker-grid > div:nth-last-child(-n+2) { border-bottom: none; }
+  .ph-toolbar { padding: 10px; }
+  .ph-toolbar > div { font-size: 11px; }
+  .ph-tab { padding: 6px 9px !important; font-size: 10px !important; }
+  .ph-sc { max-height: 160px !important; }
+  .ph-footer { padding: 10px 12px; }
+  .ph-footer-meta { display: none; }
+  .ph-footer button { width: 100%; }
+  .ph-footer > div:first-child { width: 100%; justify-content: space-between; }
+}
+
+/* ---------- Small mobile (<=400px) ---------- */
+@media (max-width: 400px) {
+  .ph-kpi-grid { grid-template-columns: 1fr; }
+}
+`;
+
 export default function PaymentHistory({ onClose }) {
   const [view, setView] = useState("month");
   const [search, setSearch] = useState("");
@@ -190,19 +235,21 @@ export default function PaymentHistory({ onClose }) {
   return (
     <div className="ph-root">
       <style>{CSS}</style>
+      <style>{RESPONSIVE_CSS}</style>
 
       <div className="ph-overlay" onClick={handleOverlay}>
         <div className="ph-card">
           {/* ── HEADER ── */}
           <div className="ph-hdr">
             <div
+              className="ph-hdr-row"
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 13, minWidth: 0 }}>
                 <div
                   style={{
                     width: 42,
@@ -218,19 +265,24 @@ export default function PaymentHistory({ onClose }) {
                 >
                   <Wallet size={20} style={{ color: "#fff" }} />
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <p
+                    className="ph-hdr-title"
                     style={{
                       fontSize: 18,
                       fontWeight: 700,
                       color: "#fff",
                       letterSpacing: "-.03em",
                       lineHeight: 1,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
                     Salary Advance History
                   </p>
                   <p
+                    className="ph-hdr-sub"
                     style={{
                       fontSize: 11,
                       color: "rgba(255,255,255,.58)",
@@ -242,7 +294,7 @@ export default function PaymentHistory({ onClose }) {
                   </p>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                 <button
                   className="ph-btn"
                   onClick={load}
@@ -383,6 +435,7 @@ export default function PaymentHistory({ onClose }) {
                     gap: 8,
                     padding: "11px 14px",
                     borderBottom: "1px solid #EEEEEC",
+                    flexWrap: "wrap",
                   }}
                 >
                   <TrendingUp
@@ -394,7 +447,7 @@ export default function PaymentHistory({ onClose }) {
                   >
                     Recovery Tracker
                   </span>
-                  <div style={{ flex: 1, marginLeft: 4 }}>
+                  <div style={{ flex: 1, marginLeft: 4, minWidth: 80 }}>
                     <MiniBar pct={recPct} height={7} />
                   </div>
                   <span
@@ -446,6 +499,7 @@ export default function PaymentHistory({ onClose }) {
                         padding: "11px 14px",
                         borderRight: i < 3 ? "1px solid #EEEEEC" : "none",
                         background: bg + "66",
+                        minWidth: 0,
                       }}
                     >
                       <p
@@ -467,6 +521,7 @@ export default function PaymentHistory({ onClose }) {
                           color: c,
                           fontFamily: "'IBM Plex Mono',monospace",
                           letterSpacing: "-.03em",
+                          overflowWrap: "break-word",
                         }}
                       >
                         {v}
@@ -505,6 +560,8 @@ export default function PaymentHistory({ onClose }) {
                     justifyContent: "space-between",
                     padding: "11px 14px",
                     borderBottom: "1px solid #E3E3E0",
+                    flexWrap: "wrap",
+                    rowGap: 6,
                   }}
                 >
                   <div
@@ -600,6 +657,7 @@ export default function PaymentHistory({ onClose }) {
                           fontSize: 11,
                           fontWeight: 500,
                           transition: "all .14s",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         <Icon size={11} />
@@ -639,6 +697,7 @@ export default function PaymentHistory({ onClose }) {
                           fontSize: 11,
                           fontWeight: 500,
                           transition: "all .14s",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {label}
@@ -648,7 +707,7 @@ export default function PaymentHistory({ onClose }) {
                 </div>
 
                 {/* Search */}
-                <div style={{ position: "relative", flex: 1, maxWidth: 260 }}>
+                <div style={{ position: "relative", flex: 1, maxWidth: 260, minWidth: 140 }}>
                   <Search
                     size={11}
                     style={{
@@ -770,6 +829,7 @@ export default function PaymentHistory({ onClose }) {
                     fontSize: 11,
                     color: "#888885",
                     fontFamily: "'IBM Plex Mono',monospace",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {filtered.length} event{filtered.length !== 1 ? "s" : ""}
@@ -777,6 +837,7 @@ export default function PaymentHistory({ onClose }) {
                 </span>
               </div>
               <span
+                className="ph-footer-meta"
                 style={{
                   width: 1,
                   height: 14,
@@ -784,7 +845,7 @@ export default function PaymentHistory({ onClose }) {
                   display: "block",
                 }}
               />
-              <span style={{ fontSize: 11, color: "#ADADAA" }}>
+              <span className="ph-footer-meta" style={{ fontSize: 11, color: "#ADADAA" }}>
                 {uniqueEmps} employees · {reqs.length} requests · refreshed{" "}
                 {new Date().toLocaleTimeString("en-IN", {
                   hour: "2-digit",

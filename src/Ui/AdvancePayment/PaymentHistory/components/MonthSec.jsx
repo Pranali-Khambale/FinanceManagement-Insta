@@ -4,6 +4,12 @@ import { T } from "../constants/theme";
 import { inr } from "../utils/formatters";
 import EvCard from "./EvCard";
 
+const MONTH_RESPONSIVE_CSS = `
+@media (max-width: 480px) {
+  .ph-month-hdr-btn { padding: 9px 10px !important; gap: 7px !important; }
+}
+`;
+
 export default function MonthSec({ month, rows }) {
   const [open, setOpen] = useState(true);
   const adv = rows
@@ -18,8 +24,9 @@ export default function MonthSec({ month, rows }) {
 
   return (
     <div style={{ borderBottom: "1px solid #EEEEEC" }}>
+      <style>{MONTH_RESPONSIVE_CSS}</style>
       <button
-        className="ph-btn ph-row"
+        className="ph-btn ph-row ph-month-hdr-btn"
         onClick={() => setOpen((o) => !o)}
         style={{
           width: "100%",
@@ -67,6 +74,7 @@ export default function MonthSec({ month, rows }) {
                 background: "#EEEEEC",
                 padding: "1px 6px",
                 borderRadius: 3,
+                whiteSpace: "nowrap",
               }}
             >
               {rows.length} entries
@@ -80,6 +88,7 @@ export default function MonthSec({ month, rows }) {
                   padding: "1px 6px",
                   borderRadius: 3,
                   border: `1px solid ${T.g100}`,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {done} recovered
@@ -93,19 +102,21 @@ export default function MonthSec({ month, rows }) {
                   background: T.v100,
                   padding: "1px 6px",
                   borderRadius: 3,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {upcoming} upcoming
               </span>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {adv > 0 && (
               <span
                 style={{
                   fontSize: 10,
                   color: T.a600,
                   fontFamily: "'IBM Plex Mono',monospace",
+                  whiteSpace: "nowrap",
                 }}
               >
                 ↑ {inr(adv)}
@@ -117,6 +128,7 @@ export default function MonthSec({ month, rows }) {
                   fontSize: 10,
                   color: T.r600,
                   fontFamily: "'IBM Plex Mono',monospace",
+                  whiteSpace: "nowrap",
                 }}
               >
                 ↓ {inr(ded)}
@@ -128,6 +140,7 @@ export default function MonthSec({ month, rows }) {
                 fontWeight: 600,
                 color: net >= 0 ? T.a700 : T.g600,
                 fontFamily: "'IBM Plex Mono',monospace",
+                whiteSpace: "nowrap",
               }}
             >
               Net {net >= 0 ? "+" : "−"}
@@ -138,7 +151,7 @@ export default function MonthSec({ month, rows }) {
         <ChevronDown
           size={12}
           className={`ph-chev${open ? " open" : ""}`}
-          style={{ color: "#888885" }}
+          style={{ color: "#888885", flexShrink: 0 }}
         />
       </button>
       {open && (

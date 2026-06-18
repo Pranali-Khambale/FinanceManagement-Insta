@@ -87,13 +87,13 @@ const StatsCards = () => {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (
           <div
             key={card.title}
-            className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 cursor-pointer group"
+            className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 cursor-pointer group"
             style={{
               animationDelay: `${index * 100}ms`,
               animation: "fadeInUp 0.5s ease-out forwards",
@@ -101,11 +101,11 @@ const StatsCards = () => {
             }}
           >
             {/* Icon + spinner */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
               <div
-                className={`${card.iconBg} p-2 rounded-lg group-hover:scale-110 transition-transform duration-300`}
+                className={`${card.iconBg} p-1.5 sm:p-2 rounded-lg group-hover:scale-110 transition-transform duration-300`}
               >
-                <Icon className={card.iconColor} size={18} />
+                <Icon className={card.iconColor} size={16} />
               </div>
               {loading && (
                 <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
@@ -113,21 +113,23 @@ const StatsCards = () => {
             </div>
 
             {/* Label */}
-            <p className="text-xs text-slate-500 font-medium mb-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-500 font-medium mb-0.5 truncate">
               {card.title}
             </p>
 
             {/* Value */}
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">
+            <p className="text-lg sm:text-2xl font-bold text-slate-800 tracking-tight">
               {loading ? (
-                <span className="inline-block w-8 h-6 bg-gray-200 animate-pulse rounded" />
+                <span className="inline-block w-8 h-5 sm:h-6 bg-gray-200 animate-pulse rounded" />
               ) : (
                 card.value
               )}
             </p>
 
             {/* Trend */}
-            <p className={`text-xs mt-1 ${card.trendColor}`}>{card.trend}</p>
+            <p className={`text-[11px] sm:text-xs mt-1 ${card.trendColor} truncate`}>
+              {card.trend}
+            </p>
           </div>
         );
       })}

@@ -6,6 +6,30 @@ import Av from "./Av";
 import MiniBar from "./MiniBar";
 import EvCard from "./EvCard";
 
+// `ph-detail-5` is a fixed 5-column stat strip (Advanced / Recovered /
+// Outstanding / Progress / Installments). At desktop width that's fine, but
+// 5 columns on a phone makes every number unreadable. Reflow it to a 2-col
+// grid on mobile so each stat gets enough room to breathe, and drop the
+// vertical dividers since they don't make sense once it wraps to rows.
+const EMP_RESPONSIVE_CSS = `
+@media (max-width: 640px) {
+  .ph-detail-5 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .ph-detail-5 > div {
+    border-right: none !important;
+    border-bottom: 1px solid #E3E3E0;
+  }
+  .ph-detail-5 > div:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+}
+@media (max-width: 420px) {
+  .ph-row { padding: 11px 10px !important; gap: 8px !important; }
+}
+`;
+
 export default function EmpCard({ empId, empName, empDept, rows }) {
   const [open, setOpen] = useState(false);
 
@@ -48,6 +72,7 @@ export default function EmpCard({ empId, empName, empDept, rows }) {
         boxShadow: "0 1px 3px rgba(0,0,0,.04)",
       }}
     >
+      <style>{EMP_RESPONSIVE_CSS}</style>
       <button
         className="ph-btn ph-row"
         onClick={() => setOpen((o) => !o)}
@@ -63,7 +88,7 @@ export default function EmpCard({ empId, empName, empDept, rows }) {
           transition: "background .1s",
         }}
       >
-        <Av name={empName} size={38} />
+        <Av name={empName} size={{ base: 32, sm: 38 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
@@ -74,7 +99,16 @@ export default function EmpCard({ empId, empName, empDept, rows }) {
               flexWrap: "wrap",
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#111110" }}>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#111110",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "100%",
+              }}
+            >
               {empName}
             </span>
             <span
@@ -220,6 +254,7 @@ export default function EmpCard({ empId, empName, empDept, rows }) {
                   style={{
                     padding: "11px 13px",
                     borderRight: i < 4 ? "1px solid #E3E3E0" : "none",
+                    minWidth: 0,
                   }}
                 >
                   <p
@@ -241,6 +276,7 @@ export default function EmpCard({ empId, empName, empDept, rows }) {
                       color: c,
                       fontFamily: "'IBM Plex Mono',monospace",
                       letterSpacing: "-.02em",
+                      overflowWrap: "break-word",
                     }}
                   >
                     {v}
@@ -263,6 +299,7 @@ export default function EmpCard({ empId, empName, empDept, rows }) {
                   padding: "7px 14px",
                   background: "#F9F9F8",
                   borderBottom: "1px solid #EEEEEC",
+                  flexWrap: "wrap",
                 }}
               >
                 <Calendar size={10} style={{ color: T.t400 }} />

@@ -41,17 +41,19 @@ const QuickActions = () => {
   ];
 
   return (
-    <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">Quick Actions</h2>
+    <div className="bg-white rounded-2xl p-5 sm:p-6 lg:p-8 shadow-sm border border-slate-200">
+      <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">
+        Quick Actions
+      </h2>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {actions.map((action, index) => {
           const Icon = action.icon;
           return (
             <button
               key={action.title}
               onClick={() => navigate(action.path)}
-              className="flex items-center gap-4 p-5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-300 group border border-slate-200 hover:border-slate-300 hover:shadow-md"
+              className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-300 group border border-slate-200 hover:border-slate-300 hover:shadow-md w-full text-left"
               style={{
                 animationDelay: `${index * 100 + 400}ms`,
                 animation: "fadeInUp 0.6s ease-out forwards",
@@ -59,16 +61,18 @@ const QuickActions = () => {
               }}
             >
               <div
-                className={`${action.bgColor} ${action.hoverColor} p-4 rounded-xl transition-all duration-300 group-hover:scale-110 shadow-md`}
+                className={`${action.bgColor} ${action.hoverColor} p-3 sm:p-4 rounded-xl transition-all duration-300 group-hover:scale-110 shadow-md shrink-0`}
               >
-                <Icon className="text-white" size={24} />
+                <Icon className="text-white" size={20} />
               </div>
 
-              <div className="text-left">
-                <h3 className="font-semibold text-slate-800 text-base mb-1 group-hover:text-indigo-600 transition-colors duration-200">
+              <div className="text-left min-w-0">
+                <h3 className="font-semibold text-slate-800 text-sm sm:text-base mb-0.5 sm:mb-1 group-hover:text-indigo-600 transition-colors duration-200 truncate">
                   {action.title}
                 </h3>
-                <p className="text-sm text-slate-500">{action.description}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">
+                  {action.description}
+                </p>
               </div>
             </button>
           );

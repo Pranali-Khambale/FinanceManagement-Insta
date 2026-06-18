@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { X, AlertTriangle } from "lucide-react";
 
@@ -20,15 +19,18 @@ export default function RejectReasonModal({ request, onConfirm, onClose, loading
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-3 sm:p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200
+                   max-h-[92vh] sm:max-h-[90vh] flex flex-col"
+      >
 
         {/* Header */}
-        <div className="bg-red-700 px-6 py-5 flex items-start justify-between gap-3">
+        <div className="bg-red-700 px-4 sm:px-6 py-4 sm:py-5 flex items-start justify-between gap-3 shrink-0">
           <div>
-            <h2 className="text-white font-semibold text-base">Reject request</h2>
+            <h2 className="text-white font-semibold text-sm sm:text-base">Reject request</h2>
             <p className="text-red-200 text-xs mt-0.5">
               This action cannot be undone. The employee will be notified by email.
             </p>
@@ -42,14 +44,14 @@ export default function RejectReasonModal({ request, onConfirm, onClose, loading
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 overflow-y-auto flex-1">
 
           {/* Request pill */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs text-slate-500">
             <span className="font-mono font-semibold text-slate-700">{request.request_code}</span>
-            <span>·</span>
-            <span>{request.emp_name}</span>
-            <span>·</span>
+            <span className="hidden sm:inline">·</span>
+            <span className="truncate max-w-[140px] sm:max-w-none">{request.emp_name}</span>
+            <span className="hidden sm:inline">·</span>
             <span className="font-semibold text-slate-700">
               ₹{Number(request.amount).toLocaleString("en-IN")}
             </span>
@@ -80,7 +82,7 @@ export default function RejectReasonModal({ request, onConfirm, onClose, loading
                 <button
                   key={r}
                   onClick={() => setReason(r)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                  className={`text-xs px-2.5 py-1.5 sm:py-1 rounded-full border transition-all ${
                     reason === r
                       ? "bg-red-50 border-red-300 text-red-700 font-medium"
                       : "bg-white border-slate-200 text-slate-500 hover:border-red-200 hover:text-red-600 hover:bg-red-50"
@@ -102,20 +104,20 @@ export default function RejectReasonModal({ request, onConfirm, onClose, loading
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm text-slate-600 border border-slate-200
-                       bg-white hover:bg-slate-50 transition font-medium"
+            className="px-4 py-2.5 sm:py-2 rounded-xl text-sm text-slate-600 border border-slate-200
+                       bg-white hover:bg-slate-50 transition font-medium w-full sm:w-auto"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={!reason.trim() || loading}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-white
+            className="px-4 py-2.5 sm:py-2 rounded-xl text-sm font-semibold text-white
                        bg-red-700 hover:bg-red-800 disabled:opacity-40
-                       disabled:cursor-not-allowed transition"
+                       disabled:cursor-not-allowed transition w-full sm:w-auto"
           >
             {loading ? "Rejecting…" : "Reject request"}
           </button>
