@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { X, Printer, FlipHorizontal, Upload, Loader, Move } from "lucide-react";
 
 import { BASE_URL as API_URL } from "../../../api/client";
@@ -11,6 +11,33 @@ import { addMonths, formatDate, toInputValue } from "./utils/dateUtils";
 import { uploadPhotoToDb } from "./utils/photoUtils";
 
 import { CW, CH, LOGO_SRC, SIGNATURE_SRC, VALIDITY_OPTIONS } from "./constants";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// useCardScale
+//
+// The ID card has fixed pixel dimensions (CW × CH) because every child
+// (CardFront/CardBack) uses absolute positioning calibrated to those exact
+// numbers — that's also what gets reused verbatim in the print HTML, so it
+// must stay pixel-accurate for printing.
+//
+// Instead of touching those internals, we scale the *rendered preview* down
+// with CSS transform on small screens so nothing clips or causes the modal
+// to overflow horizontally. Print output is unaffected since handlePrint
+// builds its own un-scaled HTML.
+// ─────────────────────────────────────────────────────────────────────────────
+const useCardScale = (maxWidth) => {
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const calc = () => {
+      const available = Math.min(window.innerWidth - 48, maxWidth);
+      setScale(Math.min(1, available / CW));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [maxWidth]);
+  return scale;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EmployeeIDCardModal
@@ -41,6 +68,9 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
   const [validityDate, setValidityDate] = useState(addMonths(12));
   const [selectedValidity, setSelectedValidity] = useState("1 Year");
   const [customDate, setCustomDate] = useState("");
+
+  // ── Responsive card preview scale ──────────────────────────────────────────
+  const cardScale = useCardScale(CW);
 
   // ── Photo state ────────────────────────────────────────────────────────────
   // photoProxyUrl: always points to /api/employees/:id/photo
@@ -286,6 +316,9 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
   })();
 
   // ── Styles ─────────────────────────────────────────────────────────────────
+  // NOTE: layout-critical responsive rules (panel stacking, widths, paddings)
+  // are handled via the injected <style> media queries below using the
+  // `idcard-*` class hooks, since inline styles can't express breakpoints.
   const styles = {
     overlay: {
       position: "fixed",
@@ -296,14 +329,14 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      padding: 20,
+      padding: 12,
     },
     modal: {
       background: "#ffffff",
       borderRadius: 20,
       width: 680,
-      maxWidth: "calc(100vw - 40px)",
-      maxHeight: "calc(100vh - 40px)",
+      maxWidth: "calc(100vw - 24px)",
+      maxHeight: "calc(100vh - 24px)",
       overflowY: "auto",
       display: "flex",
       flexDirection: "column",
@@ -312,30 +345,12 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
     header: {
       background: "linear-gradient(135deg,#0d47a1 0%,#1565C0 50%,#1976D2 100%)",
       borderRadius: "20px 20px 0 0",
-      padding: "20px 24px 18px",
+      padding: "16px 16px 14px",
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-    },
-    body: { display: "flex", flexDirection: "row", gap: 0, flex: 1 },
-    leftPanel: {
-      width: CW + 40,
-      minWidth: CW + 40,
-      background: "#f1f4f9",
-      borderRight: "1px solid #e5e9f0",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      padding: "28px 20px 20px",
-      gap: 16,
-    },
-    rightPanel: {
-      flex: 1,
-      padding: "24px 24px 20px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 20,
-      overflowY: "auto",
+      gap: 10,
+      flexWrap: "wrap",
     },
     sectionLabel: {
       fontSize: 10,
@@ -387,6 +402,60 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
         />
       )}
 
+      {/* Responsive layout rules — breakpoints can't be expressed via inline
+          styles, so the structural (stacking/width) behavior lives here while
+          all color/visual styling stays inline as in the original. */}
+      <style>{`
+        .idcard-body {
+          display: flex;
+          flex-direction: row;
+          gap: 0;
+          flex: 1;
+        }
+        .idcard-left {
+          width: ${CW + 40}px;
+          min-width: ${CW + 40}px;
+          background: #f1f4f9;
+          border-right: 1px solid #e5e9f0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 28px 20px 20px;
+          gap: 16px;
+        }
+        .idcard-right {
+          flex: 1;
+          min-width: 0;
+          padding: 24px 24px 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          overflow-y: auto;
+        }
+        .idcard-stage {
+          width: ${CW}px;
+          height: ${CH}px;
+        }
+        .idcard-flip-row {
+          display: flex;
+          gap: 10px;
+        }
+        @media (max-width: 720px) {
+          .idcard-body { flex-direction: column; }
+          .idcard-left {
+            width: 100%;
+            min-width: 0;
+            border-right: none;
+            border-bottom: 1px solid #e5e9f0;
+            padding: 20px 16px 18px;
+          }
+          .idcard-right { padding: 20px 16px 18px; }
+        }
+        @media (max-width: 420px) {
+          .idcard-flip-row { flex-direction: column; }
+        }
+      `}</style>
+
       <div
         onClick={(e) => e.target === e.currentTarget && onClose()}
         style={styles.overlay}
@@ -394,18 +463,18 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
         <div style={styles.modal}>
           {/* Header */}
           <div style={styles.header}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
               <div
                 style={{
-                  width: 42,
-                  height: 42,
+                  width: 38,
+                  height: 38,
                   borderRadius: "50%",
                   background: "rgba(255,255,255,0.18)",
                   border: "2px solid rgba(255,255,255,0.35)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: 700,
                   color: "#fff",
                   flexShrink: 0,
@@ -413,31 +482,36 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
               >
                 {(firstName[0] || "?").toUpperCase()}
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: 17,
+                    fontSize: 15,
                     fontWeight: 700,
                     color: "#fff",
                     lineHeight: 1.2,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   Employee ID Card
                 </div>
                 <div
                   style={{
-                    fontSize: 12,
+                    fontSize: 11,
                     color: "rgba(255,255,255,0.65)",
                     marginTop: 2,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {fullName || "—"} &nbsp;·&nbsp; {empId}
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               {designation !== "—" && (
                 <div
+                  className="idcard-designation-chip"
                   style={{
                     background: "rgba(255,255,255,0.15)",
                     border: "1px solid rgba(255,255,255,0.25)",
@@ -446,6 +520,7 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                     fontSize: 11,
                     fontWeight: 600,
                     color: "#fff",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {designation}
@@ -457,13 +532,14 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                   background: "rgba(255,255,255,0.15)",
                   border: "none",
                   borderRadius: 10,
-                  width: 34,
-                  height: 34,
+                  width: 32,
+                  height: 32,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#fff",
+                  flexShrink: 0,
                 }}
               >
                 <X size={15} />
@@ -472,9 +548,9 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
           </div>
 
           {/* Body */}
-          <div style={styles.body}>
+          <div className="idcard-body">
             {/* LEFT — card preview */}
-            <div style={styles.leftPanel}>
+            <div className="idcard-left">
               <div
                 style={{
                   display: "flex",
@@ -483,6 +559,7 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                   borderRadius: 30,
                   padding: 3,
                   width: "100%",
+                  maxWidth: CW,
                 }}
               >
                 {[
@@ -510,48 +587,63 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                 ))}
               </div>
 
-              <div style={{ perspective: 1200, width: CW, height: CH }}>
-                <div
-                  style={{
-                    width: CW,
-                    height: CH,
-                    position: "relative",
-                    transformStyle: "preserve-3d",
-                    transition: "transform 0.6s cubic-bezier(.4,0,.2,1)",
-                    transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                  }}
-                >
+              {/* Scaling wrapper: reserves the real (scaled-down) footprint
+                  via width/height so surrounding flex layout doesn't leave a
+                  gap, while the inner .idcard-stage keeps true CW×CH pixels
+                  for CardFront/CardBack's absolute-positioned children. */}
+              <div
+                style={{
+                  width: CW * cardScale,
+                  height: CH * cardScale,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <div style={{ perspective: 1200 }} className="idcard-stage">
                   <div
                     style={{
-                      position: "absolute",
-                      width: "100%",
-                      height: "100%",
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
+                      width: CW,
+                      height: CH,
+                      position: "relative",
+                      transformStyle: "preserve-3d",
+                      transition: "transform 0.6s cubic-bezier(.4,0,.2,1)",
+                      transform: `scale(${cardScale}) ${flipped ? "rotateY(180deg)" : "rotateY(0deg)"}`,
+                      transformOrigin: "center center",
                     }}
                   >
-                    <CardFront
-                      employee={employee}
-                      photoProxyUrl={photoProxyUrl}
-                      manualPhoto={manualPhoto}
-                      onUpload={handlePhotoUpload}
-                      uploading={uploadState === "uploading"}
-                      onEditClick={handleEditExisting}
-                      onPhotoMissing={handlePhotoMissing}
-                      validityDate={validityDate}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      width: "100%",
-                      height: "100%",
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
-                      transform: "rotateY(180deg)",
-                    }}
-                  >
-                    <CardBack emergencyContact={emergencyContact} />
+                    <div
+                      style={{
+                        position: "absolute",
+                        width: "100%",
+                        height: "100%",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                      }}
+                    >
+                      <CardFront
+                        employee={employee}
+                        photoProxyUrl={photoProxyUrl}
+                        manualPhoto={manualPhoto}
+                        onUpload={handlePhotoUpload}
+                        uploading={uploadState === "uploading"}
+                        onEditClick={handleEditExisting}
+                        onPhotoMissing={handlePhotoMissing}
+                        validityDate={validityDate}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        position: "absolute",
+                        width: "100%",
+                        height: "100%",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        transform: "rotateY(180deg)",
+                      }}
+                    >
+                      <CardBack emergencyContact={emergencyContact} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -564,7 +656,7 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
             </div>
 
             {/* RIGHT — controls */}
-            <div style={styles.rightPanel}>
+            <div className="idcard-right">
               {/* Photo section */}
               <div>
                 <div style={styles.sectionLabel}>Photo</div>
@@ -608,12 +700,12 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                     {statusConfig.label}
                   </span>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {hasPhoto && (
                     <button
                       onClick={handleEditExisting}
                       style={{
-                        flex: 1,
+                        flex: "1 1 120px",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -633,7 +725,7 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                   )}
                   <label
                     style={{
-                      flex: hasPhoto ? 1 : 2,
+                      flex: hasPhoto ? "1 1 120px" : "2 1 200px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -731,6 +823,8 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                     borderRadius: 10,
                     padding: "10px 14px",
                     border: "1px solid #e2e8f0",
+                    flexWrap: "wrap",
+                    gap: 6,
                   }}
                 >
                   <span
@@ -772,6 +866,8 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                         alignItems: "center",
                         padding: "9px 14px",
                         borderTop: i === 0 ? "none" : "1px solid #e2e8f0",
+                        flexWrap: "wrap",
+                        gap: 4,
                       }}
                     >
                       <span
@@ -790,6 +886,7 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                           fontSize: 13,
                           color: "#1e293b",
                           fontWeight: 500,
+                          wordBreak: "break-word",
                         }}
                       >
                         {value}
@@ -803,7 +900,7 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
 
               {/* Action buttons */}
               <div>
-                <div style={{ display: "flex", gap: 10 }}>
+                <div className="idcard-flip-row">
                   <button
                     onClick={() => setFlipped((f) => !f)}
                     style={styles.actionBtn(false)}

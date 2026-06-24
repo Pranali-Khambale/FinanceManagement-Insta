@@ -28,26 +28,26 @@ const StatusDropdown = ({ emp, onStatusChange, updatingId }) => {
   if (isPending) {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border ${
+        className={`inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border whitespace-nowrap ${
           currentStatus === "PendingRejoin" ? statusStyles.PendingRejoin : statusStyles.Pending
         }`}
       >
         {currentStatus === "PendingRejoin" ? (
-          <><RefreshCw className="w-3 h-3" /> Pending Rejoin</>
+          <><RefreshCw className="w-3 h-3 flex-shrink-0" /> <span className="hidden sm:inline">Pending Rejoin</span><span className="sm:hidden">Rejoin</span></>
         ) : (
-          <><Clock className="w-3 h-3" /> Pending Review</>
+          <><Clock className="w-3 h-3 flex-shrink-0" /> <span className="hidden sm:inline">Pending Review</span><span className="sm:hidden">Pending</span></>
         )}
       </span>
     );
   }
 
   return (
-    <div className="relative inline-flex items-center gap-1.5">
+    <div className="relative inline-flex items-center gap-1.5 w-full sm:w-auto">
       <select
         value={currentStatus}
         disabled={isUpdating}
         onChange={(e) => onStatusChange(emp, e.target.value)}
-        className={`appearance-none text-xs font-semibold px-3 py-1.5 pr-7 rounded-lg border cursor-pointer outline-none transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed ${statusStyles[currentStatus] || statusStyles.Pending}`}
+        className={`appearance-none w-full sm:w-auto text-[11px] sm:text-xs font-semibold pl-2.5 sm:px-3 py-1.5 pr-6 sm:pr-7 rounded-lg border cursor-pointer outline-none transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed min-h-[34px] sm:min-h-0 ${statusStyles[currentStatus] || statusStyles.Pending}`}
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
           backgroundRepeat: "no-repeat",

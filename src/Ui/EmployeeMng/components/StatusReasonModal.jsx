@@ -24,20 +24,20 @@ const StatusReasonModal = ({ targetStatus, employeeName, onConfirm, onCancel }) 
       };
 
   return (
-    <div className="fixed inset-0 z-[9999] backdrop-blur-sm bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className={`${config.headerBg} px-6 py-4`}>
+    <div className="fixed inset-0 z-[9999] backdrop-blur-sm bg-black/40 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
+        <div className={`${config.headerBg} px-4 sm:px-6 py-4 flex-shrink-0`}>
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{config.icon}</span>
-            <div>
-              <h3 className="text-white font-bold text-base">
+            <span className="text-2xl flex-shrink-0">{config.icon}</span>
+            <div className="min-w-0">
+              <h3 className="text-white font-bold text-sm sm:text-base">
                 Mark as {targetStatus}
               </h3>
-              <p className="text-white/80 text-xs mt-0.5">{employeeName}</p>
+              <p className="text-white/80 text-xs mt-0.5 truncate">{employeeName}</p>
             </div>
           </div>
         </div>
-        <div className="px-6 py-5">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto flex-1">
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
             {config.label}{" "}
             <span className="text-gray-400 font-normal normal-case">(optional)</span>
@@ -53,16 +53,16 @@ const StatusReasonModal = ({ targetStatus, employeeName, onConfirm, onCancel }) 
             This reason will be included in the notification email sent to the employee.
           </p>
         </div>
-        <div className="px-6 pb-5 flex gap-3 justify-end">
+        <div className="px-4 sm:px-6 pb-4 sm:pb-5 pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end flex-shrink-0">
           <button
             onClick={onCancel}
-            className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
+            className="order-2 sm:order-1 px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors w-full sm:w-auto"
           >
             Cancel
           </button>
           <button
             onClick={() => onConfirm(reason.trim() || config.defaultReason)}
-            className={`px-5 py-2.5 ${config.btnClass} text-white rounded-xl text-sm font-semibold transition-colors`}
+            className={`order-1 sm:order-2 px-5 py-2.5 ${config.btnClass} text-white rounded-xl text-sm font-semibold transition-colors w-full sm:w-auto`}
           >
             Confirm &amp; Send Email
           </button>
