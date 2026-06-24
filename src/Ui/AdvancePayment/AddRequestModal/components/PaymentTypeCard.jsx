@@ -86,6 +86,9 @@ export default function PaymentTypeCard({ pt, selected, onClick }) {
         background: selected ? pt.color + "10" : "#fafafa",
         boxShadow: selected ? `0 0 0 3px ${pt.color}20` : "none",
         transition: "all 0.15s",
+        width: "100%",
+        boxSizing: "border-box",
+        minWidth: 0,
       }}
     >
       {selected && (
@@ -124,6 +127,7 @@ export default function PaymentTypeCard({ pt, selected, onClick }) {
           alignItems: "center",
           justifyContent: "center",
           color: selected ? "#fff" : pt.color,
+          flexShrink: 0,
         }}
       >
         {PAYMENT_TYPE_ICONS[pt.key]}

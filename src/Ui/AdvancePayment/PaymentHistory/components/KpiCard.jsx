@@ -3,10 +3,20 @@ import { T } from "../constants/theme";
 import { inrK } from "../utils/formatters";
 
 const KPI_RESPONSIVE_CSS = `
-@media (max-width: 640px) {
+@media (max-width: 360px) {
+  .ph-kpi { padding: 9px 10px !important; }
+  .ph-kpi-icon { width: 24px !important; height: 24px !important; right: 7px !important; top: 7px !important; }
+  .ph-kpi-value { font-size: 16px !important; }
+}
+@media (min-width: 361px) and (max-width: 640px) {
   .ph-kpi { padding: 11px 12px !important; }
   .ph-kpi-icon { width: 28px !important; height: 28px !important; right: 9px !important; top: 9px !important; }
   .ph-kpi-value { font-size: 19px !important; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .ph-kpi { padding: 12px 14px !important; }
+  .ph-kpi-icon { width: 30px !important; height: 30px !important; }
+  .ph-kpi-value { font-size: 21px !important; }
 }
 `;
 

@@ -16,15 +16,38 @@ import Av from "./Av";
 import Chip from "./Chip";
 import InfoRow from "./InfoRow";
 
-// `ph-ev-row` is presumably a 4-up flex/grid row (avatar+name | meta | amount
-// | chevron) defined in theme.js. On mobile that's too many siblings fighting
-// for width in one line, so we let it wrap into two stacked rows: identity on
-// top, amount+chevron pinned to the right of that same top row, and the meta
-// (status chip, tags, reason) flows full-width underneath.
-// `ph-detail-4` / `ph-detail-2` (the expanded sections) reflow from
-// 4-up / 2-up to a 2-up / 1-up grid so each stat keeps enough width to read.
+
 const EV_RESPONSIVE_CSS = `
-@media (max-width: 640px) {
+@media (max-width: 360px) {
+  .ph-ev-row {
+    flex-wrap: wrap !important;
+    row-gap: 6px;
+    padding: 9px 8px !important;
+  }
+  .ph-ev-row > div:nth-child(2) {
+    order: 3;
+    flex-basis: 100%;
+    min-width: 100% !important;
+  }
+  .ph-detail-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-detail-4 > div {
+    border-right: none !important;
+    border-bottom: 1px solid #EEEEEC;
+  }
+  .ph-detail-4 > div:last-child {
+    border-bottom: none;
+  }
+  .ph-detail-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-detail-2 > div:first-child {
+    border-right: none !important;
+    border-bottom: 1px solid #EEEEEC;
+  }
+}
+@media (min-width: 361px) and (max-width: 640px) {
   .ph-ev-row {
     flex-wrap: wrap !important;
     row-gap: 8px;
@@ -52,6 +75,18 @@ const EV_RESPONSIVE_CSS = `
     border-bottom: 1px solid #EEEEEC;
   }
 }
+@media (min-width: 641px) and (max-width: 900px) {
+  .ph-detail-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .ph-detail-4 > div {
+    border-right: none !important;
+    border-bottom: 1px solid #EEEEEC;
+  }
+  .ph-detail-4 > div:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+}
 `;
 
 export default function EvCard({ r }) {
@@ -68,7 +103,14 @@ export default function EvCard({ r }) {
         style={{ background: "#fff", cursor: "pointer" }}
         onClick={() => setOpen((o) => !o)}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            minWidth: 0,
+          }}
+        >
           <Av name={r.emp_name} size={{ base: 28, sm: 32 }} />
           <div style={{ minWidth: 0 }}>
             <p

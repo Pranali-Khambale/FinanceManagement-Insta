@@ -1,18 +1,13 @@
 import { AVP } from "../constants/theme";
 import { ini } from "../utils/formatters";
 
-// `size` still works exactly as before — pass a number, get that exact pixel size.
-// New: pass a responsive size object instead, e.g. size={{ base: 24, sm: 28, lg: 32 }}
-// to have the avatar scale itself across mobile / tablet / laptop without the
-// parent needing its own media queries. Falls back to a single number for
-// backwards compatibility with existing call sites.
 export default function Av({ name, size = 28 }) {
   const { bg, fg } = AVP[(name || "?").charCodeAt(0) % AVP.length];
 
   const isResponsive = typeof size === "object" && size !== null;
-  const base = isResponsive ? size.base ?? 24 : size;
-  const sm = isResponsive ? size.sm ?? base : size;
-  const lg = isResponsive ? size.lg ?? sm : size;
+  const base = isResponsive ? (size.base ?? 24) : size;
+  const sm = isResponsive ? (size.sm ?? base) : size;
+  const lg = isResponsive ? (size.lg ?? sm) : size;
 
   // CSS custom properties carry the three breakpoint sizes; a scoped <style>
   // block (keyed by a unique class) does the actual media-query switching,
@@ -30,11 +25,25 @@ export default function Av({ name, size = 28 }) {
             height: ${base}px;
             font-size: ${base * 0.34}px;
           }
+          @media (min-width: 480px) {
+            .${cls} {
+              width: ${Math.round(base + (sm - base) * 0.5)}px;
+              height: ${Math.round(base + (sm - base) * 0.5)}px;
+              font-size: ${Math.round((base + (sm - base) * 0.5) * 0.34)}px;
+            }
+          }
           @media (min-width: 640px) {
             .${cls} {
               width: ${sm}px;
               height: ${sm}px;
               font-size: ${sm * 0.34}px;
+            }
+          }
+          @media (min-width: 768px) {
+            .${cls} {
+              width: ${Math.round(sm + (lg - sm) * 0.5)}px;
+              height: ${Math.round(sm + (lg - sm) * 0.5)}px;
+              font-size: ${Math.round((sm + (lg - sm) * 0.5) * 0.34)}px;
             }
           }
           @media (min-width: 1024px) {

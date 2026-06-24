@@ -1,13 +1,26 @@
+import { useState, useEffect } from "react";
+
 const STEP_LABELS = ["Select type", "Fill details", "Done"];
 
 export default function StepIndicator({ step, pt }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 6,
-        padding: "14px 22px 0",
+        gap: isMobile ? 4 : 6,
+        padding: isMobile ? "12px 14px 0" : "14px 22px 0",
+        flexWrap: "nowrap",
+        overflowX: "auto",
       }}
     >
       {STEP_LABELS.map((l, i) => {
@@ -17,13 +30,24 @@ export default function StepIndicator({ step, pt }) {
         return (
           <div
             key={l}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: isMobile ? 4 : 6,
+              flexShrink: 0,
+            }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: isMobile ? 4 : 5,
+              }}
+            >
               <div
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: isMobile ? 20 : 22,
+                  height: isMobile ? 20 : 22,
                   borderRadius: "50%",
                   fontSize: 10,
                   fontWeight: 700,
@@ -53,16 +77,24 @@ export default function StepIndicator({ step, pt }) {
               </div>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: isMobile ? 10 : 11,
                   fontWeight: 600,
                   color: active ? "#334155" : done ? "#64748b" : "#94a3b8",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {l}
               </span>
             </div>
             {i < STEP_LABELS.length - 1 && (
-              <div style={{ width: 20, height: 1, background: "#e2e8f0" }} />
+              <div
+                style={{
+                  width: isMobile ? 12 : 20,
+                  height: 1,
+                  background: "#e2e8f0",
+                  flexShrink: 0,
+                }}
+              />
             )}
           </div>
         );

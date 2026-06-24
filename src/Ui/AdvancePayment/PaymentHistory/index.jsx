@@ -7,11 +7,9 @@ import {
   Loader2,
   Search,
   X,
-  ChevronDown,
   Calendar,
   Users,
   Activity,
-  ArrowUpRight,
   ShieldCheck,
   Timer,
   CircleDollarSign,
@@ -37,13 +35,37 @@ if (typeof document !== "undefined" && !document.getElementById("ph-fonts")) {
   document.head.appendChild(l);
 }
 
-// Responsive overrides layered on top of the base CSS string from theme.js.
-// Kept separate so the original theme file doesn't need to be touched —
-// these rules win on cascade order since they're injected after CSS.
 const RESPONSIVE_CSS = `
+/* ── Overlay — centered on ALL devices ── */
+.ph-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.48);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* ── Modal shell — fully rounded on ALL devices ── */
+.ph-card {
+  width: 100%;
+  max-width: 680px;
+  max-height: calc(100dvh - 32px);
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+  box-shadow: 0 25px 60px rgba(0,0,0,.22);
+}
+
 /* ---------- Tablet (<=900px) ---------- */
 @media (max-width: 900px) {
-  .ph-overlay { padding: 12px; }
   .ph-card { max-width: 100%; }
   .ph-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .ph-tracker-grid { grid-template-columns: repeat(2, 1fr); }
@@ -53,10 +75,14 @@ const RESPONSIVE_CSS = `
   .ph-footer { flex-wrap: wrap; row-gap: 8px; }
 }
 
-/* ---------- Mobile (<=640px) ---------- */
+/* ---------- Mobile (<=640px) — still centered, tighter padding ── */
 @media (max-width: 640px) {
-  .ph-overlay { padding: 0; align-items: flex-end; }
-  .ph-card { max-width: 100%; max-height: 100vh; height: 100%; border-radius: 0; }
+  .ph-overlay { padding: 12px; }
+  .ph-card {
+    max-width: 100%;
+    max-height: calc(100dvh - 24px);
+    border-radius: 18px;        /* fully rounded — no bottom-sheet */
+  }
   .ph-hdr { padding: 14px 16px; }
   .ph-hdr-row { flex-wrap: wrap; row-gap: 10px; }
   .ph-hdr-title { font-size: 15px !important; }
@@ -66,19 +92,22 @@ const RESPONSIVE_CSS = `
   .ph-tracker-grid { grid-template-columns: repeat(2, 1fr); }
   .ph-tracker-grid > div { border-right: none !important; border-bottom: 1px solid #EEEEEC; }
   .ph-tracker-grid > div:nth-last-child(-n+2) { border-bottom: none; }
-  .ph-toolbar { padding: 10px; }
+  .ph-toolbar { padding: 10px; flex-wrap: wrap; row-gap: 8px; }
   .ph-toolbar > div { font-size: 11px; }
   .ph-tab { padding: 6px 9px !important; font-size: 10px !important; }
   .ph-sc { max-height: 160px !important; }
-  .ph-footer { padding: 10px 12px; }
+  .ph-footer { padding: 10px 12px; flex-wrap: wrap; row-gap: 8px; }
   .ph-footer-meta { display: none; }
-  .ph-footer button { width: 100%; }
+  .ph-footer button { width: 100%; justify-content: center; }
   .ph-footer > div:first-child { width: 100%; justify-content: space-between; }
+  .ph-search-wrap { flex: 1 1 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .ph-filter-row { width: 100%; justify-content: space-between; }
 }
 
 /* ---------- Small mobile (<=400px) ---------- */
 @media (max-width: 400px) {
   .ph-kpi-grid { grid-template-columns: 1fr; }
+  .ph-tab { padding: 5px 7px !important; font-size: 9px !important; }
 }
 `;
 
@@ -249,7 +278,14 @@ export default function PaymentHistory({ onClose }) {
                 justifyContent: "space-between",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 13, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 13,
+                  minWidth: 0,
+                }}
+              >
                 <div
                   style={{
                     width: 42,
@@ -294,7 +330,14 @@ export default function PaymentHistory({ onClose }) {
                   </p>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexShrink: 0,
+                }}
+              >
                 <button
                   className="ph-btn"
                   onClick={load}
@@ -359,10 +402,11 @@ export default function PaymentHistory({ onClose }) {
                   fontSize: 12,
                   color: T.r700,
                   flexShrink: 0,
+                  flexWrap: "wrap",
                 }}
               >
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span style={{ flex: 1 }}>{error}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>{error}</span>
                 <button
                   className="ph-btn"
                   onClick={load}
@@ -374,6 +418,7 @@ export default function PaymentHistory({ onClose }) {
                     borderRadius: 5,
                     background: T.r100,
                     border: `1px solid ${T.r300}`,
+                    flexShrink: 0,
                   }}
                 >
                   Retry
@@ -436,6 +481,7 @@ export default function PaymentHistory({ onClose }) {
                     padding: "11px 14px",
                     borderBottom: "1px solid #EEEEEC",
                     flexWrap: "wrap",
+                    rowGap: 6,
                   }}
                 >
                   <TrendingUp
@@ -457,6 +503,7 @@ export default function PaymentHistory({ onClose }) {
                       fontFamily: "'IBM Plex Mono',monospace",
                       color:
                         recPct >= 75 ? T.g600 : recPct >= 40 ? T.a600 : T.r600,
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {recPct}% recovered
@@ -565,7 +612,13 @@ export default function PaymentHistory({ onClose }) {
                   }}
                 >
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      rowGap: 4,
+                    }}
                   >
                     <CheckCircle2 size={14} style={{ color: T.g500 }} />
                     <span
@@ -585,7 +638,13 @@ export default function PaymentHistory({ onClose }) {
                     </span>
                   </div>
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 10 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      rowGap: 4,
+                    }}
                   >
                     <span style={{ fontSize: 10, color: "#888885" }}>
                       Total approved amount
@@ -634,6 +693,7 @@ export default function PaymentHistory({ onClose }) {
                     borderRadius: 7,
                     padding: 2,
                     gap: 1,
+                    flexShrink: 0,
                   }}
                 >
                   {[
@@ -676,6 +736,7 @@ export default function PaymentHistory({ onClose }) {
                     borderRadius: 7,
                     padding: 2,
                     gap: 1,
+                    flexShrink: 0,
                   }}
                 >
                   {[
@@ -707,7 +768,15 @@ export default function PaymentHistory({ onClose }) {
                 </div>
 
                 {/* Search */}
-                <div style={{ position: "relative", flex: 1, maxWidth: 260, minWidth: 140 }}>
+                <div
+                  className="ph-search-wrap"
+                  style={{
+                    position: "relative",
+                    flex: 1,
+                    maxWidth: 260,
+                    minWidth: 140,
+                  }}
+                >
                   <Search
                     size={11}
                     style={{
@@ -738,6 +807,7 @@ export default function PaymentHistory({ onClose }) {
                       color: "#111110",
                       fontFamily: "'IBM Plex Sans',system-ui,sans-serif",
                       transition: "border-color .14s,box-shadow .14s",
+                      boxSizing: "border-box",
                     }}
                   />
                   {search && (
@@ -775,6 +845,7 @@ export default function PaymentHistory({ onClose }) {
                       fontSize: 10,
                       color: "#888885",
                       whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
                     {filtered.length} event{filtered.length !== 1 ? "s" : ""}
@@ -812,7 +883,15 @@ export default function PaymentHistory({ onClose }) {
 
           {/* ── FOOTER ── */}
           <div className="ph-footer">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                minWidth: 0,
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <span
                   style={{
@@ -822,6 +901,7 @@ export default function PaymentHistory({ onClose }) {
                     background: T.g300,
                     display: "block",
                     animation: "pulse 2s ease-in-out infinite",
+                    flexShrink: 0,
                   }}
                 />
                 <span
@@ -843,9 +923,13 @@ export default function PaymentHistory({ onClose }) {
                   height: 14,
                   background: "#E3E3E0",
                   display: "block",
+                  flexShrink: 0,
                 }}
               />
-              <span className="ph-footer-meta" style={{ fontSize: 11, color: "#ADADAA" }}>
+              <span
+                className="ph-footer-meta"
+                style={{ fontSize: 11, color: "#ADADAA" }}
+              >
                 {uniqueEmps} employees · {reqs.length} requests · refreshed{" "}
                 {new Date().toLocaleTimeString("en-IN", {
                   hour: "2-digit",
@@ -864,6 +948,7 @@ export default function PaymentHistory({ onClose }) {
                 color: "#4A4845",
                 fontSize: 12,
                 fontWeight: 500,
+                flexShrink: 0,
               }}
             >
               Close

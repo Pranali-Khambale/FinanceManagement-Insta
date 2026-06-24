@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Plus } from "lucide-react";
 import { PAYMENT_TYPES } from "../../../data/content";
@@ -13,9 +14,19 @@ const MODAL_STYLES = `
   @keyframes popIn  { 0%{transform:scale(.7);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
   @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes modalIn { from{opacity:0;transform:translateY(-12px) scale(.98)} to{opacity:1;transform:translateY(0) scale(1)} }
 `;
 
 export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   const {
     step,
     setStep,
@@ -40,37 +51,45 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
   const modalContent = (
     <>
       <style>{MODAL_STYLES}</style>
+
+      {/* ── Overlay: always centered, scrollable on mobile ── */}
       <div
         style={{
           position: "fixed",
           inset: 0,
           zIndex: 9999,
           display: "flex",
-          alignItems: "center",
+          alignItems: "center", // centered on ALL devices
           justifyContent: "center",
-          background: "rgba(0,0,0,.5)",
+          background: "rgba(0,0,0,.45)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
-          padding: 16,
+          padding: isMobile ? "16px" : "24px 16px", // breathing room on mobile
+          overflowY: "auto", // allows scroll if content is taller than viewport
+          boxSizing: "border-box",
         }}
       >
+        {/* ── Modal panel ── */}
         <div
           style={{
             background: "#fff",
-            borderRadius: 18,
+            borderRadius: 18, // fully rounded on ALL devices
             width: "100%",
             maxWidth: 520,
             boxShadow: "0 25px 60px rgba(0,0,0,.2)",
             display: "flex",
             flexDirection: "column",
-            maxHeight: "90vh",
+            maxHeight: isMobile ? "calc(100dvh - 32px)" : "88vh", // safe on mobile
             overflow: "hidden",
+            animation: "modalIn .22s ease both",
+            margin: "auto", // ensures centering inside scrollable overlay
           }}
         >
+          {/* ── Header ── */}
           {step < 3 && (
             <div
               style={{
-                padding: "18px 22px",
+                padding: isMobile ? "14px 16px" : "18px 22px",
                 borderBottom: "1px solid #f1f5f9",
                 display: "flex",
                 alignItems: "center",
@@ -81,22 +100,23 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
                   style={{
-                    width: 36,
-                    height: 36,
+                    width: isMobile ? 32 : 36,
+                    height: isMobile ? 32 : 36,
                     borderRadius: 9,
                     background: pt.color + "15",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
-                  <Plus size={16} color={pt.color} />
+                  <Plus size={isMobile ? 14 : 16} color={pt.color} />
                 </div>
                 <div>
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 14,
+                      fontSize: isMobile ? 13 : 14,
                       fontWeight: 700,
                       color: "#1e293b",
                     }}
@@ -129,6 +149,7 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#94a3b8",
+                  flexShrink: 0,
                 }}
               >
                 <X size={14} />
@@ -136,13 +157,22 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
             </div>
           )}
 
+          {/* ── Step indicator ── */}
           {step < 3 && <StepIndicator step={step} pt={pt} />}
 
+          {/* ── Scrollable body ── */}
           <div
             style={{
               overflowY: "auto",
               flex: 1,
-              padding: step === 3 ? "32px 26px 12px" : "18px 22px",
+              padding:
+                step === 3
+                  ? isMobile
+                    ? "24px 16px 12px"
+                    : "32px 26px 12px"
+                  : isMobile
+                    ? "14px 16px"
+                    : "18px 22px",
             }}
           >
             {step === 1 && (
@@ -169,9 +199,10 @@ export default function AddRequestModal({ onClose, onAdd, linkToken = null }) {
             )}
           </div>
 
+          {/* ── Footer ── */}
           <div
             style={{
-              padding: "14px 22px 18px",
+              padding: isMobile ? "12px 16px 16px" : "14px 22px 18px",
               borderTop: step === 3 ? "none" : "1px solid #f1f5f9",
               background: "#fff",
               display: "flex",

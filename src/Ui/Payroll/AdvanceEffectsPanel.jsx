@@ -1,8 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import payrollService from "../../services/payrollService";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtINR(val) {
   const v = Number(val);
   if (!isFinite(v)) return "₹0.00";
@@ -31,26 +29,11 @@ const EFFECT_LABEL = {
 };
 
 const TYPE_META = {
-  org_to_emp: {
-    label: "Org → Employee",
-    bg: "#EFF6FF",
-    color: "#1D4ED8",
-  },
-  emp_to_emp: {
-    label: "Employee → Employee",
-    bg: "#F5F3FF",
-    color: "#6D28D9",
-  },
-  other: {
-    label: "External / Vendor",
-    bg: "#FFFBEB",
-    color: "#B45309",
-  },
+  org_to_emp: { label: "Org → Employee", bg: "#EFF6FF", color: "#1D4ED8" },
+  emp_to_emp: { label: "Employee → Employee", bg: "#F5F3FF", color: "#6D28D9" },
+  other: { label: "External / Vendor", bg: "#FFFBEB", color: "#B45309" },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AdvanceEffectRow
-// ─────────────────────────────────────────────────────────────────────────────
 function AdvanceEffectRow({ effect }) {
   const effectCfg = EFFECT_LABEL[effect.effect_type] || EFFECT_LABEL.deduction;
   const typeMeta = TYPE_META[effect.payment_type_key] || TYPE_META.org_to_emp;
@@ -69,7 +52,6 @@ function AdvanceEffectRow({ effect }) {
         marginBottom: 6,
       }}
     >
-      {/* Left — type + reason */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -77,9 +59,9 @@ function AdvanceEffectRow({ effect }) {
             alignItems: "center",
             gap: 6,
             marginBottom: 3,
+            flexWrap: "wrap",
           }}
         >
-          {/* Type pill */}
           <span
             style={{
               fontSize: 10,
@@ -95,7 +77,6 @@ function AdvanceEffectRow({ effect }) {
           >
             {typeMeta.label}
           </span>
-          {/* Request code */}
           <span
             style={{ fontSize: 11, color: "#64748B", fontFamily: "monospace" }}
           >
@@ -115,10 +96,7 @@ function AdvanceEffectRow({ effect }) {
         >
           {effect.reason || "—"}
         </p>
-        {/* ── desc line removed ── */}
       </div>
-
-      {/* Right — effect badge + amount */}
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <span
           style={{
@@ -151,9 +129,6 @@ function AdvanceEffectRow({ effect }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AdvanceEffectsPanel
-// ─────────────────────────────────────────────────────────────────────────────
 export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -186,11 +161,12 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
         inset: 0,
         zIndex: 60,
         display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "flex-end",
-        background: "rgba(0,0,0,0.3)",
-        backdropFilter: "blur(2px)",
-        padding: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.35)",
+        backdropFilter: "blur(3px)",
+        WebkitBackdropFilter: "blur(3px)",
+        padding: "16px",
       }}
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
     >
@@ -200,17 +176,18 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
           borderRadius: 16,
           width: "100%",
           maxWidth: 480,
-          maxHeight: "85vh",
+          // 88dvh uses dynamic viewport height; falls back to vh
+          maxHeight: "min(88dvh, 88vh)",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
           overflow: "hidden",
         }}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div
           style={{
-            padding: "16px 20px",
+            padding: "14px 16px",
             borderBottom: "1px solid #F1F5F9",
             display: "flex",
             alignItems: "center",
@@ -233,13 +210,15 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
               {forMonth}
             </p>
           </div>
+          {/* 44×44 tap target */}
           <button
             onClick={onClose}
             style={{
-              width: 28,
-              height: 28,
+              width: 44,
+              height: 44,
+              margin: "-8px -8px -8px 0",
+              borderRadius: 9,
               border: "1px solid #E2E8F0",
-              borderRadius: 7,
               background: "#FAFAFA",
               cursor: "pointer",
               fontSize: 14,
@@ -253,8 +232,16 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
           </button>
         </div>
 
-        {/* Body */}
-        <div style={{ overflowY: "auto", flex: 1, padding: "16px 20px" }}>
+        {/* ── Body ── */}
+        <div
+          style={{
+            overflowY: "auto",
+            flex: 1,
+            padding: "14px 16px",
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+          }}
+        >
           {loading && (
             <div
               style={{
@@ -294,13 +281,17 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
           )}
           {!loading && !error && effects.length > 0 && (
             <>
-              {/* Summary strip */}
+              {/*
+                Summary grid:
+                - "repeat(auto-fit, minmax(120px, 1fr))" wraps gracefully on
+                  narrow phones — 3 columns when wide enough, 1–2 when not.
+              */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3,1fr)",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
                   gap: 8,
-                  marginBottom: 16,
+                  marginBottom: 14,
                 }}
               >
                 {[
@@ -329,7 +320,7 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
                     key={s.label}
                     style={{
                       padding: "10px 12px",
-                      borderRadius: 8,
+                      borderRadius: 10,
                       background: s.bg,
                     }}
                   >
@@ -358,13 +349,17 @@ export default function AdvanceEffectsPanel({ employeeId, forMonth, onClose }) {
                 ))}
               </div>
 
-              {/* Effect rows */}
               {effects.map((e, i) => (
                 <AdvanceEffectRow key={e.deduction_id || i} effect={e} />
               ))}
             </>
           )}
         </div>
+
+        {/* ── Footer safe-area padding ── */}
+        <div
+          style={{ height: "env(safe-area-inset-bottom, 0px)", flexShrink: 0 }}
+        />
       </div>
     </div>
   );

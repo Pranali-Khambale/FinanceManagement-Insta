@@ -1,8 +1,18 @@
+import { useState, useEffect } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Field, Inp } from "./FormPrimitives";
 import { SectionDivider } from "./SummaryComponents";
 
 export default function ApprovedPersonSection({ form, errors, set }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <>
       <SectionDivider
@@ -10,7 +20,13 @@ export default function ApprovedPersonSection({ form, errors, set }) {
         color="#7c3aed"
         icon={<ShieldCheck size={10} />}
       />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 10,
+        }}
+      >
         <Field label="Approver name" required error={errors.approverName}>
           <Inp
             placeholder="Ramesh Iyer"

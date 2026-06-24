@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { CheckCircle2, ShieldCheck, FileImage } from "lucide-react";
 import { SRow } from "./SummaryComponents";
 import TypeIcon from "./TypeIcon";
@@ -13,6 +14,7 @@ function StatusBadge({ label }) {
         borderRadius: 99,
         background: "#EAF3DE",
         border: "0.5px solid #97C459",
+        flexShrink: 0,
       }}
     >
       <div
@@ -31,6 +33,15 @@ function StatusBadge({ label }) {
 }
 
 export default function Step3Success({ result, pt, ptKey }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <div
       style={{
@@ -58,7 +69,7 @@ export default function Step3Success({ result, pt, ptKey }) {
       <p
         style={{
           margin: 0,
-          fontSize: 18,
+          fontSize: isMobile ? 16 : 18,
           fontWeight: 700,
           color: "#1e293b",
           textAlign: "center",
@@ -70,7 +81,7 @@ export default function Step3Success({ result, pt, ptKey }) {
       <p
         style={{
           margin: "8px 0 0",
-          fontSize: 13,
+          fontSize: isMobile ? 12 : 13,
           color: "#64748b",
           lineHeight: 1.7,
           textAlign: "center",
@@ -121,10 +132,12 @@ export default function Step3Success({ result, pt, ptKey }) {
           style={{
             background: pt.color + "0d",
             borderBottom: `0.5px solid ${pt.color}20`,
-            padding: "11px 16px",
+            padding: isMobile ? "10px 12px" : "11px 16px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 8,
+            flexWrap: "wrap",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -137,6 +150,7 @@ export default function Step3Success({ result, pt, ptKey }) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                flexShrink: 0,
               }}
             >
               <TypeIcon ptKey={ptKey} color={pt.color} size={15} />
@@ -160,7 +174,12 @@ export default function Step3Success({ result, pt, ptKey }) {
           <StatusBadge label="Pending approval" />
         </div>
 
-        <div style={{ padding: "12px 16px 14px", background: "#f8fafc" }}>
+        <div
+          style={{
+            padding: isMobile ? "10px 12px 12px" : "12px 16px 14px",
+            background: "#f8fafc",
+          }}
+        >
           <SRow label="Request ID" value={result.id} mono />
 
           {result.paymentType === "org_to_vendor" ? (
@@ -250,12 +269,19 @@ export default function Step3Success({ result, pt, ptKey }) {
               marginTop: 11,
               paddingTop: 11,
               borderTop: `1.5px solid ${pt.color}22`,
+              gap: 8,
             }}
           >
             <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>
               Total amount
             </span>
-            <span style={{ fontSize: 20, fontWeight: 700, color: pt.color }}>
+            <span
+              style={{
+                fontSize: isMobile ? 17 : 20,
+                fontWeight: 700,
+                color: pt.color,
+              }}
+            >
               ₹ {Number(result.amount).toLocaleString("en-IN")}
             </span>
           </div>
@@ -264,7 +290,7 @@ export default function Step3Success({ result, pt, ptKey }) {
         {result.screenshotName && (
           <div
             style={{
-              padding: "9px 16px",
+              padding: isMobile ? "8px 12px" : "9px 16px",
               borderTop: "0.5px solid #e8edf2",
               background: "#fff",
               display: "flex",
