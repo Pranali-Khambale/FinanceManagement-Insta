@@ -1,7 +1,7 @@
     import React, { useState, useCallback } from "react";
     import { Routes, Route, Navigate } from "react-router-dom";
     import EmployeeDashboard from "../Ui/EmployeeMng/DashboardEmp";
-    import PendingApprovals from "../Ui/EmployeeMng/PendingApprovals";
+   import PendingApprovals from "../Ui/EmployeeMng/PendingApprovals";
     import { SubmittedDocsPanel } from "../Ui/EmployeeMng/SubmittedDocsPanel";
 
     // ─── Inline Toast (no extra dependency needed) ────────────────────────────────

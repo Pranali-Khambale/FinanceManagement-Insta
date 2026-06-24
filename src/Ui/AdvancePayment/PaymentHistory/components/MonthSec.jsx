@@ -5,7 +5,11 @@ import { inr } from "../utils/formatters";
 import EvCard from "./EvCard";
 
 const MONTH_RESPONSIVE_CSS = `
-@media (max-width: 480px) {
+@media (max-width: 360px) {
+  .ph-month-hdr-btn { padding: 7px 8px !important; gap: 5px !important; }
+  .ph-month-cal-icon { width: 22px !important; height: 22px !important; }
+}
+@media (min-width: 361px) and (max-width: 480px) {
   .ph-month-hdr-btn { padding: 9px 10px !important; gap: 7px !important; }
 }
 `;
@@ -41,6 +45,7 @@ export default function MonthSec({ month, rows }) {
         }}
       >
         <div
+          className="ph-month-cal-icon"
           style={{
             width: 28,
             height: 28,
@@ -109,7 +114,14 @@ export default function MonthSec({ month, rows }) {
               </span>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              flexWrap: "wrap",
+            }}
+          >
             {adv > 0 && (
               <span
                 style={{

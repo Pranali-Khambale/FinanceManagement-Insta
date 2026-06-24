@@ -5,13 +5,34 @@ import { inr, fmtD, daysDiff } from "../utils/formatters";
 import Av from "./Av";
 import Chip from "./Chip";
 
-// `ph-row` is a flex row (avatar+name | amount | chip | chevron). At mobile
-// width the amount/chip pair crowds out the name. Wrap the row and pin the
-// amount block to the right while letting the chip drop beneath it, and let
-// the bottom detail grid reflow to a single column so dates/labels aren't
-// squeezed three-across on a phone.
+
 const REQ_RESPONSIVE_CSS = `
-@media (max-width: 640px) {
+@media (max-width: 360px) {
+  .ph-req-row {
+    flex-wrap: wrap !important;
+    row-gap: 6px;
+    padding: 9px 8px !important;
+  }
+  .ph-req-row > div:first-of-type {
+    flex-basis: 100%;
+    order: 1;
+  }
+  .ph-detail-3 {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-detail-3 > div {
+    border-right: none !important;
+    border-bottom: 1px solid #EEEEEC;
+  }
+  .ph-detail-3 > div:last-child {
+    border-bottom: none;
+  }
+  .ph-req-bottom-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+@media (min-width: 361px) and (max-width: 640px) {
   .ph-req-row {
     flex-wrap: wrap !important;
     row-gap: 8px;
@@ -30,6 +51,11 @@ const REQ_RESPONSIVE_CSS = `
   }
   .ph-req-bottom-grid {
     grid-template-columns: 1fr !important;
+  }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .ph-detail-3 {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }
 `;
@@ -55,7 +81,15 @@ export default function ReqRow({ req }) {
           transition: "background .1s",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
           <Av name={req.emp_name} size={{ base: 26, sm: 30 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <p
@@ -192,7 +226,14 @@ export default function ReqRow({ req }) {
                     {l}
                   </p>
                 </div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "#323130", overflowWrap: "break-word" }}>
+                <p
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#323130",
+                    overflowWrap: "break-word",
+                  }}
+                >
                   {v}
                 </p>
               </div>
@@ -220,7 +261,14 @@ export default function ReqRow({ req }) {
               >
                 Reason
               </p>
-              <p style={{ fontSize: 12, color: "#323130", lineHeight: 1.5, overflowWrap: "break-word" }}>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "#323130",
+                  lineHeight: 1.5,
+                  overflowWrap: "break-word",
+                }}
+              >
                 {req.reason || "—"}
               </p>
             </div>
@@ -237,7 +285,14 @@ export default function ReqRow({ req }) {
               >
                 Employee
               </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  minWidth: 0,
+                }}
+              >
                 <Av name={req.emp_name} size={24} />
                 <div style={{ minWidth: 0 }}>
                   <p

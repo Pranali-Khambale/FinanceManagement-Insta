@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Upload, CheckCircle2, FileImage, AlertCircle } from "lucide-react";
 
 export function ScreenshotUpload({
@@ -7,6 +8,15 @@ export function ScreenshotUpload({
   errors,
   onChange,
 }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <div>
       <p
@@ -20,6 +30,7 @@ export function ScreenshotUpload({
           display: "flex",
           alignItems: "center",
           gap: 6,
+          flexWrap: "wrap",
         }}
       >
         Payment screenshot <span style={{ color: "#ef4444" }}>*</span>
@@ -42,8 +53,8 @@ export function ScreenshotUpload({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
-          padding: "12px 14px",
+          gap: isMobile ? 8 : 12,
+          padding: isMobile ? "10px 10px" : "12px 14px",
           borderRadius: 10,
           border: `1.5px ${screenshotName ? "solid" : "dashed"} ${errors.screenshot ? "#fca5a5" : screenshotName ? pt.color : "#cbd5e1"}`,
           background: screenshotName ? pt.color + "08" : "#fafafa",
@@ -56,8 +67,8 @@ export function ScreenshotUpload({
             src={screenshotPreview}
             alt=""
             style={{
-              width: 48,
-              height: 48,
+              width: isMobile ? 38 : 48,
+              height: isMobile ? 38 : 48,
               borderRadius: 8,
               objectFit: "cover",
               flexShrink: 0,
@@ -67,8 +78,8 @@ export function ScreenshotUpload({
         ) : (
           <div
             style={{
-              width: 40,
-              height: 40,
+              width: isMobile ? 34 : 40,
+              height: isMobile ? 34 : 40,
               borderRadius: 9,
               background: errors.screenshot ? "#fef2f2" : "#f1f5f9",
               display: "flex",
@@ -78,7 +89,7 @@ export function ScreenshotUpload({
             }}
           >
             <FileImage
-              size={18}
+              size={isMobile ? 15 : 18}
               color={errors.screenshot ? "#ef4444" : "#94a3b8"}
             />
           </div>
@@ -108,7 +119,7 @@ export function ScreenshotUpload({
               <p
                 style={{
                   margin: 0,
-                  fontSize: 13,
+                  fontSize: isMobile ? 12 : 13,
                   fontWeight: 600,
                   color: "#64748b",
                 }}
@@ -129,14 +140,15 @@ export function ScreenshotUpload({
               display: "flex",
               alignItems: "center",
               gap: 5,
-              padding: "6px 10px",
+              padding: isMobile ? "5px 8px" : "6px 10px",
               borderRadius: 7,
               border: `1px solid ${pt.color}44`,
               color: pt.color,
-              fontSize: 12,
+              fontSize: isMobile ? 11 : 12,
               fontWeight: 600,
               background: "#fff",
               flexShrink: 0,
+              whiteSpace: "nowrap",
             }}
           >
             <Upload size={11} /> Browse
@@ -168,6 +180,15 @@ export function ScreenshotUpload({
 }
 
 export function ProofUpload({ pt, proofName, onChange }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <div>
       <p
@@ -196,8 +217,8 @@ export function ProofUpload({ pt, proofName, onChange }) {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
-          padding: "11px 14px",
+          gap: isMobile ? 8 : 12,
+          padding: isMobile ? "10px 10px" : "11px 14px",
           borderRadius: 10,
           border: `1.5px dashed ${proofName ? pt.color : "#e2e8f0"}`,
           background: "#fafafa",
@@ -207,8 +228,8 @@ export function ProofUpload({ pt, proofName, onChange }) {
       >
         <div
           style={{
-            width: 36,
-            height: 36,
+            width: isMobile ? 30 : 36,
+            height: isMobile ? 30 : 36,
             borderRadius: 8,
             background: proofName ? pt.color + "15" : "#f1f5f9",
             display: "flex",
@@ -217,7 +238,10 @@ export function ProofUpload({ pt, proofName, onChange }) {
             flexShrink: 0,
           }}
         >
-          <Upload size={15} color={proofName ? pt.color : "#94a3b8"} />
+          <Upload
+            size={isMobile ? 13 : 15}
+            color={proofName ? pt.color : "#94a3b8"}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {proofName ? (
@@ -244,7 +268,7 @@ export function ProofUpload({ pt, proofName, onChange }) {
               <p
                 style={{
                   margin: 0,
-                  fontSize: 13,
+                  fontSize: isMobile ? 12 : 13,
                   fontWeight: 500,
                   color: "#64748b",
                 }}

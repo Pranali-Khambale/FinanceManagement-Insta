@@ -10,11 +10,11 @@ import {
 import AddEmployeeWizard      from "./AddEmp";
 import PublicLinkModal        from "./GenerateLink";
 import ImportExcelModal       from "./EmployeeExcel";
-import ViewEmployee           from "./ViewEmployee";
+import ViewEmployee from "./ViewEmployee";
 import EditEmployee           from "./EditEmployee";
 import CombinedActivityLog    from "./Combinedactivitylogo";
-import EmployeeIDCardModal from "./EmployeeIDCard/index.jsx";
-import { DocsModal }          from "./ReviewedDocsSections";
+import EmployeeIDCardModal from "./EmployeeIDCard/index";
+import ReviewedDocsSection, { DocsModal } from "./ReviewedDocsSection";
 
 // ── Split components ──────────────────────────────────────────────────────────
 import EmployeeAvatar         from "./components/EmployeeAvatar";

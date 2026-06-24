@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { AlertCircle } from "lucide-react";
 import { Field, Inp } from "./FormPrimitives";
 import { SectionDivider } from "./SummaryComponents";
@@ -45,6 +46,15 @@ function TextareaField({ value, onChange, placeholder, error }) {
 }
 
 function OrgToVendorFields({ form, errors, set }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <>
       <p
@@ -59,7 +69,13 @@ function OrgToVendorFields({ form, errors, set }) {
       >
         Vendor details
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 10,
+        }}
+      >
         <Field label="Vendor name" required error={errors.toVendorName}>
           <Inp
             placeholder="Acme Supplies Pvt Ltd"
@@ -109,6 +125,15 @@ function OrgToVendorFields({ form, errors, set }) {
 }
 
 function EmployeeFields({ ptKey, pt, form, errors, set }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <>
       <p
@@ -123,7 +148,13 @@ function EmployeeFields({ ptKey, pt, form, errors, set }) {
       >
         {ptKey === "emp_to_emp" ? "Requesting employee" : "Employee details"}
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 10,
+        }}
+      >
         <Field label="Employee ID" required error={errors.empId}>
           <Inp
             placeholder="Insta-260401"
@@ -164,7 +195,11 @@ function EmployeeFields({ ptKey, pt, form, errors, set }) {
         <>
           <SectionDivider label="Recipient employee" color={pt.color} />
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 10,
+            }}
           >
             <Field label="Recipient emp ID" required error={errors.toEmpId}>
               <Inp
@@ -198,7 +233,11 @@ function EmployeeFields({ ptKey, pt, form, errors, set }) {
         <>
           <SectionDivider label="Vendor / external" color={pt.color} />
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 10,
+            }}
           >
             <Field label="Vendor name" required error={errors.vendorName}>
               <Inp

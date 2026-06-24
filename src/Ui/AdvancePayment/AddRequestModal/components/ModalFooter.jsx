@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
 
 export default function ModalFooter({
@@ -8,18 +9,27 @@ export default function ModalFooter({
   setStep,
   submit,
 }) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 480,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   if (step === 3) {
     return (
       <button
         onClick={onClose}
         style={{
           flex: 1,
-          padding: "11px 16px",
+          padding: isMobile ? "10px 12px" : "11px 16px",
           borderRadius: 10,
           border: `1.5px solid ${pt.color}40`,
           background: pt.color + "0e",
           color: pt.color,
-          fontSize: 13,
+          fontSize: isMobile ? 12 : 13,
           fontWeight: 700,
           cursor: "pointer",
           animation: "fadeUp .3s ease .6s both",
@@ -36,14 +46,15 @@ export default function ModalFooter({
         onClick={onClose}
         disabled={submitting}
         style={{
-          padding: "10px 14px",
+          padding: isMobile ? "9px 10px" : "10px 14px",
           borderRadius: 9,
           border: "1.5px solid #e2e8f0",
           background: "#fff",
           color: "#64748b",
-          fontSize: 13,
+          fontSize: isMobile ? 12 : 13,
           fontWeight: 600,
           cursor: "pointer",
+          whiteSpace: "nowrap",
         }}
       >
         Cancel
@@ -53,14 +64,15 @@ export default function ModalFooter({
           onClick={() => setStep(1)}
           disabled={submitting}
           style={{
-            padding: "10px 14px",
+            padding: isMobile ? "9px 10px" : "10px 14px",
             borderRadius: 9,
             border: "1.5px solid #e2e8f0",
             background: "#fff",
             color: "#64748b",
-            fontSize: 13,
+            fontSize: isMobile ? 12 : 13,
             fontWeight: 600,
             cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
         >
           ← Back
@@ -75,15 +87,16 @@ export default function ModalFooter({
           alignItems: "center",
           justifyContent: "center",
           gap: 6,
-          padding: "10px 16px",
+          padding: isMobile ? "9px 12px" : "10px 16px",
           borderRadius: 9,
           border: "none",
           background: submitting ? "#cbd5e1" : pt.color,
           color: submitting ? "#94a3b8" : "#fff",
-          fontSize: 13,
+          fontSize: isMobile ? 12 : 13,
           fontWeight: 700,
           cursor: submitting ? "not-allowed" : "pointer",
           boxShadow: submitting ? "none" : `0 4px 14px ${pt.color}40`,
+          whiteSpace: "nowrap",
         }}
       >
         {submitting ? (

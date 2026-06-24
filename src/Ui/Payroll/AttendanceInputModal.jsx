@@ -232,10 +232,86 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
         .aim-scroll::-webkit-scrollbar-track { background: transparent; }
         .aim-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
         .aim-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* ── Mobile card layout ── */
+        @media (max-width: 600px) {
+          .aim-card {
+            border-radius: 16px 16px 0 0 !important;
+            max-height: 96dvh !important;
+            max-height: 96vh !important;
+          }
+          .aim-overlay {
+            align-items: flex-end !important;
+            padding: 0 !important;
+          }
+          .aim-header { padding: 14px 16px !important; }
+          .aim-body-pad { padding: 14px 16px 0 !important; }
+          .aim-table-wrap { padding: 4px 0 8px !important; }
+          .aim-footer { padding: 12px 16px !important; }
+          .aim-import-zone {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+          .aim-import-btns {
+            width: 100%;
+            justify-content: stretch !important;
+          }
+          .aim-import-btns label,
+          .aim-import-btns button {
+            flex: 1;
+            justify-content: center !important;
+          }
+          .aim-quick-days { gap: 6px !important; }
+          /* Card rows instead of table on very small screens */
+          .aim-table { display: none !important; }
+          .aim-card-list { display: block !important; }
+        }
+        @media (min-width: 601px) {
+          .aim-card-list { display: none !important; }
+        }
+
+        /* Card list row styling */
+        .aim-employee-card {
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 12px;
+          margin-bottom: 8px;
+          background: rgba(248,250,252,0.8);
+        }
+        .aim-employee-card.flash { background: #f0fdf4; }
+        .aim-employee-card.has-error { background: rgba(254,242,242,.7); border-color: #fca5a5; }
+        .aim-input-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+          margin-top: 10px;
+        }
+        .aim-input-group label {
+          display: block;
+          font-size: 10px;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin-bottom: 4px;
+        }
+        .aim-input-group input {
+          width: 100%;
+          box-sizing: border-box;
+          border-radius: 8px;
+          padding: 8px;
+          font-size: 14px;
+          text-align: center;
+          outline: none;
+          border: 1px solid #e2e8f0;
+          background: rgba(255,255,255,0.9);
+          color: #334155;
+        }
       `}</style>
 
       {/* ── Overlay ── */}
       <div
+        className="aim-overlay"
         style={{
           position: "fixed",
           inset: 0,
@@ -249,8 +325,9 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
           padding: "24px 16px",
         }}
       >
-        {/* ── Modal card: fixed height, flex-column ── */}
+        {/* ── Modal card ── */}
         <div
+          className="aim-card"
           style={{
             background: "rgba(255,255,255,0.97)",
             backdropFilter: "blur(12px)",
@@ -260,15 +337,16 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
             border: "1px solid rgba(255,255,255,.6)",
             width: "100%",
             maxWidth: 900,
-            maxHeight: "90vh" /* card never exceeds viewport */,
+            maxHeight: "90vh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
             animation: "aimSlideUp .22s ease",
           }}
         >
-          {/* ── HEADER — always visible ── */}
+          {/* ── HEADER ── */}
           <div
+            className="aim-header"
             style={{
               background: "linear-gradient(135deg,#1a3c6e,#1e56a0)",
               padding: "18px 24px",
@@ -280,9 +358,17 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                gap: 12,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  minWidth: 0,
+                }}
+              >
                 <div
                   style={{
                     width: 36,
@@ -292,6 +378,7 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
                   <svg
@@ -309,13 +396,16 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                     />
                   </svg>
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <h2
                     style={{
                       margin: 0,
                       color: "#fff",
                       fontSize: 17,
                       fontWeight: 700,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     Attendance Entry
@@ -325,6 +415,9 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                       margin: "2px 0 0",
                       color: "rgba(255,255,255,.55)",
                       fontSize: 12,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {forMonth ? (
@@ -341,18 +434,21 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close"
                 style={{
                   background: "rgba(255,255,255,.15)",
                   border: "none",
                   cursor: "pointer",
                   color: "#fff",
-                  width: 32,
-                  height: 32,
+                  width: 44,
+                  height: 44,
                   borderRadius: 8,
                   fontSize: 16,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
+                  touchAction: "manipulation",
                 }}
               >
                 ✕
@@ -365,7 +461,7 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
             className="aim-scroll"
             style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
           >
-            <div style={{ padding: "20px 24px 0" }}>
+            <div className="aim-body-pad" style={{ padding: "20px 24px 0" }}>
               {/* Info banner */}
               <div
                 style={{
@@ -379,6 +475,7 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                   color: "#4338ca",
                   fontWeight: 500,
                   marginBottom: 14,
+                  lineHeight: 1.5,
                 }}
               >
                 💡 Editing <strong>P Days</strong> auto-calculates Absent Days,
@@ -390,10 +487,11 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
 
               {/* Quick month-days setter */}
               <div
+                className="aim-quick-days"
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
+                  gap: 8,
                   flexWrap: "wrap",
                   marginBottom: 14,
                 }}
@@ -408,7 +506,7 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                     key={d}
                     onClick={() => applyMonthDaysToAll(d)}
                     style={{
-                      padding: "6px 14px",
+                      padding: "6px 12px",
                       borderRadius: 8,
                       fontSize: 12,
                       fontWeight: 600,
@@ -421,22 +519,25 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                           ? "#4f46e5"
                           : "rgba(248,250,252,0.9)",
                       color: d === correctMonthDays ? "#fff" : "#475569",
+                      touchAction: "manipulation",
+                      minHeight: 36,
                     }}
                   >
                     {d} days{d === correctMonthDays ? " ✓" : ""}
                   </button>
                 ))}
                 <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                  (calendar correct: <strong>{correctMonthDays}</strong>)
+                  (calendar: <strong>{correctMonthDays}</strong>)
                 </span>
               </div>
 
               {/* Excel Import Zone */}
               <div
+                className="aim-import-zone"
                 style={{
                   border: "2px dashed #cbd5e1",
                   borderRadius: 12,
-                  padding: "14px 18px",
+                  padding: "14px 16px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -487,7 +588,14 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                     >
                       Import from Excel
                     </p>
-                    <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 11,
+                        color: "#94a3b8",
+                        lineHeight: 1.5,
+                      }}
+                    >
                       Required:{" "}
                       <code
                         style={{
@@ -520,12 +628,12 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                         }}
                       >
                         Month Days
-                      </code>{" "}
-                      (defaults to {correctMonthDays})
+                      </code>
                     </p>
                   </div>
                 </div>
                 <div
+                  className="aim-import-btns"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -539,15 +647,16 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
-                      padding: "7px 14px",
+                      padding: "8px 14px",
                       borderRadius: 8,
                       border: "1px solid #e2e8f0",
                       fontSize: 12,
                       fontWeight: 600,
                       color: "#475569",
                       background: "rgba(255,255,255,0.8)",
-                      backdropFilter: "blur(4px)",
                       cursor: "pointer",
+                      touchAction: "manipulation",
+                      minHeight: 36,
                     }}
                   >
                     <svg
@@ -564,20 +673,22 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                         d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                       />
                     </svg>
-                    Download Template
+                    Template
                   </button>
                   <label
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
-                      padding: "7px 14px",
+                      padding: "8px 14px",
                       borderRadius: 8,
                       background: "#059669",
                       fontSize: 12,
                       fontWeight: 600,
                       color: "#fff",
                       cursor: "pointer",
+                      touchAction: "manipulation",
+                      minHeight: 36,
                     }}
                   >
                     <svg
@@ -620,8 +731,11 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
               )}
             </div>
 
-            {/* Table */}
-            <div style={{ overflowX: "auto", padding: "4px 24px 8px" }}>
+            {/* ── Desktop Table (hidden on mobile via CSS) ── */}
+            <div
+              className="aim-table aim-table-wrap"
+              style={{ overflowX: "auto", padding: "4px 24px 8px" }}
+            >
               <table
                 style={{
                   width: "100%",
@@ -851,11 +965,150 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Mobile Card List (hidden on desktop via CSS) ── */}
+            <div className="aim-card-list" style={{ padding: "4px 16px 8px" }}>
+              {rows.map((row) => {
+                const hasError = !!errors[row.id];
+                const isFlashed = flashIds.has(row.id);
+                const pct =
+                  row.monthDays > 0
+                    ? Math.round((row.pDays / row.monthDays) * 100)
+                    : 0;
+                return (
+                  <div
+                    key={row.id}
+                    className={`aim-employee-card${isFlashed ? " flash" : ""}${hasError ? " has-error" : ""}`}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: 700,
+                            color: "#1e293b",
+                            fontSize: 14,
+                          }}
+                        >
+                          {row.name}
+                        </p>
+                        <p
+                          style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}
+                        >
+                          {row.employeeId}
+                        </p>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#10b981",
+                        }}
+                      >
+                        {row.monthDays > 0 ? `${pct}%` : "—"}
+                      </span>
+                    </div>
+                    {/* Attendance bar */}
+                    <div
+                      style={{
+                        marginTop: 8,
+                        height: 5,
+                        borderRadius: 99,
+                        background: "#e2e8f0",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: 5,
+                          borderRadius: 99,
+                          background: "linear-gradient(90deg,#34d399,#10b981)",
+                          width: `${pct}%`,
+                          transition: "width .3s ease",
+                        }}
+                      />
+                    </div>
+                    {/* Inputs grid */}
+                    <div className="aim-input-row">
+                      <div className="aim-input-group">
+                        <label>Month Days</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          max={31}
+                          value={row.monthDays}
+                          onChange={(e) =>
+                            update(row.id, "monthDays", e.target.value)
+                          }
+                          style={{
+                            border: `1px solid ${row.monthDays !== correctMonthDays ? "#f59e0b" : "#e2e8f0"}`,
+                            background:
+                              row.monthDays !== correctMonthDays
+                                ? "rgba(255,251,235,0.9)"
+                                : "rgba(248,250,252,0.8)",
+                            color:
+                              row.monthDays !== correctMonthDays
+                                ? "#92400e"
+                                : "#334155",
+                          }}
+                        />
+                      </div>
+                      <div className="aim-input-group">
+                        <label>P Days</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={row.monthDays}
+                          value={row.pDays}
+                          onChange={(e) =>
+                            update(row.id, "pDays", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="aim-input-group">
+                        <label>A Days</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={row.monthDays}
+                          value={row.aDays}
+                          onChange={(e) =>
+                            update(row.id, "aDays", e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                    {hasError && (
+                      <p
+                        style={{
+                          margin: "6px 0 0",
+                          fontSize: 11,
+                          color: "#ef4444",
+                          fontWeight: 500,
+                        }}
+                      >
+                        ⚠ {errors[row.id]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
           {/* end scrollable body */}
 
-          {/* ── FOOTER — always visible ── */}
+          {/* ── FOOTER ── */}
           <div
+            className="aim-footer"
             style={{
               padding: "14px 24px",
               borderTop: "1px solid #f1f5f9",
@@ -866,16 +1119,25 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               flexShrink: 0,
+              gap: 10,
+              paddingBottom: "max(14px, env(safe-area-inset-bottom, 14px))",
             }}
           >
-            <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 12,
+                color: "#94a3b8",
+                flexShrink: 0,
+              }}
+            >
               {rows.length} employees listed
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={onClose}
                 style={{
-                  padding: "8px 20px",
+                  padding: "8px 16px",
                   borderRadius: 10,
                   fontSize: 13,
                   fontWeight: 600,
@@ -883,6 +1145,8 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                   border: "1px solid #e2e8f0",
                   background: "rgba(255,255,255,0.8)",
                   color: "#475569",
+                  touchAction: "manipulation",
+                  minHeight: 40,
                 }}
               >
                 Cancel
@@ -891,7 +1155,7 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                 onClick={handleSave}
                 disabled={saving}
                 style={{
-                  padding: "8px 20px",
+                  padding: "8px 16px",
                   borderRadius: 10,
                   fontSize: 13,
                   fontWeight: 600,
@@ -902,6 +1166,9 @@ const AttendanceInputModal = ({ employees, forMonth, onClose, onSave }) => {
                     : "linear-gradient(135deg,#4f46e5,#3730a3)",
                   color: "#fff",
                   boxShadow: saving ? "none" : "0 2px 8px rgba(79,70,229,.35)",
+                  touchAction: "manipulation",
+                  minHeight: 40,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {saving ? "Saving…" : "Save Attendance"}
