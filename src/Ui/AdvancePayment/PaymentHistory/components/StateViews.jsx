@@ -2,7 +2,13 @@ import { FileText, AlertTriangle } from "lucide-react";
 import { T } from "../constants/theme";
 
 const STATE_RESPONSIVE_CSS = `
-@media (max-width: 480px) {
+@media (max-width: 360px) {
+  .ph-state-wrap { padding: 28px 12px !important; }
+  .ph-state-icon { width: 36px !important; height: 36px !important; margin-bottom: 8px !important; border-radius: 10px !important; }
+  .ph-state-title { font-size: 13px !important; }
+  .ph-state-msg { font-size: 11px !important; }
+}
+@media (min-width: 361px) and (max-width: 480px) {
   .ph-state-wrap { padding: 36px 16px !important; }
   .ph-state-icon { width: 44px !important; height: 44px !important; margin-bottom: 11px !important; }
 }
@@ -10,7 +16,10 @@ const STATE_RESPONSIVE_CSS = `
 
 export function EmptyState({ search, onClear }) {
   return (
-    <div className="ph-state-wrap" style={{ padding: "60px 16px", textAlign: "center" }}>
+    <div
+      className="ph-state-wrap"
+      style={{ padding: "60px 16px", textAlign: "center" }}
+    >
       <style>{STATE_RESPONSIVE_CSS}</style>
       <div
         className="ph-state-icon"
@@ -28,6 +37,7 @@ export function EmptyState({ search, onClear }) {
         <FileText size={22} style={{ color: "#ADADAA" }} />
       </div>
       <p
+        className="ph-state-title"
         style={{
           fontSize: 15,
           fontWeight: 600,
@@ -37,7 +47,15 @@ export function EmptyState({ search, onClear }) {
       >
         No records found
       </p>
-      <p style={{ fontSize: 13, color: "#888885", marginBottom: 18, overflowWrap: "break-word" }}>
+      <p
+        className="ph-state-msg"
+        style={{
+          fontSize: 13,
+          color: "#888885",
+          marginBottom: 18,
+          overflowWrap: "break-word",
+        }}
+      >
         {search
           ? `No results for "${search}"`
           : "No salary advance history yet."}
@@ -65,7 +83,10 @@ export function EmptyState({ search, onClear }) {
 
 export function ErrState({ msg, onRetry }) {
   return (
-    <div className="ph-state-wrap" style={{ padding: "60px 16px", textAlign: "center" }}>
+    <div
+      className="ph-state-wrap"
+      style={{ padding: "60px 16px", textAlign: "center" }}
+    >
       <style>{STATE_RESPONSIVE_CSS}</style>
       <div
         className="ph-state-icon"
@@ -83,6 +104,7 @@ export function ErrState({ msg, onRetry }) {
         <AlertTriangle size={22} style={{ color: T.r500 }} />
       </div>
       <p
+        className="ph-state-title"
         style={{
           fontSize: 15,
           fontWeight: 600,
@@ -92,7 +114,17 @@ export function ErrState({ msg, onRetry }) {
       >
         Failed to load data
       </p>
-      <p style={{ fontSize: 13, color: "#888885", marginBottom: 18, overflowWrap: "break-word" }}>{msg}</p>
+      <p
+        className="ph-state-msg"
+        style={{
+          fontSize: 13,
+          color: "#888885",
+          marginBottom: 18,
+          overflowWrap: "break-word",
+        }}
+      >
+        {msg}
+      </p>
       <button
         className="ph-btn"
         onClick={onRetry}

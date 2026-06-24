@@ -6,13 +6,24 @@ import Av from "./Av";
 import MiniBar from "./MiniBar";
 import EvCard from "./EvCard";
 
-// `ph-detail-5` is a fixed 5-column stat strip (Advanced / Recovered /
-// Outstanding / Progress / Installments). At desktop width that's fine, but
-// 5 columns on a phone makes every number unreadable. Reflow it to a 2-col
-// grid on mobile so each stat gets enough room to breathe, and drop the
-// vertical dividers since they don't make sense once it wraps to rows.
+
 const EMP_RESPONSIVE_CSS = `
-@media (max-width: 640px) {
+@media (max-width: 360px) {
+  .ph-row { padding: 9px 8px !important; gap: 7px !important; }
+  .ph-detail-5 {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+  .ph-detail-5 > div {
+    border-right: none !important;
+    border-bottom: 1px solid #E3E3E0;
+    padding: 9px 10px !important;
+  }
+  .ph-detail-5 > div:last-child {
+    border-bottom: none;
+  }
+}
+@media (min-width: 361px) and (max-width: 640px) {
   .ph-detail-5 {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
@@ -24,9 +35,23 @@ const EMP_RESPONSIVE_CSS = `
   .ph-detail-5 > div:nth-last-child(-n+2) {
     border-bottom: none;
   }
+  .ph-row { padding: 11px 10px !important; gap: 8px !important; }
 }
 @media (max-width: 420px) {
   .ph-row { padding: 11px 10px !important; gap: 8px !important; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .ph-detail-5 {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .ph-detail-5 > div {
+    border-right: none !important;
+    border-bottom: 1px solid #E3E3E0;
+  }
+  .ph-detail-5 > div:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
 }
 `;
 

@@ -1,18 +1,4 @@
-// src/utils/s3Utils.js
-// ─── Frontend helper: convert S3 keys → public HTTPS URLs ────────────────────
-//
-// The backend stores only the S3 *key* in the database (e.g.
-//   "uploads/employee_docs/a1b2c3-uuid.pdf"
-//   "uploads/advance-payment/2026-05/xyz.png"
-// ).
-// This helper turns that key into the full URL the browser can load.
-//
-// REQUIRED env vars (Vite / CRA):
-//   VITE_AWS_BUCKET_NAME   or   REACT_APP_AWS_BUCKET_NAME
-//   VITE_AWS_REGION        or   REACT_APP_AWS_REGION
-//
-// If the env vars are not set it falls back to the values you have in .env.
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 const BUCKET = import.meta.env.VITE_AWS_BUCKET_NAME || "";
 

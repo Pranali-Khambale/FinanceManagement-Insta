@@ -71,6 +71,150 @@ function StepTab({ num, label, active }) {
   );
 }
 
+const responsiveCss = `
+  *, *::before, *::after { box-sizing: border-box; }
+
+  @keyframes spin    { to { transform: rotate(360deg); } }
+  @keyframes fadeUp  { from { opacity:0; transform:translateY(8px);  } to { opacity:1; transform:translateY(0); } }
+  @keyframes modalIn { from { opacity:0; transform:translateY(-10px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+
+  /* Prevent iOS auto-zoom on inputs */
+  .gl-modal input,
+  .gl-modal textarea,
+  .gl-modal select { font-size: 16px !important; -webkit-appearance: none; appearance: none; }
+  .gl-modal button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+  .gl-type-card:hover { border-color: #93c5fd !important; background: #eff6ff !important; }
+  .gl-chip:hover      { background: #f0f0f0 !important; }
+  .gl-outline-hover:hover { background: #f8fafc !important; }
+
+  /* ── Overlay — centered on ALL devices ── */
+  .gl-modal-wrapper {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,.48);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  /* ── Modal shell — fully rounded on ALL devices ── */
+  .gl-modal {
+    background: #fff;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: 0 25px 60px rgba(0,0,0,.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalIn 0.22s ease both;
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+  }
+
+  /* ── Sections ── */
+  .gl-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    flex-shrink: 0;
+  }
+
+  .gl-body {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+  }
+
+  .gl-footer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid #f1f5f9;
+    background: #fafbfc;
+    flex-shrink: 0;
+  }
+
+  /* ── Type card grid — always 2-col ── */
+  .gl-type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  /* ── Action chips row ── */
+  .gl-action-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ── Footer buttons ── */
+  .gl-footer-btns {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .gl-modal::-webkit-scrollbar       { width: 4px; }
+  .gl-modal::-webkit-scrollbar-track { background: transparent; }
+  .gl-modal::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
+
+  /* ── Mobile (≤ 480px) — still centered, just tighter padding ── */
+  @media (max-width: 480px) {
+    .gl-modal-wrapper {
+      padding: 12px;
+    }
+    .gl-modal {
+      max-width: 100%;
+      max-height: calc(100dvh - 24px);
+    }
+    .gl-header  { padding: 14px 16px 12px; }
+    .gl-body    { padding: 14px 16px; gap: 13px; }
+    .gl-footer  { padding: 10px 16px 14px; }
+
+    /* Stack footer buttons vertically — primary on top */
+    .gl-footer-btns {
+      flex-direction: column-reverse;
+    }
+    .gl-footer-btns > * {
+      width: 100% !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+    }
+
+    /* Stack action chips vertically */
+    .gl-action-chips {
+      flex-direction: column;
+    }
+    .gl-action-chips > * {
+      width: 100% !important;
+    }
+
+    .gl-link-box  { font-size: 10px !important; }
+    .gl-title     { font-size: 14px !important; }
+    .gl-subtitle  { font-size: 11px !important; }
+  }
+
+  /* ── Tablet (481–768px) ── */
+  @media (min-width: 481px) and (max-width: 768px) {
+    .gl-modal { max-width: 480px; }
+    .gl-action-chips { flex-wrap: wrap; }
+  }
+
+  /* ── Desktop (≥ 769px) ── */
+  @media (min-width: 769px) {
+    .gl-modal { max-width: 460px; }
+  }
+`;
+
 export default function GenerateLinkModal({ onClose }) {
   const [paymentTypes, setPaymentTypes] = useState([]);
   const [typesLoading, setTypesLoading] = useState(true);
@@ -91,7 +235,7 @@ export default function GenerateLinkModal({ onClose }) {
       .getPaymentTypes()
       .then((res) => {
         const all = (res.data || []).filter((p) =>
-          ALLOWED_KEYS.includes(p.key)
+          ALLOWED_KEYS.includes(p.key),
         );
         setPaymentTypes(all);
         if (all.length) setPtKey(all[0].key);
@@ -124,7 +268,6 @@ export default function GenerateLinkModal({ onClose }) {
       const retPtKey = res.data?.payment_type_key || ptKey;
       const expires = res.data?.expires_at;
       if (!token) throw new Error("No token returned");
-
       setGenerated({
         link: buildLink(retPtKey, token),
         token,
@@ -182,120 +325,34 @@ export default function GenerateLinkModal({ onClose }) {
       })
     : null;
 
+  const SectionLabel = ({ children, required }) => (
+    <span
+      style={{
+        display: "block",
+        fontSize: 11,
+        fontWeight: 700,
+        color: "#94a3b8",
+        textTransform: "uppercase",
+        letterSpacing: "0.07em",
+        marginBottom: 8,
+      }}
+    >
+      {children}
+      {required && <span style={{ color: "#ef4444", marginLeft: 2 }}>*</span>}
+    </span>
+  );
+
   const modalContent = (
     <>
-      <style>{`
-        @keyframes spin   { to { transform: rotate(360deg); } }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-
-        .gl-type-card:hover { border-color: #93c5fd !important; background: #eff6ff !important; }
-        .gl-chip:hover { background: #f8fafc !important; }
-        .gl-outline-hover:hover { background: #f8fafc !important; }
-
-        .gl-modal-wrapper {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(0,0,0,.5);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-          padding: 16px;
-        }
-
-        /* Mobile: slide up from bottom, full width */
-        @media (max-width: 480px) {
-          .gl-modal-wrapper {
-            align-items: flex-end;
-            padding: 0;
-          }
-          .gl-modal {
-            border-radius: 20px 20px 0 0 !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1) !important;
-            max-height: 92dvh;
-            overflow-y: auto;
-          }
-          .gl-header { padding: 16px 16px 12px !important; }
-          .gl-body { padding: 14px 16px !important; gap: 12px !important; }
-          .gl-footer { padding: 10px 16px 20px !important; }
-          .gl-type-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .gl-action-chips { flex-direction: column !important; }
-          .gl-action-chips > * { width: 100% !important; justify-content: center !important; }
-          .gl-link-box { font-size: 10px !important; }
-          .gl-title { font-size: 14px !important; }
-          .gl-subtitle { font-size: 11px !important; }
-          .gl-footer-btns { flex-direction: column-reverse !important; }
-          .gl-footer-btns > * { width: 100% !important; justify-content: center !important; }
-          .gl-drag-handle {
-            display: block !important;
-          }
-        }
-
-        /* Tablet: centered, constrained width */
-        @media (min-width: 481px) and (max-width: 768px) {
-          .gl-modal-wrapper {
-            padding: 12px;
-          }
-          .gl-modal {
-            max-width: 480px !important;
-            animation: fadeUp 0.22s ease;
-          }
-          .gl-action-chips { flex-wrap: wrap !important; }
-        }
-
-        /* Desktop */
-        @media (min-width: 769px) {
-          .gl-modal {
-            max-width: 460px !important;
-            animation: fadeUp 0.22s ease;
-          }
-        }
-
-        .gl-drag-handle {
-          display: none;
-          width: 36px;
-          height: 4px;
-          border-radius: 99px;
-          background: #cbd5e1;
-          margin: 0 auto 14px;
-        }
-
-        .gl-modal::-webkit-scrollbar { width: 4px; }
-        .gl-modal::-webkit-scrollbar-track { background: transparent; }
-        .gl-modal::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
-      `}</style>
+      <style>{responsiveCss}</style>
 
       <div
         className="gl-modal-wrapper"
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
-        <div
-          className="gl-modal"
-          style={{
-            background: "#fff",
-            borderRadius: 18,
-            width: "100%",
-            boxShadow: "0 25px 60px rgba(0,0,0,.2)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {/* Drag handle — mobile only */}
-          <div style={{ padding: "10px 0 0", background: "#fff" }}>
-            <div className="gl-drag-handle" />
-          </div>
-
-          {/* Header */}
-          <div
-            className="gl-header"
-            style={{ padding: "18px 20px 14px", borderBottom: "1px solid #f1f5f9" }}
-          >
+        <div className="gl-modal">
+          {/* ── Header ── */}
+          <div className="gl-header">
             <div
               style={{
                 display: "flex",
@@ -307,15 +364,26 @@ export default function GenerateLinkModal({ onClose }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p
                   className="gl-title"
-                  style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#1e293b" }}
+                  style={{
+                    margin: 0,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: "#1e293b",
+                  }}
                 >
                   Generate payment link
                 </p>
                 <p
                   className="gl-subtitle"
-                  style={{ margin: "3px 0 0", fontSize: 12, color: "#94a3b8", lineHeight: 1.4 }}
+                  style={{
+                    margin: "3px 0 0",
+                    fontSize: 12,
+                    color: "#94a3b8",
+                    lineHeight: 1.4,
+                  }}
                 >
-                  Employee fills form &amp; uploads screenshots · auto-emailed · valid 30 days
+                  Employee fills form &amp; uploads screenshots · auto-emailed ·
+                  valid 30 days
                 </p>
               </div>
               <button
@@ -325,10 +393,10 @@ export default function GenerateLinkModal({ onClose }) {
                   background: "none",
                   cursor: "pointer",
                   color: "#94a3b8",
-                  padding: "4px",
+                  padding: "6px",
                   lineHeight: 1,
                   flexShrink: 0,
-                  borderRadius: 6,
+                  borderRadius: 8,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -337,38 +405,25 @@ export default function GenerateLinkModal({ onClose }) {
                 <X size={18} />
               </button>
             </div>
-            <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                marginTop: 14,
+                flexWrap: "wrap",
+              }}
+            >
               <StepTab num={1} label="Configure" active={step === 1} />
               <StepTab num={2} label="Share link" active={step === 2} />
             </div>
           </div>
 
-          {/* Step 1 */}
+          {/* ── Step 1 ── */}
           {step === 1 && (
-            <div
-              className="gl-body"
-              style={{
-                padding: "18px 20px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
-            >
+            <div className="gl-body">
               {/* Payment type */}
               <div>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    marginBottom: 8,
-                  }}
-                >
-                  Payment type
-                </span>
+                <SectionLabel>Payment type</SectionLabel>
                 {typesLoading ? (
                   <div
                     style={{
@@ -380,7 +435,10 @@ export default function GenerateLinkModal({ onClose }) {
                       padding: "12px 0",
                     }}
                   >
-                    <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                    <Loader2
+                      size={14}
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />
                     Loading types…
                   </div>
                 ) : paymentTypes.length === 0 ? (
@@ -397,14 +455,7 @@ export default function GenerateLinkModal({ onClose }) {
                     No payment types available.
                   </div>
                 ) : (
-                  <div
-                    className="gl-type-grid"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(2, 1fr)",
-                      gap: 8,
-                    }}
-                  >
+                  <div className="gl-type-grid">
                     {paymentTypes.map((p) => {
                       const sel = ptKey === p.key;
                       const c = p.color || "#2563eb";
@@ -444,7 +495,12 @@ export default function GenerateLinkModal({ onClose }) {
                                 justifyContent: "center",
                               }}
                             >
-                              <svg width="7" height="7" viewBox="0 0 10 10" fill="none">
+                              <svg
+                                width="7"
+                                height="7"
+                                viewBox="0 0 10 10"
+                                fill="none"
+                              >
                                 <path
                                   d="M2 5l2 2 4-4"
                                   stroke="#fff"
@@ -467,7 +523,11 @@ export default function GenerateLinkModal({ onClose }) {
                               flexShrink: 0,
                             }}
                           >
-                            <TypeIcon ptKey={p.key} size={16} color={sel ? "#fff" : "#7c8fa6"} />
+                            <TypeIcon
+                              ptKey={p.key}
+                              size={16}
+                              color={sel ? "#fff" : "#7c8fa6"}
+                            />
                           </div>
                           <span
                             style={{
@@ -512,8 +572,17 @@ export default function GenerateLinkModal({ onClose }) {
                   }}
                 >
                   <TypeIcon ptKey={pt.key} size={14} color="#64748b" />
-                  <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
-                    <strong style={{ color: "#334155" }}>{pt.short_label}</strong>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      color: "#64748b",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    <strong style={{ color: "#334155" }}>
+                      {pt.short_label}
+                    </strong>
                     {pt.description ? ` — ${pt.description}` : ""}
                   </p>
                 </div>
@@ -521,26 +590,14 @@ export default function GenerateLinkModal({ onClose }) {
 
               {/* Email input */}
               <div>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    marginBottom: 8,
-                  }}
-                >
-                  Employee email <span style={{ color: "#ef4444" }}>*</span>
-                </span>
+                <SectionLabel required>Employee email</SectionLabel>
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    padding: "10px 12px",
-                    borderRadius: 9,
+                    padding: "11px 12px",
+                    borderRadius: 10,
                     border: `1.5px solid ${emailErr ? "#fca5a5" : "#e2e8f0"}`,
                     background: emailErr ? "#fff5f5" : "#fff",
                   }}
@@ -560,7 +617,7 @@ export default function GenerateLinkModal({ onClose }) {
                       flex: 1,
                       border: "none",
                       outline: "none",
-                      fontSize: 14,
+                      fontSize: 16,
                       color: "#1e293b",
                       background: "transparent",
                       fontFamily: "inherit",
@@ -568,7 +625,11 @@ export default function GenerateLinkModal({ onClose }) {
                     }}
                   />
                   {email && validateEmail(email) && (
-                    <CheckCircle2 size={13} color="#22c55e" style={{ flexShrink: 0 }} />
+                    <CheckCircle2
+                      size={13}
+                      color="#22c55e"
+                      style={{ flexShrink: 0 }}
+                    />
                   )}
                 </div>
                 {emailErr && (
@@ -599,28 +660,31 @@ export default function GenerateLinkModal({ onClose }) {
                   border: "1px solid #f1f5f9",
                 }}
               >
-                <Clock size={13} color="#94a3b8" style={{ flexShrink: 0, marginTop: 1 }} />
-                <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.65 }}>
-                  Valid for <strong style={{ color: "#334155" }}>30 days</strong> · Link is{" "}
-                  <strong style={{ color: "#334155" }}>auto-emailed</strong> on generate · Each
-                  submission creates a new pending request
+                <Clock
+                  size={13}
+                  color="#94a3b8"
+                  style={{ flexShrink: 0, marginTop: 1 }}
+                />
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    color: "#64748b",
+                    lineHeight: 1.65,
+                  }}
+                >
+                  Valid for{" "}
+                  <strong style={{ color: "#334155" }}>30 days</strong> · Link
+                  is <strong style={{ color: "#334155" }}>auto-emailed</strong>{" "}
+                  on generate · Each submission creates a new pending request
                 </p>
               </div>
             </div>
           )}
 
-          {/* Step 2 */}
+          {/* ── Step 2 ── */}
           {step === 2 && generated && (
-            <div
-              className="gl-body"
-              style={{
-                padding: "18px 20px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-                animation: "fadeUp 0.22s ease",
-              }}
-            >
+            <div className="gl-body" style={{ animation: "fadeUp 0.22s ease" }}>
               {/* Success banner */}
               <div
                 style={{
@@ -635,8 +699,8 @@ export default function GenerateLinkModal({ onClose }) {
               >
                 <div
                   style={{
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     borderRadius: 9,
                     flexShrink: 0,
                     background: "#dcfce7",
@@ -648,7 +712,14 @@ export default function GenerateLinkModal({ onClose }) {
                   <Link2 size={16} color="#16a34a" />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#15803d" }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: "#15803d",
+                    }}
+                  >
                     Link generated &amp; emailed
                   </p>
                   <p
@@ -678,27 +749,15 @@ export default function GenerateLinkModal({ onClose }) {
 
               {/* Link display */}
               <div>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    marginBottom: 8,
-                  }}
-                >
-                  Shareable link
-                </span>
+                <SectionLabel>Shareable link</SectionLabel>
                 <div
                   className="gl-link-box"
                   style={{
-                    padding: "10px 12px",
-                    borderRadius: 9,
+                    padding: "11px 13px",
+                    borderRadius: 10,
                     background: "#f8fafc",
                     border: "1px solid #e2e8f0",
-                    fontFamily: "'ui-monospace', 'Cascadia Code', monospace",
+                    fontFamily: "'ui-monospace','Cascadia Code',monospace",
                     fontSize: 11,
                     color: "#475569",
                     wordBreak: "break-all",
@@ -710,10 +769,7 @@ export default function GenerateLinkModal({ onClose }) {
               </div>
 
               {/* Action chips */}
-              <div
-                className="gl-action-chips"
-                style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-              >
+              <div className="gl-action-chips">
                 <button
                   className="gl-chip"
                   onClick={handleCopy}
@@ -722,8 +778,8 @@ export default function GenerateLinkModal({ onClose }) {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 5,
-                    padding: "9px 14px",
-                    borderRadius: 8,
+                    padding: "10px 14px",
+                    borderRadius: 9,
                     border: "none",
                     background: copied ? "#dcfce7" : "#eef2ff",
                     color: copied ? "#15803d" : "#4338ca",
@@ -736,9 +792,13 @@ export default function GenerateLinkModal({ onClose }) {
                   }}
                 >
                   {copied ? (
-                    <><CheckCircle2 size={13} /> Copied!</>
+                    <>
+                      <CheckCircle2 size={13} /> Copied!
+                    </>
                   ) : (
-                    <><Copy size={13} /> Copy link</>
+                    <>
+                      <Copy size={13} /> Copy link
+                    </>
                   )}
                 </button>
 
@@ -751,8 +811,8 @@ export default function GenerateLinkModal({ onClose }) {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 5,
-                    padding: "9px 14px",
-                    borderRadius: 8,
+                    padding: "10px 14px",
+                    borderRadius: 9,
                     background: "#1e293b",
                     color: "#f1f5f9",
                     fontSize: 13,
@@ -773,8 +833,8 @@ export default function GenerateLinkModal({ onClose }) {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 5,
-                    padding: "9px 14px",
-                    borderRadius: 8,
+                    padding: "10px 14px",
+                    borderRadius: 9,
                     border: "none",
                     background: resent ? "#dcfce7" : "#f0f9ff",
                     color: resent ? "#15803d" : "#0369a1",
@@ -789,12 +849,20 @@ export default function GenerateLinkModal({ onClose }) {
                 >
                   {resending ? (
                     <>
-                      <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Sending…
+                      <Loader2
+                        size={13}
+                        style={{ animation: "spin 1s linear infinite" }}
+                      />{" "}
+                      Sending…
                     </>
                   ) : resent ? (
-                    <><CheckCircle2 size={13} /> Resent!</>
+                    <>
+                      <CheckCircle2 size={13} /> Resent!
+                    </>
                   ) : (
-                    <><Send size={13} /> Resend email</>
+                    <>
+                      <Send size={13} /> Resend email
+                    </>
                   )}
                 </button>
               </div>
@@ -811,29 +879,31 @@ export default function GenerateLinkModal({ onClose }) {
                   border: "1px solid #fde68a",
                 }}
               >
-                <Clock size={13} color="#b45309" style={{ flexShrink: 0, marginTop: 1 }} />
-                <p style={{ margin: 0, fontSize: 12, color: "#92400e", lineHeight: 1.6 }}>
-                  This link is <strong>reusable for 30 days</strong>. Each form submission creates
-                  a separate pending request. Use <strong>Resend email</strong> above if the
-                  employee didn't receive the original email.
+                <Clock
+                  size={13}
+                  color="#b45309"
+                  style={{ flexShrink: 0, marginTop: 1 }}
+                />
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    color: "#92400e",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  This link is <strong>reusable for 30 days</strong>. Each form
+                  submission creates a separate pending request. Use{" "}
+                  <strong>Resend email</strong> above if the employee didn't
+                  receive the original email.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Footer */}
-          <div
-            className="gl-footer"
-            style={{
-              padding: "12px 20px 16px",
-              borderTop: "1px solid #f1f5f9",
-              background: "#fafbfc",
-            }}
-          >
-            <div
-              className="gl-footer-btns"
-              style={{ display: "flex", gap: 8, alignItems: "center" }}
-            >
+          {/* ── Footer ── */}
+          <div className="gl-footer">
+            <div className="gl-footer-btns">
               <button
                 onClick={onClose}
                 className="gl-outline-hover"
@@ -842,7 +912,7 @@ export default function GenerateLinkModal({ onClose }) {
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 6,
-                  padding: "10px 14px",
+                  padding: "11px 14px",
                   borderRadius: 9,
                   border: "1.5px solid #e2e8f0",
                   background: "#fff",
@@ -867,7 +937,7 @@ export default function GenerateLinkModal({ onClose }) {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 6,
-                    padding: "10px 16px",
+                    padding: "11px 16px",
                     borderRadius: 9,
                     border: "none",
                     background: generating || !ptKey ? "#cbd5e1" : "#2563eb",
@@ -876,14 +946,19 @@ export default function GenerateLinkModal({ onClose }) {
                     fontWeight: 700,
                     cursor: generating || !ptKey ? "not-allowed" : "pointer",
                     boxShadow:
-                      generating || !ptKey ? "none" : "0 4px 14px rgba(37,99,235,0.3)",
+                      generating || !ptKey
+                        ? "none"
+                        : "0 4px 14px rgba(37,99,235,0.3)",
                     whiteSpace: "nowrap",
                     transition: "all 0.15s",
                   }}
                 >
                   {generating ? (
                     <>
-                      <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                      <Loader2
+                        size={14}
+                        style={{ animation: "spin 1s linear infinite" }}
+                      />{" "}
                       Generating…
                     </>
                   ) : (
@@ -903,7 +978,7 @@ export default function GenerateLinkModal({ onClose }) {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 6,
-                    padding: "10px 14px",
+                    padding: "11px 14px",
                     borderRadius: 9,
                     border: "1.5px solid #e2e8f0",
                     background: "#fff",

@@ -3,11 +3,6 @@ import { Building2 } from "lucide-react";
 import { T } from "../constants/theme";
 import { inrK } from "../utils/formatters";
 
-// Scoped responsive rules for this component only. `ph-dept-row` is assumed
-// to be a 3-column grid/flex row defined in theme.js (label | bar | amount).
-// On mobile we override it to stack into 2 rows: label+amount on top,
-// the progress bar full-width below — so percentages and rupee figures
-// never get squeezed into an unreadable sliver.
 const DEPT_RESPONSIVE_CSS = `
 @media (max-width: 640px) {
   .ph-dept-row {
@@ -21,6 +16,26 @@ const DEPT_RESPONSIVE_CSS = `
   .ph-dept-row > div:nth-child(1) { grid-area: label; min-width: 0; }
   .ph-dept-row > div:nth-child(2) { grid-area: bar; }
   .ph-dept-row > div:nth-child(3) { grid-area: amount; text-align: right !important; min-width: auto !important; }
+}
+@media (max-width: 400px) {
+  .ph-dept-header {
+    padding: 9px 10px !important;
+  }
+  .ph-dept-body {
+    padding: 7px 10px !important;
+    gap: 9px !important;
+  }
+  .ph-dept-row {
+    row-gap: 4px;
+  }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .ph-dept-row {
+    display: grid !important;
+    grid-template-columns: minmax(90px, 1.2fr) 2fr minmax(56px, auto) !important;
+    align-items: center;
+    gap: 10px;
+  }
 }
 `;
 
@@ -57,6 +72,7 @@ export default function DeptBreakdown({ empGroups, loading }) {
     >
       <style>{DEPT_RESPONSIVE_CSS}</style>
       <div
+        className="ph-dept-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -75,6 +91,7 @@ export default function DeptBreakdown({ empGroups, loading }) {
         </span>
       </div>
       <div
+        className="ph-dept-body"
         style={{
           padding: "9px 14px",
           display: "flex",

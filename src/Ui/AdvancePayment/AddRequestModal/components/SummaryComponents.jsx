@@ -9,6 +9,7 @@ export function SRow({ label, value, mono }) {
         alignItems: "center",
         padding: "6px 0",
         borderBottom: "0.5px dashed #e8edf2",
+        gap: 8,
       }}
     >
       <span style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>
@@ -51,6 +52,7 @@ export function SectionDivider({ label, color, icon }) {
           fontWeight: 700,
           background: color + "12",
           color,
+          whiteSpace: "nowrap",
         }}
       >
         {icon ?? <ArrowRight size={10} />} {label}

@@ -1,21 +1,4 @@
-// src/Ui/EmployeeMng/KYEPrintForm.jsx
-// ✅ FIXED:
-//   1. UAN Number row added to Section 1 (Employee Personal Details)
-//   2. UAN row in Section 9 (For Office Use Only) now filled from employee data
-//   3. Reference field keys corrected:
-//        ref1_desig → ref1_designation
-//        ref1_org   → ref1_organization
-//        ref1_addr  → ref1_address
-//        ref1_mob   → ref1_contact_no
-//        (same for ref2_*, ref3_*)
-// ✅ UI SYNC (from ViewEmployee.jsx):
-//   - Photo box repositioned to top-right of Page 1 (after title, before Section 1)
-//   - Verification status header rendered as two-row box aligned to right 24% of page
-//   - Section headings with verification box use flex layout (73% title + 3% gap + 24% ver box)
-//   - Plain section headings (no ver box) styled consistently
-//   - Data rows use 4-column table layout: label(33%) | value(40%) | gap(3%) | ver-yes-no(12%) | ver-doc(12%)
-//   - Page footer "Page N of 4" rendered bottom-right per page
-//   - Page header matches: revision label left, logo right
+
 
 import React from "react";
 
