@@ -7,6 +7,14 @@ import { X, ZoomIn, ZoomOut, Move, Check, RotateCcw, Crop } from "lucide-react";
 // Full-screen modal that lets the user pan/zoom the source image and
 // (optionally) crop a region of it, then renders the result onto an
 // output canvas and returns a JPEG data URL via onDone().
+//
+// RESPONSIVENESS NOTE: the actual <canvas> elements (DW × DH = 225 × 270)
+// must stay at those pixel dimensions because all the pointer-position math
+// (getXY, getHandle, crop box bounds) is computed directly in canvas pixel
+// space. On narrow screens we instead scale the *outer card* (canvas +
+// chrome) down via CSS transform, and convert pointer coordinates back into
+// true canvas space before doing any hit-testing or drag math, so cropping
+// still feels accurate on mobile.
 // ─────────────────────────────────────────────────────────────────────────────
 const PhotoCropEditor = ({ src, onDone, onCancel }) => {
   const canvasRef = useRef(null);
@@ -30,6 +38,20 @@ const PhotoCropEditor = ({ src, onDone, onCancel }) => {
   const OUTPUT_H = 432;
   const DW = 225;
   const DH = 270;
+
+  // ── Responsive scale for the editor card itself ────────────────────────────
+  // Card chrome width = DW + 48 (24px padding each side, per original layout).
+  const CARD_W = DW + 48;
+  const [editorScale, setEditorScale] = useState(1);
+  useEffect(() => {
+    const calc = () => {
+      const available = Math.min(window.innerWidth - 24, CARD_W);
+      setEditorScale(Math.min(1, available / CARD_W));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [CARD_W]);
 
   const drawImage = useCallback(
     (z = zoom, off = offset) => {
@@ -135,10 +157,21 @@ const PhotoCropEditor = ({ src, onDone, onCancel }) => {
     return null;
   };
 
+  // Converts a pointer event into true canvas-pixel coordinates, correcting
+  // for the CSS scale() applied to the outer card on small screens. Since
+  // the canvas's on-screen box is scaled but its internal pixel grid is not,
+  // getBoundingClientRect() naturally reports the scaled (smaller) box — so
+  // dividing by that box's own width/height (rather than by editorScale)
+  // keeps this correct even if scaling math changes later.
   const getXY = (e, ref) => {
     const r = ref.current.getBoundingClientRect();
     const touch = e.touches?.[0] ?? e;
-    return { x: touch.clientX - r.left, y: touch.clientY - r.top };
+    const scaleX = DW / r.width;
+    const scaleY = DH / r.height;
+    return {
+      x: (touch.clientX - r.left) * scaleX,
+      y: (touch.clientY - r.top) * scaleY,
+    };
   };
 
   const onMoveDown = (e) => {
@@ -288,289 +321,303 @@ const PhotoCropEditor = ({ src, onDone, onCancel }) => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: 12,
+        overflowY: "auto",
       }}
     >
+      {/* Reserve the true (scaled) footprint so the flex-centered overlay
+          doesn't leave a mismatched gap around the visually-scaled card. */}
       <div
         style={{
-          background: "#1a1a2e",
-          borderRadius: 18,
-          padding: 24,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 14,
-          boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
-          border: "1px solid #2a2a4a",
-          width: DW + 48,
+          width: CARD_W * editorScale,
+          height: "auto",
         }}
       >
         <div
           style={{
+            background: "#1a1a2e",
+            borderRadius: 18,
+            padding: 24,
             display: "flex",
-            justifyContent: "space-between",
-            width: "100%",
+            flexDirection: "column",
             alignItems: "center",
+            gap: 14,
+            boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
+            border: "1px solid #2a2a4a",
+            width: CARD_W,
+            transform: `scale(${editorScale})`,
+            transformOrigin: "top center",
           }}
         >
-          <div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
-              Edit Photo
-            </div>
-            <div style={{ color: "#8888aa", fontSize: 11, marginTop: 2 }}>
-              {hint}
-            </div>
-          </div>
-          <button
-            onClick={onCancel}
-            style={{
-              background: "#2a2a4a",
-              border: "none",
-              borderRadius: 8,
-              width: 30,
-              height: 30,
-              cursor: "pointer",
-              color: "#8888aa",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 0,
-            background: "#12122a",
-            borderRadius: 10,
-            padding: 3,
-            width: "100%",
-          }}
-        >
-          {[
-            { id: "move", label: "Move & Zoom", icon: <Move size={13} /> },
-            { id: "crop", label: "Crop", icon: <Crop size={13} /> },
-          ].map((tab) => {
-            const active = mode === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setMode(tab.id);
-                  if (tab.id === "crop")
-                    setCropBox({ x: 0, y: 0, w: DW, h: DH });
-                }}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  padding: "7px 0",
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                  background: active ? "#1565C0" : "transparent",
-                  color: active ? "#fff" : "#8888aa",
-                  fontWeight: 600,
-                  fontSize: 12,
-                  transition: "all .18s",
-                  boxShadow: active ? "0 2px 8px rgba(21,101,192,.4)" : "none",
-                }}
-              >
-                {tab.icon} {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div
-          style={{
-            position: "relative",
-            width: DW,
-            height: DH,
-            borderRadius: 4,
-            overflow: "hidden",
-            border: "2px solid #3a3a6a",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-          }}
-        >
-          <canvas
-            ref={canvasRef}
-            width={DW}
-            height={DH}
-            style={{
-              display: "block",
-              position: "absolute",
-              top: 0,
-              left: 0,
-              touchAction: "none",
-            }}
-            onMouseDown={onMoveDown}
-            onMouseUp={onMoveUp}
-            onMouseLeave={onMoveUp}
-            onMouseMove={onMoveMove}
-            onTouchStart={onMoveDown}
-            onTouchEnd={onMoveUp}
-            onTouchMove={onMoveMove}
-            onWheel={(e) => {
-              if (mode !== "move") return;
-              e.preventDefault();
-              setZoom((z) => Math.min(4, Math.max(1, z - e.deltaY * 0.002)));
-            }}
-          />
-          <canvas
-            ref={overlayRef}
-            width={DW}
-            height={DH}
-            style={{
-              display: "block",
-              position: "absolute",
-              top: 0,
-              left: 0,
-              touchAction: "none",
-              pointerEvents: mode === "crop" ? "auto" : "none",
-              cursor: mode === "crop" ? "default" : "grab",
-            }}
-            onMouseDown={onCropDown}
-            onMouseUp={onCropUp}
-            onMouseLeave={onCropUp}
-            onMouseMove={(e) => {
-              onCropMove(e);
-              getCropCursor(e);
-            }}
-            onTouchStart={onCropDown}
-            onTouchEnd={onCropUp}
-            onTouchMove={onCropMove}
-          />
-        </div>
-
-        {mode === "move" && (
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              width: "100%",
-            }}
-          >
-            <ZoomOut size={14} color="#8888aa" />
-            <input
-              type="range"
-              min="1"
-              max="4"
-              step="0.05"
-              value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-              style={{ flex: 1, accentColor: "#1565C0", cursor: "pointer" }}
-            />
-            <ZoomIn size={14} color="#8888aa" />
-            <span
-              style={{
-                color: "#8888aa",
-                fontSize: 11,
-                width: 36,
-                textAlign: "right",
-              }}
-            >
-              {Math.round(zoom * 100)}%
-            </span>
-          </div>
-        )}
-
-        {mode === "crop" && (
-          <div
-            style={{
-              width: "100%",
               display: "flex",
               justifyContent: "space-between",
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
+                Edit Photo
+              </div>
+              <div style={{ color: "#8888aa", fontSize: 11, marginTop: 2 }}>
+                {hint}
+              </div>
+            </div>
+            <button
+              onClick={onCancel}
+              style={{
+                background: "#2a2a4a",
+                border: "none",
+                borderRadius: 8,
+                width: 30,
+                height: 30,
+                cursor: "pointer",
+                color: "#8888aa",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 0,
               background: "#12122a",
-              borderRadius: 8,
-              padding: "6px 12px",
+              borderRadius: 10,
+              padding: 3,
+              width: "100%",
             }}
           >
             {[
-              ["X", Math.round(cropBox.x)],
-              ["Y", Math.round(cropBox.y)],
-              ["W", Math.round(cropBox.w)],
-              ["H", Math.round(cropBox.h)],
-            ].map(([label, val]) => (
-              <div key={label} style={{ textAlign: "center" }}>
-                <div style={{ color: "#8888aa", fontSize: 9, fontWeight: 700 }}>
-                  {label}
-                </div>
-                <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>
-                  {val}
-                </div>
-              </div>
-            ))}
-            <button
-              onClick={() => setCropBox({ x: 0, y: 0, w: DW, h: DH })}
+              { id: "move", label: "Move & Zoom", icon: <Move size={13} /> },
+              { id: "crop", label: "Crop", icon: <Crop size={13} /> },
+            ].map((tab) => {
+              const active = mode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setMode(tab.id);
+                    if (tab.id === "crop")
+                      setCropBox({ x: 0, y: 0, w: DW, h: DH });
+                  }}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "7px 0",
+                    borderRadius: 8,
+                    border: "none",
+                    cursor: "pointer",
+                    background: active ? "#1565C0" : "transparent",
+                    color: active ? "#fff" : "#8888aa",
+                    fontWeight: 600,
+                    fontSize: 12,
+                    transition: "all .18s",
+                    boxShadow: active ? "0 2px 8px rgba(21,101,192,.4)" : "none",
+                  }}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            style={{
+              position: "relative",
+              width: DW,
+              height: DH,
+              borderRadius: 4,
+              overflow: "hidden",
+              border: "2px solid #3a3a6a",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            <canvas
+              ref={canvasRef}
+              width={DW}
+              height={DH}
               style={{
-                background: "none",
-                border: "1px solid #3a3a6a",
-                borderRadius: 6,
-                color: "#8888aa",
-                fontSize: 10,
-                fontWeight: 600,
-                cursor: "pointer",
-                padding: "2px 8px",
-                alignSelf: "center",
+                display: "block",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                touchAction: "none",
+              }}
+              onMouseDown={onMoveDown}
+              onMouseUp={onMoveUp}
+              onMouseLeave={onMoveUp}
+              onMouseMove={onMoveMove}
+              onTouchStart={onMoveDown}
+              onTouchEnd={onMoveUp}
+              onTouchMove={onMoveMove}
+              onWheel={(e) => {
+                if (mode !== "move") return;
+                e.preventDefault();
+                setZoom((z) => Math.min(4, Math.max(1, z - e.deltaY * 0.002)));
+              }}
+            />
+            <canvas
+              ref={overlayRef}
+              width={DW}
+              height={DH}
+              style={{
+                display: "block",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                touchAction: "none",
+                pointerEvents: mode === "crop" ? "auto" : "none",
+                cursor: mode === "crop" ? "default" : "grab",
+              }}
+              onMouseDown={onCropDown}
+              onMouseUp={onCropUp}
+              onMouseLeave={onCropUp}
+              onMouseMove={(e) => {
+                onCropMove(e);
+                getCropCursor(e);
+              }}
+              onTouchStart={onCropDown}
+              onTouchEnd={onCropUp}
+              onTouchMove={onCropMove}
+            />
+          </div>
+
+          {mode === "move" && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                width: "100%",
               }}
             >
-              Full
+              <ZoomOut size={14} color="#8888aa" />
+              <input
+                type="range"
+                min="1"
+                max="4"
+                step="0.05"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                style={{ flex: 1, accentColor: "#1565C0", cursor: "pointer" }}
+              />
+              <ZoomIn size={14} color="#8888aa" />
+              <span
+                style={{
+                  color: "#8888aa",
+                  fontSize: 11,
+                  width: 36,
+                  textAlign: "right",
+                }}
+              >
+                {Math.round(zoom * 100)}%
+              </span>
+            </div>
+          )}
+
+          {mode === "crop" && (
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                background: "#12122a",
+                borderRadius: 8,
+                padding: "6px 12px",
+              }}
+            >
+              {[
+                ["X", Math.round(cropBox.x)],
+                ["Y", Math.round(cropBox.y)],
+                ["W", Math.round(cropBox.w)],
+                ["H", Math.round(cropBox.h)],
+              ].map(([label, val]) => (
+                <div key={label} style={{ textAlign: "center" }}>
+                  <div style={{ color: "#8888aa", fontSize: 9, fontWeight: 700 }}>
+                    {label}
+                  </div>
+                  <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>
+                    {val}
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => setCropBox({ x: 0, y: 0, w: DW, h: DH })}
+                style={{
+                  background: "none",
+                  border: "1px solid #3a3a6a",
+                  borderRadius: 6,
+                  color: "#8888aa",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: "2px 8px",
+                  alignSelf: "center",
+                }}
+              >
+                Full
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10, width: "100%" }}>
+            <button
+              onClick={() => {
+                setZoom(1);
+                setOffset({ x: 0, y: 0 });
+                setCropBox({ x: 0, y: 0, w: DW, h: DH });
+              }}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: "9px 0",
+                borderRadius: 10,
+                border: "1.5px solid #3a3a6a",
+                background: "transparent",
+                color: "#8888aa",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <RotateCcw size={13} /> Reset
+            </button>
+            <button
+              onClick={handleDone}
+              style={{
+                flex: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 7,
+                padding: "9px 0",
+                borderRadius: 10,
+                border: "none",
+                background: "linear-gradient(135deg,#1565C0,#1E88E5)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 4px 14px rgba(21,101,192,.45)",
+              }}
+            >
+              <Check size={14} /> Apply &amp; Save
             </button>
           </div>
-        )}
-
-        <div style={{ display: "flex", gap: 10, width: "100%" }}>
-          <button
-            onClick={() => {
-              setZoom(1);
-              setOffset({ x: 0, y: 0 });
-              setCropBox({ x: 0, y: 0, w: DW, h: DH });
-            }}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              padding: "9px 0",
-              borderRadius: 10,
-              border: "1.5px solid #3a3a6a",
-              background: "transparent",
-              color: "#8888aa",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <RotateCcw size={13} /> Reset
-          </button>
-          <button
-            onClick={handleDone}
-            style={{
-              flex: 2,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 7,
-              padding: "9px 0",
-              borderRadius: 10,
-              border: "none",
-              background: "linear-gradient(135deg,#1565C0,#1E88E5)",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: "0 4px 14px rgba(21,101,192,.45)",
-            }}
-          >
-            <Check size={14} /> Apply & Save
-          </button>
         </div>
       </div>
     </div>

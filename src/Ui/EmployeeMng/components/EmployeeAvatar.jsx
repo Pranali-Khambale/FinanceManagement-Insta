@@ -16,7 +16,7 @@ const EmployeeAvatar = ({ emp }) => {
       <img
         src={photoUrl}
         alt={`${firstName} ${lastName}`}
-        className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-indigo-100"
+        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0 border-2 border-indigo-100"
         onError={(e) => {
           e.currentTarget.style.display = "none";
           e.currentTarget.nextSibling?.style.removeProperty("display");
@@ -26,7 +26,7 @@ const EmployeeAvatar = ({ emp }) => {
   }
 
   return (
-    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">
+    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">
       {firstName[0] || "N"}
       {lastName[0] || "A"}
     </div>

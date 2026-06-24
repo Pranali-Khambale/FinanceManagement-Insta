@@ -55,10 +55,10 @@ const DocsBadgeButton = ({ emp, onClick }) => {
               ? `View ${count} accepted document${count !== 1 ? "s" : ""}`
               : "View submitted documents"
         }
-        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-[0.97] whitespace-nowrap"
+        className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-[0.97] whitespace-nowrap"
         style={{ background: btnBg, color: "#fff" }}
       >
-        <FolderOpen size={12} />
+        <FolderOpen size={12} className="flex-shrink-0" />
         Docs
       </button>
     </div>

@@ -1,6 +1,4 @@
-// =============================================================================
-// FILE: src/Ui/Reports/ReportsPage.jsx
-// =============================================================================
+// src/Ui/Reports/ReportsPage.jsx
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
@@ -8,6 +6,7 @@ import {
   PieChart as PieIcon, ChevronDown, AlertCircle,
 } from 'lucide-react';
 import { useReportData } from './useReportData';
+import { useBreakpoint }  from './useBreakpoint';
 import { KpiCards }                      from './KpiCards';
 import { PieChart, LineChart, BarChart }  from './Charts';
 import { DeptTable }                     from './DeptTable';
@@ -20,213 +19,122 @@ const TABS = [
 ];
 const VIEWS = ['monthly', 'quarterly', 'yearly'];
 
-// ─── Column label maps for clean Excel headers ────────────────────────────────
-// =============================================================================
-// PATCH for ReportsPage.jsx — replace only the PAYROLL_COLS and
-// QUARTERLY_PAYROLL_COLS constants.  Everything else stays the same.
-//
-// Changes vs original:
-//   PAYROLL_COLS    — added employerPf, totalPf, gratuity columns
-//   QUARTERLY_PAYROLL_COLS — added employerPf, totalPf, gratuity columns
-//   YEARLY_COLS     — added employerPf, totalPf, gratuity columns
-// =============================================================================
-
-// ─── Column label maps for clean Excel headers ────────────────────────────────
-
+// ─── Column label maps (unchanged from original) ──────────────────────────────
 const PAYROLL_COLS = {
-  month:           'Month',
-  monthLabel:      'Period',
-  totalPayroll:    'Gross Payroll (₹)',
-  basicPay:        'Basic Pay (₹)',
-  hra:             'HRA (₹)',
-  orgAllowance:    'Other Allowances (₹)',
-  performancePay:  'Performance Pay (₹)',
-  grossEarned:     'Gross Earned (₹)',
-  totalDeductions: 'Total Deductions (₹)',
-  pfDeduction:     'PF Employee 12% (₹)',
-  employerPf:      'PF Employer 13% (₹)',
-  totalPf:         'Total PF 25% (₹)',
-  ptDeduction:     'PT (₹)',
-  gratuity:        'Gratuity 4.81% (₹)',
-  tdsDeduction:    'TDS (₹)',
-  otherDeduction:  'Other Deductions (₹)',
-  advanceDeduction:'Advance Recovery (₹)',
-  advanceAddition: 'Advance Addition (₹)',
-  netPayroll:      'Net Payroll (₹)',
-  employeesPaid:   'Employees Paid',
+  month: 'Month', monthLabel: 'Period', totalPayroll: 'Gross Payroll (₹)',
+  basicPay: 'Basic Pay (₹)', hra: 'HRA (₹)', orgAllowance: 'Other Allowances (₹)',
+  performancePay: 'Performance Pay (₹)', grossEarned: 'Gross Earned (₹)',
+  totalDeductions: 'Total Deductions (₹)', pfDeduction: 'PF Employee 12% (₹)',
+  employerPf: 'PF Employer 13% (₹)', totalPf: 'Total PF 25% (₹)',
+  ptDeduction: 'PT (₹)', gratuity: 'Gratuity 4.81% (₹)', tdsDeduction: 'TDS (₹)',
+  otherDeduction: 'Other Deductions (₹)', advanceDeduction: 'Advance Recovery (₹)',
+  advanceAddition: 'Advance Addition (₹)', netPayroll: 'Net Payroll (₹)',
+  employeesPaid: 'Employees Paid',
 };
-
 const ADVANCE_COLS = {
-  month:            'Month',
-  monthLabel:       'Period',
-  advanceIssued:    'Advance Issued (₹)',
-  advanceRecovered: 'Advance Recovered (₹)',
-  advancePending:   'Advance Pending (₹)',
-  advanceCount:     'No. of Advances',
+  month: 'Month', monthLabel: 'Period', advanceIssued: 'Advance Issued (₹)',
+  advanceRecovered: 'Advance Recovered (₹)', advancePending: 'Advance Pending (₹)',
+  advanceCount: 'No. of Advances',
 };
-
 const QUARTERLY_PAYROLL_COLS = {
-  quarter:          'Quarter',
-  shortLabel:       'Short Label',
-  totalPayroll:     'Gross Payroll (₹)',
-  netPayroll:       'Net Payroll (₹)',
-  totalDeductions:  'Total Deductions (₹)',
-  pfDeduction:      'PF Employee 12% (₹)',
-  employerPf:       'PF Employer 13% (₹)',
-  totalPf:          'Total PF 25% (₹)',
-  ptDeduction:      'PT (₹)',
-  gratuity:         'Gratuity 4.81% (₹)',
-  tdsDeduction:     'TDS (₹)',
-  otherDeduction:   'Other Deductions (₹)',
-  advanceDeduction: 'Advance Recovery (₹)',
-  advanceAddition:  'Advance Addition (₹)',
-  performancePay:   'Performance Pay (₹)',
-  employeesPaid:    'Employees Paid',
-  advanceIssued:    'Advance Issued (₹)',
-  advanceRecovered: 'Advance Recovered (₹)',
-  advancePending:   'Advance Pending (₹)',
+  quarter: 'Quarter', shortLabel: 'Short Label', totalPayroll: 'Gross Payroll (₹)',
+  netPayroll: 'Net Payroll (₹)', totalDeductions: 'Total Deductions (₹)',
+  pfDeduction: 'PF Employee 12% (₹)', employerPf: 'PF Employer 13% (₹)',
+  totalPf: 'Total PF 25% (₹)', ptDeduction: 'PT (₹)', gratuity: 'Gratuity 4.81% (₹)',
+  tdsDeduction: 'TDS (₹)', otherDeduction: 'Other Deductions (₹)',
+  advanceDeduction: 'Advance Recovery (₹)', advanceAddition: 'Advance Addition (₹)',
+  performancePay: 'Performance Pay (₹)', employeesPaid: 'Employees Paid',
+  advanceIssued: 'Advance Issued (₹)', advanceRecovered: 'Advance Recovered (₹)',
+  advancePending: 'Advance Pending (₹)',
 };
-
 const YEARLY_COLS = {
-  year:             'Year',
-  totalPayroll:     'Gross Payroll (₹)',
-  netPayroll:       'Net Payroll (₹)',
-  totalDeductions:  'Total Deductions (₹)',
-  pfDeduction:      'PF Employee 12% (₹)',
-  employerPf:       'PF Employer 13% (₹)',
-  totalPf:          'Total PF 25% (₹)',
-  ptDeduction:      'PT (₹)',
-  gratuity:         'Gratuity 4.81% (₹)',
-  tdsDeduction:     'TDS (₹)',
-  otherDeduction:   'Other Deductions (₹)',
-  advanceDeduction: 'Advance Recovery (₹)',
-  advanceAddition:  'Advance Addition (₹)',
-  performancePay:   'Performance Pay (₹)',
-  avgEmployees:     'Avg Employees',
-  advanceIssued:    'Advance Issued (₹)',
-  advanceRecovered: 'Advance Recovered (₹)',
-  advancePending:   'Advance Pending (₹)',
+  year: 'Year', totalPayroll: 'Gross Payroll (₹)', netPayroll: 'Net Payroll (₹)',
+  totalDeductions: 'Total Deductions (₹)', pfDeduction: 'PF Employee 12% (₹)',
+  employerPf: 'PF Employer 13% (₹)', totalPf: 'Total PF 25% (₹)',
+  ptDeduction: 'PT (₹)', gratuity: 'Gratuity 4.81% (₹)', tdsDeduction: 'TDS (₹)',
+  otherDeduction: 'Other Deductions (₹)', advanceDeduction: 'Advance Recovery (₹)',
+  advanceAddition: 'Advance Addition (₹)', performancePay: 'Performance Pay (₹)',
+  avgEmployees: 'Avg Employees', advanceIssued: 'Advance Issued (₹)',
+  advanceRecovered: 'Advance Recovered (₹)', advancePending: 'Advance Pending (₹)',
 };
-
 const DEPT_COLS = {
-  dept:      'Department',
-  headcount: 'Headcount',
-  payroll:   'Net Payroll (₹)',
-  advances:  'Advances (₹)',
-  pfTotal:   'PF Total (₹)',
+  dept: 'Department', headcount: 'Headcount', payroll: 'Net Payroll (₹)',
+  advances: 'Advances (₹)', pfTotal: 'PF Total (₹)',
 };
 
-// ─── No other changes needed in ReportsPage.jsx ───────────────────────────────
-// The chart series already reference totalDeductions, pfDeduction, ptDeduction,
-// tdsDeduction — those keys now correctly come from the controller.
-// The new employerPf / totalPf / gratuity fields are available on every row
-// and will automatically appear in Excel exports via the updated column maps above.
-// ─── XLSX export helper ───────────────────────────────────────────────────────
-/**
- * @param {object[]}  rows      - raw data rows
- * @param {object}    colMap    - { rawKey: 'Human Label' } — determines columns & order
- * @param {string}    filename  - e.g. 'payroll-2026-monthly.xlsx'
- * @param {string}    sheetName - tab name inside the workbook
- */
+// ─── XLSX export (unchanged) ──────────────────────────────────────────────────
 function exportXLSX(rows, colMap, filename, sheetName = 'Report') {
-  if (!rows?.length) {
-    alert('No data available to export for the selected view.');
-    return;
-  }
-
-  const keys   = Object.keys(colMap);
+  if (!rows?.length) { alert('No data available to export for the selected view.'); return; }
+  const keys = Object.keys(colMap);
   const labels = Object.values(colMap);
-
-  // Build array-of-arrays: header row + data rows
-  const aoa = [
-    labels,
-    ...rows.map(row => keys.map(k => row[k] ?? '')),
-  ];
-
+  const aoa = [labels, ...rows.map(row => keys.map(k => row[k] ?? ''))];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-  // Column widths — max of header or any cell value
   ws['!cols'] = labels.map((lbl, ci) => ({
-    wch: Math.max(
-      lbl.length,
-      ...rows.map(row => String(row[keys[ci]] ?? '').length)
-    ) + 2,
+    wch: Math.max(lbl.length, ...rows.map(row => String(row[keys[ci]] ?? '').length)) + 2,
   }));
-
-  // Bold + background for header row
   const range = XLSX.utils.decode_range(ws['!ref']);
   for (let C = range.s.c; C <= range.e.c; C++) {
     const addr = XLSX.utils.encode_cell({ r: 0, c: C });
     if (!ws[addr]) continue;
     ws[addr].s = {
-      font:      { bold: true, color: { rgb: 'FFFFFF' } },
-      fill:      { fgColor: { rgb: '1D4ED8' } },
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '1D4ED8' } },
       alignment: { horizontal: 'center' },
     };
   }
-
-  // Number format for currency columns
   for (let R = 1; R <= range.e.r; R++) {
     for (let C = range.s.c; C <= range.e.c; C++) {
       const label = labels[C];
-      const addr  = XLSX.utils.encode_cell({ r: R, c: C });
+      const addr = XLSX.utils.encode_cell({ r: R, c: C });
       if (!ws[addr]) continue;
-      if (label?.includes('₹')) {
-        ws[addr].z = '#,##0.00';
-      }
+      if (label?.includes('₹')) ws[addr].z = '#,##0.00';
     }
   }
-
-  // Freeze top row
   ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' };
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, filename);
 }
 
-// ─── Decide what to export based on active tab + active view ──────────────────
 function handleExport({ tab, view, data, year }) {
   if (!data) return;
-
   if (tab === 'overview') {
-    // Department breakdown is the same regardless of view
     exportXLSX(data.deptBreak, DEPT_COLS, `dept-breakdown-${year}.xlsx`, 'Dept Breakdown');
     return;
   }
-
-  // Choose the right dataset + column map based on view
-  let rows, colMap, suffix;
-
+  let rows, colMap;
   if (view === 'monthly') {
-    rows   = data.monthly;
-    suffix = 'monthly';
-    colMap = tab === 'payroll' ? PAYROLL_COLS : ADVANCE_COLS;
+    rows = data.monthly; colMap = tab === 'payroll' ? PAYROLL_COLS : ADVANCE_COLS;
   } else if (view === 'quarterly') {
-    rows   = data.quarterly;
-    suffix = 'quarterly';
-    colMap = QUARTERLY_PAYROLL_COLS;   // quarterly has both payroll + advance cols
+    rows = data.quarterly; colMap = QUARTERLY_PAYROLL_COLS;
   } else {
-    rows   = data.yearly;
-    suffix = 'yearly';
-    colMap = YEARLY_COLS;
+    rows = data.yearly; colMap = YEARLY_COLS;
   }
-
   const tabLabel = tab === 'payroll' ? 'payroll' : 'advances';
-  const sheet    = `${tabLabel}-${suffix}`.replace(/^./, c => c.toUpperCase());
-
-  exportXLSX(rows, colMap, `${tabLabel}-${year}-${suffix}.xlsx`, sheet);
+  const sheet = `${tabLabel}-${view}`.replace(/^./, c => c.toUpperCase());
+  exportXLSX(rows, colMap, `${tabLabel}-${year}-${view}.xlsx`, sheet);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-const Section = ({ title, children, action }) => (
+const Section = ({ title, children, action, isMobile }) => (
   <div style={{
-    background: '#fff', borderRadius: 16, padding: '22px 24px',
+    background: '#fff',
+    borderRadius: isMobile ? 12 : 16,
+    padding: isMobile ? '16px 14px' : '22px 24px',
     boxShadow: '0 1px 4px rgba(0,0,0,0.06),0 4px 18px rgba(0,0,0,0.04)',
-    border: '1px solid #f1f5f9', marginBottom: 20,
+    border: '1px solid #f1f5f9',
+    marginBottom: isMobile ? 14 : 20,
   }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-      <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827', fontFamily: "'DM Sans',sans-serif" }}>
+    <div style={{
+      display: 'flex', justifyContent: 'space-between',
+      alignItems: 'center', marginBottom: isMobile ? 14 : 18,
+      flexWrap: 'wrap', gap: 8,
+    }}>
+      <h3 style={{
+        margin: 0, fontSize: isMobile ? 13 : 14,
+        fontWeight: 700, color: '#111827',
+        fontFamily: "'DM Sans',sans-serif",
+      }}>
         {title}
       </h3>
       {action}
@@ -235,23 +143,34 @@ const Section = ({ title, children, action }) => (
   </div>
 );
 
-const Chip = ({ label, active, onClick }) => (
-  <button onClick={onClick} style={{
-    padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-    fontFamily: "'DM Sans',sans-serif", cursor: 'pointer', border: 'none',
-    background: active ? '#1d4ed8' : '#f1f5f9',
-    color:      active ? '#fff'    : '#6b7280',
-    transition: 'all .15s',
-  }}>{label}</button>
+const Chip = ({ label, active, onClick, isMobile }) => (
+  <button
+    onClick={onClick}
+    style={{
+      padding: isMobile ? '4px 10px' : '5px 14px',
+      borderRadius: 20,
+      fontSize: isMobile ? 11 : 12,
+      fontWeight: 600,
+      fontFamily: "'DM Sans',sans-serif",
+      cursor: 'pointer', border: 'none',
+      background: active ? '#1d4ed8' : '#f1f5f9',
+      color: active ? '#fff' : '#6b7280',
+      transition: 'all .15s',
+    }}
+  >
+    {label}
+  </button>
 );
 
 const EmptyState = ({ msg }) => (
   <div style={{
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    justifyContent: 'center', height: 200, gap: 12, color: '#9ca3af',
+    justifyContent: 'center', height: 160, gap: 12, color: '#9ca3af',
   }}>
-    <BarChart2 size={36} strokeWidth={1.2} />
-    <p style={{ margin: 0, fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>{msg}</p>
+    <BarChart2 size={32} strokeWidth={1.2} />
+    <p style={{ margin: 0, fontSize: 12, fontFamily: "'DM Sans',sans-serif", textAlign: 'center' }}>
+      {msg}
+    </p>
   </div>
 );
 
@@ -264,140 +183,195 @@ export default function ReportsPage() {
     refresh, currentYear,
   } = useReportData();
 
+  const { isMobile, isTablet, isSmall } = useBreakpoint();
   const [tab, setTab] = useState('overview');
 
   const yearOpts = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
 
-  // ── Derive the view-specific dataset & axis labels ──────────────────────────
   const viewData = data
     ? view === 'monthly'   ? data.monthly
     : view === 'quarterly' ? data.quarterly
     : data.yearly
     : [];
 
-  // xKey must match the property that holds the axis label in each view's row
-  const xKey = view === 'monthly'   ? 'month'
-             : view === 'quarterly' ? 'shortLabel'
-             : 'year';
-
+  const xKey = view === 'monthly' ? 'month' : view === 'quarterly' ? 'shortLabel' : 'year';
   const xLabels = viewData.map(d => String(d[xKey] ?? ''));
 
-  // ── Data presence flags ─────────────────────────────────────────────────────
   const hasPayrollData = data?.monthly?.some(m => m.totalPayroll  > 0);
   const hasAdvanceData = data?.monthly?.some(m => m.advanceIssued > 0);
+  const viewHasPayroll = viewData.some(d => (d.totalPayroll  || 0) > 0);
+  const viewHasAdvance = viewData.some(d => (d.advanceIssued || 0) > 0);
 
-  // For quarterly / yearly tabs we check the actual viewData
-  const viewHasPayroll  = viewData.some(d => (d.totalPayroll  || 0) > 0);
-  const viewHasAdvance  = viewData.some(d => (d.advanceIssued || 0) > 0);
-
-  // ── Export label shown on button ────────────────────────────────────────────
   const exportLabel = tab === 'overview'
-    ? 'Export Dept'
-    : `Export ${view.charAt(0).toUpperCase() + view.slice(1)}`;
+    ? (isMobile ? 'Export' : 'Export Dept')
+    : (isMobile ? 'Export' : `Export ${view.charAt(0).toUpperCase() + view.slice(1)}`);
+
+  // Two-column layout collapses to one on mobile/tablet
+  const twoColGrid = {
+    display: 'grid',
+    gridTemplateColumns: isSmall ? '1fr' : '1fr 1fr',
+    gap: isMobile ? 14 : 20,
+    marginBottom: isMobile ? 14 : 20,
+  };
 
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: '100%' }}>
 
       {/* ── Header ───────────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: isMobile ? 16 : 24 }}>
         <div style={{
-          display: 'flex', justifyContent: 'space-between',
-          alignItems: 'flex-start', flexWrap: 'wrap', gap: 12,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'flex-start',
+          flexWrap: 'wrap',
+          gap: 12,
         }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px' }}>
+            <h1 style={{
+              margin: 0,
+              fontSize: isMobile ? 20 : 24,
+              fontWeight: 800,
+              color: '#0f172a',
+              letterSpacing: '-0.5px',
+            }}>
               Financial Reports
             </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-              Payroll &amp; Advance Payment analytics — live from database
-            </p>
+            {!isMobile && (
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                Payroll &amp; Advance Payment analytics — live from database
+              </p>
+            )}
           </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Controls — wrap naturally on small screens */}
+          <div style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            width: isMobile ? '100%' : undefined,
+          }}>
             {/* Year selector */}
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
               <select
                 value={year}
                 onChange={e => setYear(Number(e.target.value))}
                 style={{
-                  appearance: 'none', padding: '8px 32px 8px 12px', borderRadius: 10,
-                  border: '1px solid #e2e8f0', background: '#fff', fontSize: 13,
-                  fontWeight: 600, color: '#374151', cursor: 'pointer',
-                  fontFamily: "'DM Sans',sans-serif", boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  appearance: 'none',
+                  padding: isMobile ? '7px 28px 7px 10px' : '8px 32px 8px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #e2e8f0',
+                  background: '#fff',
+                  fontSize: isMobile ? 12 : 13,
+                  fontWeight: 600,
+                  color: '#374151',
+                  cursor: 'pointer',
+                  fontFamily: "'DM Sans',sans-serif",
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                 }}
               >
                 {yearOpts.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
-              <ChevronDown size={14} style={{
-                position: 'absolute', right: 10, top: '50%',
+              <ChevronDown size={13} style={{
+                position: 'absolute', right: 8, top: '50%',
                 transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none',
               }} />
             </div>
 
             {/* Refresh */}
-            <button onClick={refresh} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
-              borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff',
-              fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer',
-              fontFamily: "'DM Sans',sans-serif", boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            }}>
+            <button
+              onClick={refresh}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: isMobile ? '7px 10px' : '8px 14px',
+                borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff',
+                fontSize: isMobile ? 12 : 13, fontWeight: 600, color: '#374151',
+                cursor: 'pointer', fontFamily: "'DM Sans',sans-serif",
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                // Icon-only on very small screens
+                minWidth: 0,
+              }}
+              title="Refresh"
+            >
               <RefreshCw
-                size={14}
+                size={13}
                 style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
               />
-              Refresh
+              {!isMobile && 'Refresh'}
             </button>
 
-            {/* Export — label changes based on tab + view */}
+            {/* Export */}
             <button
               onClick={() => handleExport({ tab, view, data, year })}
               disabled={!data || loading}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: isMobile ? '7px 12px' : '8px 16px',
                 borderRadius: 10, border: 'none',
                 background: (!data || loading) ? '#93c5fd' : '#1d4ed8',
-                fontSize: 13, fontWeight: 600, color: '#fff', cursor: (!data || loading) ? 'not-allowed' : 'pointer',
-                fontFamily: "'DM Sans',sans-serif", boxShadow: '0 2px 8px rgba(29,78,216,0.3)',
+                fontSize: isMobile ? 12 : 13, fontWeight: 600, color: '#fff',
+                cursor: (!data || loading) ? 'not-allowed' : 'pointer',
+                fontFamily: "'DM Sans',sans-serif",
+                boxShadow: '0 2px 8px rgba(29,78,216,0.3)',
                 transition: 'background .15s',
+                flexShrink: 0,
               }}
             >
-              <Download size={14} /> {exportLabel}
+              <Download size={13} /> {exportLabel}
             </button>
           </div>
         </div>
 
         {/* View toggle */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: isMobile ? 12 : 16, flexWrap: 'wrap' }}>
           {VIEWS.map(v => (
             <Chip
               key={v}
               label={v.charAt(0).toUpperCase() + v.slice(1)}
               active={view === v}
               onClick={() => setView(v)}
+              isMobile={isMobile}
             />
           ))}
         </div>
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '2px solid #f1f5f9' }}>
+      <div style={{
+        display: 'flex',
+        gap: isMobile ? 0 : 4,
+        marginBottom: isMobile ? 16 : 24,
+        borderBottom: '2px solid #f1f5f9',
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}>
         {TABS.map(t => {
           const Icon = t.icon;
+          const isActive = tab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                padding: '10px 18px', border: 'none', background: 'none', fontSize: 13,
-                fontWeight: tab === t.id ? 700 : 500,
-                color:      tab === t.id ? '#1d4ed8' : '#64748b',
-                cursor: 'pointer', fontFamily: "'DM Sans',sans-serif",
-                borderBottom: `2px solid ${tab === t.id ? '#1d4ed8' : 'transparent'}`,
-                marginBottom: -2, transition: 'color .15s',
+                display: 'flex', alignItems: 'center',
+                gap: isMobile ? 5 : 7,
+                padding: isMobile ? '8px 12px' : '10px 18px',
+                border: 'none', background: 'none',
+                fontSize: isMobile ? 12 : 13,
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? '#1d4ed8' : '#64748b',
+                cursor: 'pointer',
+                fontFamily: "'DM Sans',sans-serif",
+                borderBottom: `2px solid ${isActive ? '#1d4ed8' : 'transparent'}`,
+                marginBottom: -2,
+                transition: 'color .15s',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
-              <Icon size={14} />{t.label}
+              <Icon size={isMobile ? 13 : 14} />
+              {/* On xs (very small phones), show icon only */}
+              {!(isMobile && window.innerWidth < 380) && t.label}
             </button>
           );
         })}
@@ -406,23 +380,26 @@ export default function ReportsPage() {
       {/* ── Error banner ─────────────────────────────────────────────────────── */}
       {error && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px',
-          borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca',
-          marginBottom: 20, color: '#dc2626', fontSize: 13, fontFamily: "'DM Sans',sans-serif",
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: '12px 14px', borderRadius: 10,
+          background: '#fef2f2', border: '1px solid #fecaca',
+          marginBottom: 16, color: '#dc2626',
+          fontSize: isMobile ? 12 : 13, fontFamily: "'DM Sans',sans-serif",
+          flexWrap: 'wrap',
         }}>
-          <AlertCircle size={16} />
-          <strong>API Error:</strong>&nbsp;{error}&nbsp;—&nbsp;
-          <span style={{ color: '#6b7280' }}>
-            Check that your backend is running and CORS is configured.
+          <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            <strong>API Error:</strong>&nbsp;{error}&nbsp;—&nbsp;
+            <span style={{ color: '#6b7280' }}>Check that your backend is running and CORS is configured.</span>
           </span>
         </div>
       )}
 
       {/* ── Loading spinner ───────────────────────────────────────────────────── */}
       {loading && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 240 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
           <div style={{
-            width: 40, height: 40, border: '3px solid #e2e8f0',
+            width: 36, height: 36, border: '3px solid #e2e8f0',
             borderTopColor: '#1d4ed8', borderRadius: '50%',
             animation: 'spin 0.8s linear infinite',
           }} />
@@ -433,11 +410,13 @@ export default function ReportsPage() {
       {/* ── No data warning ───────────────────────────────────────────────────── */}
       {!loading && !error && data && !hasPayrollData && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px',
-          borderRadius: 10, background: '#fffbeb', border: '1px solid #fde68a',
-          marginBottom: 20, color: '#92400e', fontSize: 13, fontFamily: "'DM Sans',sans-serif",
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: '12px 14px', borderRadius: 10,
+          background: '#fffbeb', border: '1px solid #fde68a',
+          marginBottom: 16, color: '#92400e',
+          fontSize: isMobile ? 12 : 13, fontFamily: "'DM Sans',sans-serif",
         }}>
-          <AlertCircle size={16} />
+          <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
           No paid payroll records found for {year}. Charts will be empty until salary is marked as Paid.
         </div>
       )}
@@ -450,8 +429,8 @@ export default function ReportsPage() {
             <>
               <KpiCards totals={data.totals} />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-                <Section title={`Payroll Trend — ${year}`}>
+              <div style={twoColGrid}>
+                <Section title={`Payroll Trend — ${year}`} isMobile={isMobile}>
                   {hasPayrollData ? (
                     <LineChart
                       labels={xLabels}
@@ -459,24 +438,24 @@ export default function ReportsPage() {
                         { name: 'Total Payroll', color: '#3b82f6', data: viewData.map(d => d.totalPayroll  || 0) },
                         { name: 'Net Payroll',   color: '#10b981', data: viewData.map(d => d.netPayroll    || 0) },
                       ]}
-                      height={200}
+                      height={isMobile ? 160 : 200}
                     />
                   ) : <EmptyState msg="No paid payroll data for this period" />}
                 </Section>
 
-                <Section title="Payroll Composition">
+                <Section title="Payroll Composition" isMobile={isMobile}>
                   {data.pieData?.length > 0
-                    ? <PieChart data={data.pieData} size={200} donut={true} />
+                    ? <PieChart data={data.pieData} size={isMobile ? 180 : 200} donut={true} />
                     : <EmptyState msg="No payroll data to break down" />}
                 </Section>
               </div>
 
-              <Section title={`Advance Payments — ${year}`}>
+              <Section title={`Advance Payments — ${year}`} isMobile={isMobile}>
                 {hasAdvanceData ? (
                   <BarChart
                     data={viewData}
                     xKey={xKey}
-                    height={200}
+                    height={isMobile ? 160 : 200}
                     bars={[
                       { key: 'advanceIssued',    name: 'Issued',    color: '#8b5cf6' },
                       { key: 'advanceRecovered', name: 'Recovered', color: '#06b6d4' },
@@ -486,7 +465,7 @@ export default function ReportsPage() {
                 ) : <EmptyState msg="No advance payment data for this period" />}
               </Section>
 
-              <Section title="Department Breakdown">
+              <Section title="Department Breakdown" isMobile={isMobile}>
                 {data.deptBreak?.length > 0
                   ? <DeptTable data={data.deptBreak} />
                   : <EmptyState msg="No department data available" />}
@@ -497,8 +476,8 @@ export default function ReportsPage() {
           {/* ══ PAYROLL ════════════════════════════════════════════════════════ */}
           {tab === 'payroll' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-                <Section title={`Gross vs Net — ${view.charAt(0).toUpperCase() + view.slice(1)}`}>
+              <div style={twoColGrid}>
+                <Section title={`Gross vs Net — ${view.charAt(0).toUpperCase() + view.slice(1)}`} isMobile={isMobile}>
                   {viewHasPayroll ? (
                     <LineChart
                       labels={xLabels}
@@ -507,26 +486,25 @@ export default function ReportsPage() {
                         { name: 'Net',        color: '#10b981', data: viewData.map(d => d.netPayroll      || 0) },
                         { name: 'Deductions', color: '#ef4444', data: viewData.map(d => d.totalDeductions || 0) },
                       ]}
-                      height={200}
+                      height={isMobile ? 160 : 200}
                     />
                   ) : <EmptyState msg={`No payroll data for ${view} view`} />}
                 </Section>
 
-                <Section title="Payroll Component Split">
+                <Section title="Payroll Component Split" isMobile={isMobile}>
                   {data.pieData?.length > 0
-                    ? <PieChart data={data.pieData} size={200} donut={true} />
+                    ? <PieChart data={data.pieData} size={isMobile ? 180 : 200} donut={true} />
                     : <EmptyState msg="No component data" />}
                 </Section>
               </div>
 
-              {/* Component breakdown — only meaningful at monthly level */}
               {view === 'monthly' && (
-                <Section title="Component-wise Payroll">
+                <Section title="Component-wise Payroll" isMobile={isMobile}>
                   {viewHasPayroll ? (
                     <BarChart
                       data={viewData}
                       xKey={xKey}
-                      height={220}
+                      height={isMobile ? 180 : 220}
                       bars={[
                         { key: 'basicPay',       name: 'Basic',       color: '#3b82f6' },
                         { key: 'hra',            name: 'HRA',         color: '#8b5cf6' },
@@ -539,12 +517,12 @@ export default function ReportsPage() {
               )}
 
               {view === 'monthly' && (
-                <Section title="Deductions Breakdown">
+                <Section title="Deductions Breakdown" isMobile={isMobile}>
                   {viewHasPayroll ? (
                     <BarChart
                       data={viewData}
                       xKey={xKey}
-                      height={200}
+                      height={isMobile ? 160 : 200}
                       bars={[
                         { key: 'pfDeduction',  name: 'PF',  color: '#f59e0b' },
                         { key: 'ptDeduction',  name: 'PT',  color: '#ef4444' },
@@ -555,14 +533,13 @@ export default function ReportsPage() {
                 </Section>
               )}
 
-              {/* Quarterly/Yearly: show combined payroll + advance bar */}
               {(view === 'quarterly' || view === 'yearly') && (
-                <Section title={`Payroll Overview — ${view.charAt(0).toUpperCase() + view.slice(1)}`}>
+                <Section title={`Payroll Overview — ${view.charAt(0).toUpperCase() + view.slice(1)}`} isMobile={isMobile}>
                   {viewHasPayroll ? (
                     <BarChart
                       data={viewData}
                       xKey={xKey}
-                      height={220}
+                      height={isMobile ? 180 : 220}
                       bars={[
                         { key: 'totalPayroll',    name: 'Gross Payroll',   color: '#3b82f6' },
                         { key: 'netPayroll',      name: 'Net Payroll',     color: '#10b981' },
@@ -574,7 +551,7 @@ export default function ReportsPage() {
                 </Section>
               )}
 
-              <Section title={`Employees Paid — ${view.charAt(0).toUpperCase() + view.slice(1)}`}>
+              <Section title={`Employees Paid — ${view.charAt(0).toUpperCase() + view.slice(1)}`} isMobile={isMobile}>
                 {viewHasPayroll ? (
                   <LineChart
                     labels={xLabels}
@@ -583,7 +560,7 @@ export default function ReportsPage() {
                       color: '#1d4ed8',
                       data: viewData.map(d => d.employeesPaid || d.avgEmployees || 0),
                     }]}
-                    height={160}
+                    height={isMobile ? 130 : 160}
                     showArea={true}
                   />
                 ) : <EmptyState msg="No payroll data" />}
@@ -594,8 +571,8 @@ export default function ReportsPage() {
           {/* ══ ADVANCE PAYMENTS ══════════════════════════════════════════════ */}
           {tab === 'advance' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-                <Section title={`Advance Flow — ${view.charAt(0).toUpperCase() + view.slice(1)}`}>
+              <div style={twoColGrid}>
+                <Section title={`Advance Flow — ${view.charAt(0).toUpperCase() + view.slice(1)}`} isMobile={isMobile}>
                   {viewHasAdvance ? (
                     <LineChart
                       labels={xLabels}
@@ -604,12 +581,12 @@ export default function ReportsPage() {
                         { name: 'Recovered', color: '#06b6d4', data: viewData.map(d => d.advanceRecovered || 0) },
                         { name: 'Pending',   color: '#f59e0b', data: viewData.map(d => d.advancePending   || 0) },
                       ]}
-                      height={200}
+                      height={isMobile ? 160 : 200}
                     />
                   ) : <EmptyState msg={`No advance data for ${view} view`} />}
                 </Section>
 
-                <Section title="Advance Distribution (Year Total)">
+                <Section title="Advance Distribution (Year Total)" isMobile={isMobile}>
                   {(data.totals.advance > 0) ? (
                     <PieChart
                       data={[
@@ -617,19 +594,19 @@ export default function ReportsPage() {
                         { label: 'Recovered', value: data.totals.recovered, color: '#06b6d4' },
                         { label: 'Pending',   value: data.totals.pending,   color: '#f59e0b' },
                       ].filter(d => d.value > 0)}
-                      size={200}
+                      size={isMobile ? 180 : 200}
                       donut={true}
                     />
                   ) : <EmptyState msg="No advance totals" />}
                 </Section>
               </div>
 
-              <Section title={`Issued vs Recovered — ${view.charAt(0).toUpperCase() + view.slice(1)}`}>
+              <Section title={`Issued vs Recovered — ${view.charAt(0).toUpperCase() + view.slice(1)}`} isMobile={isMobile}>
                 {viewHasAdvance ? (
                   <BarChart
                     data={viewData}
                     xKey={xKey}
-                    height={200}
+                    height={isMobile ? 160 : 200}
                     bars={[
                       { key: 'advanceIssued',    name: 'Issued',    color: '#8b5cf6' },
                       { key: 'advanceRecovered', name: 'Recovered', color: '#06b6d4' },
@@ -638,11 +615,13 @@ export default function ReportsPage() {
                 ) : <EmptyState msg={`No advance data for ${view} view`} />}
               </Section>
 
-              {/* Recovery summary cards */}
+              {/* Recovery summary cards — 2 col on mobile, 4 col on desktop */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                gap: 14,
+                gridTemplateColumns: isMobile
+                  ? 'repeat(2, 1fr)'
+                  : 'repeat(auto-fill, minmax(180px, 1fr))',
+                gap: isMobile ? 10 : 14,
               }}>
                 {[
                   {
@@ -669,17 +648,22 @@ export default function ReportsPage() {
                   },
                 ].map((c, i) => (
                   <div key={i} style={{
-                    background: c.bg, borderRadius: 12, padding: '16px 18px',
+                    background: c.bg, borderRadius: isMobile ? 10 : 12,
+                    padding: isMobile ? '12px 14px' : '16px 18px',
                     border: `1px solid ${c.color}22`,
                   }}>
                     <div style={{
-                      fontSize: 22, fontWeight: 800, color: c.color,
+                      fontSize: isMobile ? 18 : 22, fontWeight: 800, color: c.color,
                       fontFamily: "'DM Sans',sans-serif",
-                    }}>{c.value}</div>
+                    }}>
+                      {c.value}
+                    </div>
                     <div style={{
-                      fontSize: 12, color: '#64748b',
+                      fontSize: isMobile ? 11 : 12, color: '#64748b',
                       fontFamily: "'DM Sans',sans-serif", marginTop: 3,
-                    }}>{c.label}</div>
+                    }}>
+                      {c.label}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -691,6 +675,7 @@ export default function ReportsPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
         @keyframes spin { to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; }
       `}</style>
     </div>
   );

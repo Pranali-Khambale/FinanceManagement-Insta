@@ -295,7 +295,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
   // RENDER
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="p-8">
+    <div className="p-3 sm:p-5 lg:p-8 max-w-full overflow-x-hidden">
       {/* ── Global UI overlays ─────────────────────────────────────────────── */}
       <Toast toasts={toasts} removeToast={removeToast} />
 
@@ -340,32 +340,33 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       )}
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+      <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Employee Management</h1>
-          <p className="text-gray-500 mt-1 text-sm">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Employee Management</h1>
+          <p className="text-gray-500 mt-1 text-xs sm:text-sm">
             Manage your workforce — add, search, and maintain employee records
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           {/* Activity Log */}
           <button
             onClick={() => setShowActivityLog(true)}
-            className="flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg active:scale-[0.97] transition-all"
+            className="flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg active:scale-[0.97] transition-all whitespace-nowrap"
             style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}
           >
-            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
-              <Activity className="w-4 h-4" />
+            <span className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/20 flex-shrink-0">
+              <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </span>
-            Activity Log
+            <span className="hidden xs:inline">Activity Log</span>
+            <span className="xs:hidden">Activity</span>
           </button>
 
           {/* Pending Approvals */}
           <div className="relative flex flex-col items-center gap-1">
             <button
               onClick={() => navigate("/employee/pending")}
-              className="relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg active:scale-[0.97] transition-all"
+              className="relative flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg active:scale-[0.97] transition-all whitespace-nowrap"
               style={{
                 background:
                   approvalBadgeCount > 0 || docsBadgeCount > 0
@@ -374,10 +375,11 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                 color: "#fff",
               }}
             >
-              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
-                <ClipboardList className="w-4 h-4" />
+              <span className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/20 flex-shrink-0">
+                <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </span>
-              Pending Approvals
+              <span className="hidden xs:inline">Pending Approvals</span>
+              <span className="xs:hidden">Pending</span>
               {(approvalBadgeCount > 0 || docsBadgeCount > 0) && (
                 <span className="flex items-center gap-1 ml-0.5">
                   {approvalBadgeCount > 0 && (
@@ -402,7 +404,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
               )}
             </button>
             {(approvalBadgeCount > 0 || docsBadgeCount > 0) && (
-              <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
+              <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium flex-wrap justify-center">
                 {approvalBadgeCount > 0 && (
                   <span className="flex items-center gap-1">
                     <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#fbbf24" }} />
@@ -424,9 +426,9 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
 
       {/* ── Error banner ────────────────────────────────────────────────────── */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 mb-5 sm:mb-6 flex items-center gap-3 flex-wrap">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-          <p className="text-sm text-red-800">{error}</p>
+          <p className="text-sm text-red-800 flex-1 min-w-0">{error}</p>
           <button onClick={fetchEmployees} className="ml-auto text-xs text-red-600 underline">
             Retry
           </button>
@@ -434,58 +436,58 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       )}
 
       {/* ── Action buttons ───────────────────────────────────────────────────── */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="mb-5 sm:mb-6 grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <button
           onClick={() => { setModalType("add"); setShowModal(true); }}
-          className="px-6 py-4 bg-blue-600 text-white border-2 border-blue-600 rounded-lg font-medium flex items-center justify-center gap-2 shadow-sm hover:bg-blue-700 transition"
+          className="px-4 sm:px-6 py-3 sm:py-4 bg-blue-600 text-white border-2 border-blue-600 rounded-lg font-medium flex items-center justify-center gap-2 shadow-sm hover:bg-blue-700 transition text-sm sm:text-base"
         >
-          <Plus className="w-5 h-5" /> Add Employee Manually
+          <Plus className="w-5 h-5 flex-shrink-0" /> <span className="truncate">Add Employee Manually</span>
         </button>
         <button
           onClick={() => { setModalType("link"); setShowModal(true); }}
-          className="px-6 py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-50 transition-all shadow-sm"
+          className="px-4 sm:px-6 py-3 sm:py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-50 transition-all shadow-sm text-sm sm:text-base"
         >
-          <Link2 className="w-5 h-5" /> Generate Registration Link
+          <Link2 className="w-5 h-5 flex-shrink-0" /> <span className="truncate">Generate Registration Link</span>
         </button>
         <button
           onClick={() => setShowImportModal(true)}
-          className="px-6 py-4 bg-white border-2 border-green-600 text-green-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-50 transition-all shadow-sm"
+          className="px-4 sm:px-6 py-3 sm:py-4 bg-white border-2 border-green-600 text-green-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-50 transition-all shadow-sm text-sm sm:text-base"
         >
-          <Upload className="w-5 h-5" /> Import from Excel
+          <Upload className="w-5 h-5 flex-shrink-0" /> <span className="truncate">Import from Excel</span>
         </button>
         <button
           onClick={handleExportData}
           disabled={exportLoading}
-          className={`px-6 py-4 border-2 border-purple-600 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-sm ${
+          className={`px-4 sm:px-6 py-3 sm:py-4 border-2 border-purple-600 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-sm text-sm sm:text-base ${
             exportLoading
               ? "bg-purple-100 text-purple-400 cursor-not-allowed"
               : "bg-white text-purple-600 hover:bg-purple-50"
           }`}
         >
-          <Download className={`w-5 h-5 ${exportLoading ? "animate-bounce" : ""}`} />
-          {exportLoading ? "Exporting…" : "Export Excel"}
+          <Download className={`w-5 h-5 flex-shrink-0 ${exportLoading ? "animate-bounce" : ""}`} />
+          <span className="truncate">{exportLoading ? "Exporting…" : "Export Excel"}</span>
         </button>
       </div>
 
       {/* ── Search & Filter ──────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm mb-6">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-[260px] relative">
+      <div className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm mb-5 sm:mb-6">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+          <div className="flex-1 min-w-0 sm:min-w-[260px] relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search by name, ID, or email…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm"
+              className="w-full pl-12 pr-4 py-2.5 sm:py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
+            <Filter className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 outline-none bg-white text-sm"
+              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border border-gray-300 focus:border-blue-500 outline-none bg-white text-sm min-w-0"
             >
               <option value="all">All Status</option>
               <option value="Active">Active</option>
@@ -500,11 +502,11 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
       {/* ── Employee Table ───────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         {filteredEmployees.length === 0 ? (
-          <div className="p-16 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-10 h-10 text-gray-400" />
+          <div className="p-8 sm:p-16 text-center">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Employees Found</h3>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No Employees Found</h3>
             <p className="text-gray-500 mb-5 text-sm">
               {employees.length === 0
                 ? "Get started by adding your first employee"
@@ -521,14 +523,20 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            {/* Scroll hint for mobile */}
+            <div className="sm:hidden px-4 pt-3 pb-1">
+              <p className="text-[11px] text-gray-400 flex items-center gap-1">
+                ← Swipe table to see more →
+              </p>
+            </div>
+            <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+              <table className="w-full min-w-[860px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     {["Employee", "ID", "Department", "Designation", "Joining Date", "Status", "Docs", "Actions"].map((h) => (
                       <th
                         key={h}
-                        className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap"
+                        className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap"
                       >
                         {h}
                       </th>
@@ -550,37 +558,37 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                     return (
                       <tr key={emp.id || emp.employee_id} className="hover:bg-gray-50 transition-colors">
                         {/* Employee */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className="flex items-center gap-3 min-w-[160px]">
                             <EmployeeAvatar emp={emp} />
-                            <div>
-                              <p className="font-semibold text-gray-900 text-sm">{fullName}</p>
-                              <p className="text-xs text-gray-500">{emp.email}</p>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 text-sm truncate">{fullName}</p>
+                              <p className="text-xs text-gray-500 truncate">{emp.email}</p>
                             </div>
                           </div>
                         </td>
                         {/* ID */}
-                        <td className="px-6 py-4">
-                          <span className="font-mono text-sm font-medium text-gray-700">{empId}</span>
+                        <td className="px-3 sm:px-6 py-4">
+                          <span className="font-mono text-sm font-medium text-gray-700 whitespace-nowrap">{empId}</span>
                         </td>
                         {/* Department */}
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">{emp.department || "—"}</span>
+                        <td className="px-3 sm:px-6 py-4">
+                          <span className="text-sm text-gray-700 whitespace-nowrap">{emp.department || "—"}</span>
                         </td>
                         {/* Designation */}
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">{designation || "—"}</span>
+                        <td className="px-3 sm:px-6 py-4">
+                          <span className="text-sm text-gray-700 whitespace-nowrap">{designation || "—"}</span>
                         </td>
                         {/* Joining Date */}
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-500">
+                        <td className="px-3 sm:px-6 py-4">
+                          <span className="text-sm text-gray-500 whitespace-nowrap">
                             {joiningDate
                               ? new Date(joiningDate).toLocaleDateString("en-IN")
                               : "—"}
                           </span>
                         </td>
                         {/* Status */}
-                        <td className="px-6 py-4">
+                        <td className="px-3 sm:px-6 py-4">
                           <StatusDropdown
                             emp={emp}
                             onStatusChange={handleStatusChange}
@@ -588,15 +596,15 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                           />
                         </td>
                         {/* Docs */}
-                        <td className="px-4 py-4">
+                        <td className="px-3 sm:px-4 py-4">
                           <DocsBadgeButton
                             emp={emp}
                             onClick={() => setDocsModalEmployee(emp)}
                           />
                         </td>
                         {/* Actions */}
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col gap-1.5">
+                        <td className="px-3 sm:px-4 py-4">
+                          <div className="flex flex-col gap-1.5 min-w-[110px]">
                             <div className="flex items-center gap-1.5">
                               {/* View */}
                               <button
@@ -637,8 +645,7 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
                               <button
                                 onClick={() => setRejoinModal(emp)}
                                 title="Invite to Rejoin"
-                                className="flex items-center justify-center gap-1 h-6 px-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition-all active:scale-[0.97]"
-                                style={{ width: "calc(3 * 2rem + 2 * 0.375rem)" }}
+                                className="flex items-center justify-center gap-1 h-6 px-2 w-full rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition-all active:scale-[0.97]"
                               >
                                 <Send className="w-2.5 h-2.5 flex-shrink-0" />
                                 <span className="text-[10px] font-semibold whitespace-nowrap">
@@ -656,21 +663,21 @@ const EmployeeManagement = ({ showToast: parentShowToast }) => {
             </div>
 
             {/* Table footer */}
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 flex-wrap gap-2">
+            <div className="px-4 sm:px-6 py-3 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-gray-500 gap-2">
               <span>
                 Showing {filteredEmployees.length} of {employees.length} employees
               </span>
-              <span className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <FolderOpen className="w-3 h-3 text-blue-500" />
                   <span className="text-blue-600 font-medium">Docs</span>— view all uploaded &amp; accepted documents
                 </span>
-                <span className="text-gray-300">|</span>
+                <span className="text-gray-300 hidden sm:inline">|</span>
                 <span className="flex items-center gap-1.5">
                   <CreditCard className="w-3 h-3 text-indigo-500" />
                   <span className="text-indigo-600 font-medium">ID Card</span>— generate &amp; print for any employee
                 </span>
-                <span className="text-gray-300">|</span>
+                <span className="text-gray-300 hidden sm:inline">|</span>
                 <span className="flex items-center gap-1.5">
                   <Send className="w-3 h-3 text-indigo-500" />
                   <span className="text-indigo-600 font-medium">"Invite to Rejoin"</span>— for Inactive employees
