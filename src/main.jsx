@@ -1,11 +1,16 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'           // ← ADD
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { AuthProvider } from './context/AuthContext'
-import { PendingCountProvider } from './context/PendingCountContext'
-import App from './App.jsx'
-import './styles/globals.css'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./context/AuthContext";
+import App from "./App.jsx";
+import "./styles/globals.css";
+
+// NOTE: PendingCountProvider used to be mounted here, wrapping the entire
+// app — including public routes like /registration/:linkId. It now lives
+// inside App.jsx's `Protected` wrapper instead, so it only ever runs for
+// authenticated admin pages. See the comment above `Protected` in App.jsx
+// for why that matters.
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,18 +20,16 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000,
     },
   },
-})
+});
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>                          {/* ← ADD */}
+      <BrowserRouter>
         <AuthProvider>
-          <PendingCountProvider>
-            <App />
-          </PendingCountProvider>
+          <App />
         </AuthProvider>
-      </BrowserRouter>                         {/* ← ADD */}
+      </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,
-)
+);

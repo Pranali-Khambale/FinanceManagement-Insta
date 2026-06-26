@@ -1,13 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/Ui/AdvancePayment/ViewDetailModal/components/Primitives.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Avatar and InfoTile are general-purpose primitives used across the modal.
-// Avatar already uses Tailwind size classes (w-8/w-10/w-11) — these scale
-// via the sizeMap, so no media queries needed there.
-// InfoTile uses px-3.5/py-2.5 which are fine at mobile widths, but at
-// ≤360px the label and value text need a touch of compression so they
-// don't overflow inside narrow grid cells (e.g. 2-column info grids).
 const PRIMITIVE_RESPONSIVE_CSS = `
 @media (max-width: 360px) {
   .ph-infotile {

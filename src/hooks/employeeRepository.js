@@ -1,19 +1,7 @@
-// src/repositories/employeeRepository.js
-// ─── Raw API calls for employee endpoints ─────────────────────────────────────
-//
-// FIXED:
-//  • SCALAR_FIELDS updated — every key matches exactly what the backend
-//    controller (buildCommonFields) reads from req.body
-//  • submitPublicRegistration(linkId, formData) — new employee via link
-//  • resubmitRegistration(token, formData)       — rejected employee resubmit
-//    Both receive a pre-built FormData from RegistrationForm.jsx and POST it
-//    directly to /api/registrations.
 
-import { apiFetch, BASE_URL } from "../api/client";
+import { apiFetch, publicFetch, BASE_URL } from "../api/client";
 
-// These are the camelCase keys the backend controller reads from req.body.
-// They map 1-to-1 with DB columns (e.g. firstName → first_name).
-// Used by buildEmployeeFormData / buildUpdateFormData for the AddEmp admin flow.
+
 const SCALAR_FIELDS = [
   // Personal
   "firstName",
@@ -182,7 +170,7 @@ function buildUpdateFormData(employeeData) {
 }
 
 const employeeRepository = {
-  // ── Employees ────────────────────────────────────────────────────────────
+  // ── Employees (admin — authenticated) ───────────────────────────────────
   getAll: () => apiFetch("/employees"),
   getById: (id) => apiFetch(`/employees/${id}`),
   getNextId: () => apiFetch("/employees/next-id").then((r) => r.nextId),
@@ -302,34 +290,41 @@ const employeeRepository = {
   sendRejoinInvite: (employeeId) =>
     apiFetch(`/employees/${employeeId}/send-rejoin-invite`, { method: "POST" }),
 
-  // ── Registration links ───────────────────────────────────────────────────
+  // ── Registration links (public — visitor has no authToken) ──────────────
+  // NOTE: generateRegistrationLink / getRecentRegistrationLinks stay on
+  // apiFetch — only an authenticated admin can create or list links.
   generateRegistrationLink: (data = {}) =>
     apiFetch("/registration-links", {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  validateLink: (linkId) => apiFetch(`/registration-links/${linkId}/validate`),
+
+  validateLink: (linkId) =>
+    publicFetch(`/registration-links/${linkId}/validate`),
 
   // Convenience wrapper: calls validateLink and returns the full response.
   // For rejoin links the response includes prefillData with all previous employee fields.
   getRejoinPrefill: (linkId) =>
-    apiFetch(`/registration-links/${linkId}/validate`),
+    publicFetch(`/registration-links/${linkId}/validate`),
+
   getRecentRegistrationLinks: () => apiFetch("/registration-links"),
-  checkRejoinLink: (linkId) => apiFetch(`/registration-links/rejoin/${linkId}`),
+
+  checkRejoinLink: (linkId) =>
+    publicFetch(`/registration-links/rejoin/${linkId}`),
 
   // ── Public registration — new employee submitting via a one-time link ────
   // `formData` is a fully-built FormData from RegistrationForm.jsx.
   // linkId is already inside the FormData (appended before this call).
   // We accept _linkId only so the call signature is clear at the call site.
   submitPublicRegistration: (_linkId, formData) =>
-    apiFetch("/registrations", { method: "POST", body: formData }),
+    publicFetch("/registrations", { method: "POST", body: formData }),
 
   // ── Resubmission — rejected employee re-filling the form ─────────────────
   // resubmitToken is already inside the FormData.
   resubmitRegistration: (_token, formData) =>
-    apiFetch("/registrations", { method: "POST", body: formData }),
+    publicFetch("/registrations", { method: "POST", body: formData }),
 
-  // ── Legacy admin submitRegistration (AddEmp wizard) ──────────────────────
+  // ── Legacy admin submitRegistration (AddEmp wizard — authenticated) ──────
   submitRegistration: (registrationData, documents) => {
     const fd = new FormData();
     Object.entries(registrationData).forEach(([k, v]) => {
@@ -344,7 +339,12 @@ const employeeRepository = {
   },
 
   // ── Submissions ──────────────────────────────────────────────────────────
-  getPrefillData: (token) => apiFetch(`/registrations/prefill/${token}`),
+  // getPrefillData / checkAadhar are hit from the public resubmit form before
+  // the user has any session — must stay on publicFetch.
+  getPrefillData: (token) => publicFetch(`/registrations/prefill/${token}`),
+  checkAadhar: (aadhar) => publicFetch(`/registrations/check-aadhar/${aadhar}`),
+
+  // Admin-only review actions — stay authenticated.
   getPendingSubmissions: () => apiFetch("/registrations/pending"),
   approveSubmission: (submissionId) =>
     apiFetch(`/registrations/${submissionId}/approve`, { method: "POST" }),
@@ -353,7 +353,6 @@ const employeeRepository = {
       method: "POST",
       body: JSON.stringify({ rejection_reason: reason }),
     }),
-  checkAadhar: (aadhar) => apiFetch(`/registrations/check-aadhar/${aadhar}`),
 
   // ── Document review ──────────────────────────────────────────────────────
   getDocReviewedEmployees: () => apiFetch("/employee-docs/reviewed"),

@@ -527,7 +527,17 @@ const RegistrationForm = () => {
 
       if (res?.success) {
         clearDraft(draftKey);
-        navigate("/success");
+
+        // ── FIX: Pass one-time state so the success page can verify
+        //    the user arrived via a real submission, not a direct URL visit.
+        navigate("/success", {
+          replace: true,
+          state: {
+            verified: true,
+            submittedAt: Date.now(),
+            type: isRejoin ? "rejoin" : isResubmit ? "resubmit" : "new",
+          },
+        });
       } else {
         setErrors({
           submit: res?.message || "Submission failed. Please try again.",
@@ -761,7 +771,7 @@ const RegistrationForm = () => {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSaving}
                   className={`flex items-center justify-center gap-2 px-6 py-2.5 text-white rounded-lg font-medium transition-all disabled:opacity-50 shadow-sm w-full sm:w-auto ${
                     isRejoin
                       ? "bg-indigo-600 hover:bg-indigo-700"

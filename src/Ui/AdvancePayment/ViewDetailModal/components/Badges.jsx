@@ -1,6 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE: src/Ui/AdvancePayment/ViewDetailModal/components/Badges.jsx
-// ─────────────────────────────────────────────────────────────────────────────
+
 import { PAYMENT_TYPES, STATUS_CONFIG } from "../constants";
 
 const BADGE_RESPONSIVE_CSS = `

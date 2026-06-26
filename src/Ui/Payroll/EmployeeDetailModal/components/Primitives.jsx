@@ -94,6 +94,7 @@ export const SectionTitle = ({ children }) => (
 
 export const Grid = ({ children, cols = 2 }) => (
   <div
+    className={cols === 3 ? "edm-grid-3" : "edm-grid-2"}
     style={{
       display: "grid",
       gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`,

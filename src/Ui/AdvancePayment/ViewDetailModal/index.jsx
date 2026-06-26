@@ -9,7 +9,7 @@ import { PAYMENT_TYPES } from "./constants";
 import { fmt } from "./utils";
 import { StatusBadge, PaymentTypePill } from "./components/Badges";
 import { InfoTile } from "./components/Primitives";
-import FlowDiagram from "./components/FlowDiagram";
+
 import DocCard from "./components/DocCard";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -354,9 +354,6 @@ export default function ViewDetailModal({ req, onClose, onApprove, onReject }) {
             gap: 14,
           }}
         >
-          {/* Flow diagram */}
-          <FlowDiagram req={req} pt={pt} />
-
           {/* ── REQUEST INFORMATION ── */}
           <section>
             <p
