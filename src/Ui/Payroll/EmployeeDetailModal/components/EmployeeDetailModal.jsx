@@ -64,18 +64,48 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
         .edm-scroll::-webkit-scrollbar-track { background: transparent; }
         .edm-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
         .edm-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        @media (max-width: 520px) {
-          .edm-modal { max-height: 100vh !important; border-radius: 0 !important; }
+        /* ── Mobile: centred dialog (universal standard) ──
+           16px margin on all sides, rounded corners all round,
+           92dvh max-height so it never touches screen edges.    */
+        @media (max-width: 640px) {
+          .edm-overlay {
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 16px !important;
+          }
+          .edm-modal {
+            border-radius: 16px !important;
+            max-height: 92dvh !important;
+            max-height: 92vh !important;
+            width: 100% !important;
+          }
+          .edm-header  { padding: 12px 14px !important; }
+          .edm-tabs    { padding: 0 14px !important; }
+          .edm-body    { padding: 14px !important; }
+          .edm-footer  {
+            padding: 12px 14px !important;
+            padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
+          }
+          /* Grids → single column on narrow screens */
           .edm-grid-2 { grid-template-columns: 1fr !important; }
           .edm-grid-3 { grid-template-columns: 1fr 1fr !important; }
           .edm-net-preview { flex-direction: column !important; gap: 6px !important; }
+          /* Tab bar: equal-width tabs that fill row */
+          .edm-tab-btn { flex: 1 !important; padding: 10px 6px !important; font-size: 12px !important; text-align: center !important; }
+          /* Avatar row: hide "For Month" on very small screens */
+          .edm-for-month { display: none !important; }
+          /* Footer buttons: stretch full width */
+          .edm-footer-btns { flex-direction: row !important; width: 100% !important; }
+          .edm-footer-btns button { flex: 1 !important; justify-content: center !important; }
         }
         @media (max-width: 380px) {
           .edm-grid-3 { grid-template-columns: 1fr !important; }
+          .edm-for-month { display: none !important; }
         }
       `}</style>
 
       <div
+        className="edm-overlay"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -89,7 +119,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
           background: "rgba(0,0,0,.6)",
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
-          padding: "clamp(0px, 2vw, 1rem)",
+          padding: "16px",
         }}
       >
         <div
@@ -112,6 +142,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
         >
           {/* Header */}
           <div
+            className="edm-header"
             style={{
               background: "linear-gradient(135deg,#1a3c6e,#1e56a0)",
               padding: "16px 20px",
@@ -193,6 +224,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
 
           {/* Tabs */}
           <div
+            className="edm-tabs"
             style={{
               display: "flex",
               borderBottom: "1px solid #f1f5f9",
@@ -205,6 +237,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
             {TABS.map((tab) => (
               <button
                 key={tab}
+                className="edm-tab-btn"
                 onClick={() => setActiveTab(tab)}
                 style={{
                   padding: "10px 16px",
@@ -229,7 +262,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
 
           {/* Body */}
           <div
-            className="edm-scroll"
+            className="edm-scroll edm-body"
             style={{ padding: "20px", overflowY: "auto", flex: 1 }}
           >
             {/* Avatar row */}
@@ -387,6 +420,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
 
           {/* Footer */}
           <div
+            className="edm-footer"
             style={{
               padding: "14px 20px",
               borderTop: "1px solid #f1f5f9",
@@ -414,6 +448,7 @@ const EmployeeDetailModal = ({ employee, onClose, onSave }) => {
               </div>
             )}
             <div
+              className="edm-footer-btns"
               style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
             >
               <button
