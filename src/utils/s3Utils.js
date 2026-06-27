@@ -105,3 +105,4 @@ export function isFullUrl(value) {
 
 // Default export is the async presigned URL function (used by DocCard/resolveFileUrl)
 export default getPresignedUrl;
+// Change in front end file
