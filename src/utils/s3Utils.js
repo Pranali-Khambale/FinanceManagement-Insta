@@ -8,34 +8,41 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 /**
  * Fetches a short-lived presigned URL from the backend for a private S3 file.
  *
- * Handles three input cases:
- *   1. S3 key  (e.g. "uploads/advance-payment/abc.png")
- *   2. Full S3 URL (extracts the key automatically)
- *   3. null / undefined / "" → returns null
+ * Handles all path formats found in the DB:
+ *   1. Full S3 URL (old records):
+ *      "https://hrms-insta.s3.ap-south-1.amazonaws.com/uploads/advance-payment/uuid.png"
+ *      → extracts key: "uploads/advance-payment/uuid.png"
+ *
+ *   2. Bare key without uploads/ prefix (new records before this fix):
+ *      "advance-payment/uuid.png"
+ *      → sends key as-is: "advance-payment/uuid.png"
+ *
+ *   3. Full S3 URL (new records after this fix):
+ *      "https://hrms-insta.s3.ap-south-1.amazonaws.com/advance-payment/uuid.png"
+ *      → extracts key: "advance-payment/uuid.png"
+ *
+ *   4. null / undefined / "" → returns null
  *
  * @param {string|null|undefined} keyOrUrl
  * @param {number} [expiresIn=3600] — seconds, passed to backend
  * @returns {Promise<string|null>} presigned URL or null on failure
- *
- * @example
- *   const url = await getPresignedUrl("uploads/advance-payment/abc.png");
- *   // → "https://bucket.s3.amazonaws.com/uploads/...?X-Amz-Signature=..."
  */
 export async function getPresignedUrl(keyOrUrl, expiresIn = 3600) {
   if (!keyOrUrl) return null;
 
-  // Extract key from full S3 URL if a full URL was passed
-  let key = String(keyOrUrl);
-  if (key.startsWith("http")) {
+  let key = String(keyOrUrl).trim();
+
+  // Full S3 URL → extract just the pathname as the key
+  if (key.startsWith("http://") || key.startsWith("https://")) {
     try {
-      const urlObj = new URL(key);
-      key = urlObj.pathname.replace(/^\//, ""); // strip leading slash
+      key = new URL(key).pathname.replace(/^\//, ""); // strip leading "/"
     } catch {
       console.warn("[s3Utils] Could not parse URL:", keyOrUrl);
       return null;
     }
   } else {
-    key = key.replace(/^\/+/, ""); // strip leading slashes from raw key
+    // Bare key — strip any accidental leading slashes
+    key = key.replace(/^\/+/, "");
   }
 
   try {
@@ -76,7 +83,7 @@ export function getS3Url(keyOrUrl) {
     String(keyOrUrl).startsWith("http://") ||
     String(keyOrUrl).startsWith("https://")
   ) {
-    return keyOrUrl;
+    return keyOrUrl; // already a full URL
   }
 
   const BUCKET = import.meta.env.VITE_AWS_BUCKET_NAME || "";
@@ -105,4 +112,3 @@ export function isFullUrl(value) {
 
 // Default export is the async presigned URL function (used by DocCard/resolveFileUrl)
 export default getPresignedUrl;
-// Change in front end file
