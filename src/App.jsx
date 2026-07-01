@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import React from "react";
 
 import { useAuth } from "./context/AuthContext";
@@ -24,10 +24,8 @@ const RegistrationForm = lazy(
   () => import("./Ui/EmployeeMng/Linkgen/RegistrationForm"),
 );
 
-// ── Lazy-load SuccessPage so it's never bundled with the admin app ────────────
 const SuccessPage = lazy(() => import("./Ui/EmployeeMng/Linkgen/SuccessPage"));
 
-// ─── Loading Spinner ──────────────────────────────────────────────────────────
 const LoadingSpinner = () => (
   <div
     style={{
@@ -54,7 +52,6 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// ─── Main Layout ──────────────────────────────────────────────────────────────
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -170,16 +167,6 @@ const MainLayout = ({ children }) => {
   );
 };
 
-// ─── Protected wrapper ────────────────────────────────────────────────────────
-// PendingCountProvider lives HERE (inside ProtectedRoute), not at the app root
-// in main.jsx. It must never mount on public routes (registration links,
-// document upload, advance-request links, etc.) — those pages have no
-// authToken, and if a stale/leftover token happens to sit in localStorage from
-// a previous admin session in the same browser, the provider's polling would
-// hit the admin-only /employees/pending-count endpoint, get a 401, and
-// apiFetch's handleUnauthorized() would force-redirect the visitor to /login
-// mid-form. Scoping the provider to only the authenticated layout makes that
-// impossible regardless of token state.
 const Protected = ({ children }) => (
   <ProtectedRoute>
     <PendingCountProvider>
@@ -188,9 +175,21 @@ const Protected = ({ children }) => (
   </ProtectedRoute>
 );
 
-// ─── App ──────────────────────────────────────────────────────────────────────
-// No <BrowserRouter> or <AuthProvider> here — both live in main.jsx
 function App() {
+  // 🔧 Guard against bfcache showing stale/protected DOM after login state
+  // changes (e.g. logout, then browser Back). If the page is restored from
+  // bfcache instead of a fresh mount, force a real reload so ProtectedRoute
+  // and AuthContext re-evaluate the current auth state.
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   return (
     <Routes>
       {/* ── Public ── */}
