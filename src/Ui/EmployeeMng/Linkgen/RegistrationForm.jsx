@@ -1,6 +1,6 @@
 // src/Ui/EmployeeMng/Linkgen/RegistrationForm.jsx
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -181,6 +181,11 @@ const RegistrationForm = () => {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [rejectionReason, setRejectionReason] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
+
+  // ── NEW: ref used to scroll the user to the top of the step content
+  //    (where the validation summary banner renders) whenever a
+  //    Save & Continue / Submit click fails validation.
+  const contentRef = useRef(null);
 
   // ── applyPrefillData ───────────────────────────────────────────────────────
   const applyPrefillData = useCallback((prefill) => {
@@ -401,8 +406,16 @@ const RegistrationForm = () => {
 
     if (step === 1) {
       if (!formData.firstName) e.firstName = "First name is required";
+      if (!formData.fatherHusbandName)
+        e.fatherHusbandName = "Father / Husband name is required";
       if (!formData.lastName) e.lastName = "Last name is required";
       if (!formData.dob) e.dob = "Date of birth is required";
+      if (!formData.gender) e.gender = "Gender is required";
+      if (!formData.maritalStatus)
+        e.maritalStatus = "Marital status is required";
+      if (!formData.educationalQualification)
+        e.educationalQualification = "Educational qualification is required";
+      if (!formData.bloodGroup) e.bloodGroup = "Blood group is required";
       if (!formData.email) e.email = "Email is required";
       if (!formData.phone) e.phone = "Phone number is required";
       if (!formData.panNumber) e.panNumber = "PAN number is required";
@@ -428,6 +441,66 @@ const RegistrationForm = () => {
         e.permanentAddress = "Permanent address is required";
       if (!formData.permanentPhone)
         e.permanentPhone = "Permanent phone is required";
+
+      // ── Reference Details — Designation & Organization are optional;
+      //    Name, Address, City/State/Pin, Contact No. and Email remain
+      //    mandatory for all 3 references ──
+      ["ref1", "ref2", "ref3"].forEach((refKey, idx) => {
+        const refLabel = `Reference ${idx + 1}`;
+        if (!formData[`${refKey}Name`]?.trim())
+          e[`${refKey}Name`] = `${refLabel} name is required`;
+        if (!formData[`${refKey}Address`]?.trim())
+          e[`${refKey}Address`] = `${refLabel} address is required`;
+        if (!formData[`${refKey}CityStatePin`]?.trim())
+          e[`${refKey}CityStatePin`] = `${refLabel} city/state/pin is required`;
+        if (!formData[`${refKey}ContactNo`]?.trim())
+          e[`${refKey}ContactNo`] = `${refLabel} contact number is required`;
+        if (!formData[`${refKey}Email`]?.trim())
+          e[`${refKey}Email`] = `${refLabel} email is required`;
+      });
+
+      // ── Duplicate guard — same phone number cannot be reused across
+      //    personal / family / emergency / reference contact fields ──
+      const phoneChecks = [
+        { key: "phone", label: "Phone" },
+        { key: "altPhone", label: "Alternate Phone" },
+        { key: "familyContactNo", label: "Family Contact No." },
+        { key: "emergencyContactNo", label: "Emergency Contact No." },
+        { key: "ref1ContactNo", label: "Reference 1 Contact No." },
+        { key: "ref2ContactNo", label: "Reference 2 Contact No." },
+        { key: "ref3ContactNo", label: "Reference 3 Contact No." },
+      ];
+      const seenPhones = {};
+      phoneChecks.forEach(({ key, label }) => {
+        const val = (formData[key] || "").trim();
+        if (!val) return;
+        if (seenPhones[val]) {
+          e[key] =
+            `Same as ${seenPhones[val]} — please enter a different number`;
+        } else {
+          seenPhones[val] = label;
+        }
+      });
+
+      // ── Duplicate guard — same email cannot be reused across personal
+      //    and reference email fields ──
+      const emailChecks = [
+        { key: "email", label: "Email Address" },
+        { key: "ref1Email", label: "Reference 1 Email" },
+        { key: "ref2Email", label: "Reference 2 Email" },
+        { key: "ref3Email", label: "Reference 3 Email" },
+      ];
+      const seenEmails = {};
+      emailChecks.forEach(({ key, label }) => {
+        const val = (formData[key] || "").trim().toLowerCase();
+        if (!val) return;
+        if (seenEmails[val]) {
+          e[key] =
+            `Same as ${seenEmails[val]} — please enter a different email`;
+        } else {
+          seenEmails[val] = label;
+        }
+      });
     }
 
     if (step === 2) {
@@ -473,7 +546,15 @@ const RegistrationForm = () => {
 
   // ── Save & Continue ───────────────────────────────────────────────────────
   const handleSaveAndContinue = () => {
-    if (!validateStep(currentStep)) return;
+    if (!validateStep(currentStep)) {
+      // ── NEW: scroll the user up to the validation summary banner so
+      //    they immediately see the full list of missing/invalid fields.
+      contentRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      return;
+    }
 
     setIsSaving(true);
     const ok = saveDraft(draftKey, formData, currentStep + 1);
@@ -493,7 +574,14 @@ const RegistrationForm = () => {
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!validateStep(currentStep)) return;
+    if (!validateStep(currentStep)) {
+      // ── NEW: same scroll-to-summary behavior on final submit ──
+      contentRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -601,6 +689,13 @@ const RegistrationForm = () => {
       ? "Your previously submitted information has been pre-filled — please correct any issues and re-upload your documents."
       : null;
 
+  // ── NEW: build a flat list of current validation errors for the
+  //    summary banner (excludes the generic "submit" error, which
+  //    already has its own dedicated banner below).
+  const validationEntries = Object.entries(errors).filter(
+    ([key, msg]) => key !== "submit" && !!msg,
+  );
+
   // ── Main render ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 py-6 px-3 sm:py-12 sm:px-6 lg:px-8">
@@ -666,7 +761,7 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        <div className="p-4 sm:p-8">
+        <div className="p-4 sm:p-8" ref={contentRef}>
           {/* ── Rejection reason banner ───────────────────────────────────── */}
           {isResubmit && rejectionReason && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3">
@@ -680,6 +775,21 @@ const RegistrationForm = () => {
                   Please review the reason above, make the necessary
                   corrections, and re-upload all required documents before
                   resubmitting.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── NEW: Validation summary banner ──────────────────────────────
+              Shows every mandatory / invalid field for the CURRENT step in
+              one place, so the employee doesn't have to scroll and hunt
+              through the form to find what's missing. */}
+          {validationEntries.length > 0 && (
+            <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <p className="text-sm font-bold text-red-800">
+                  Please fill all required fields
                 </p>
               </div>
             </div>

@@ -285,4 +285,4 @@ function App() {
 }
 
 export default App;
-//Change in advance payment folder
+//Change in personalInfo and registration folder

@@ -1,6 +1,6 @@
 // src/Ui/EmployeeMng/Registration/PersonalInfoStep.jsx
 // ✅ UPDATED: UAN Number field added after Aadhaar section
-import React from 'react';
+import React from "react";
 import {
   Mail,
   Phone,
@@ -18,18 +18,18 @@ import {
   Users,
   Copy,
   Hash,
-} from 'lucide-react';
+} from "lucide-react";
 
-const maritalStatuses = ['Married', 'Unmarried'];
-const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const genders = ['Male', 'Female', 'Other', 'Prefer not to say'];
+const maritalStatuses = ["Married", "Unmarried"];
+const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const genders = ["Male", "Female", "Other", "Prefer not to say"];
 
 /* ─────────────────────────────────────────────
    Shared helpers
 ───────────────────────────────────────────── */
 const inputCls = (error) =>
   `w-full px-4 py-2.5 rounded-lg border-2 ${
-    error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+    error ? "border-red-500 bg-red-50" : "border-gray-300"
   } focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none`;
 
 const selectCls = (error) =>
@@ -43,7 +43,7 @@ const Err = ({ msg }) =>
     </p>
   ) : null;
 
-const SubHeading = ({ icon: Icon, title, color = 'blue' }) => (
+const SubHeading = ({ icon: Icon, title, color = "blue" }) => (
   <div
     className={`flex items-center gap-2 pt-2 pb-1 border-b-2 border-${color}-100 mb-1`}
   >
@@ -65,7 +65,7 @@ const PhoneField = ({ name, value, onChange, error, disabled }) => (
         onChange={onChange}
         disabled={disabled}
         className={`w-full pl-12 pr-4 py-2.5 rounded-lg border-2 ${
-          error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+          error ? "border-red-500 bg-red-50" : "border-gray-300"
         } focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none font-mono`}
         placeholder="9876543210"
       />
@@ -86,7 +86,7 @@ const hp = (e, name, onChange) => {
 const handleUanChange = (e, onChange) => {
   const v = e.target.value;
   if (/^\d*$/.test(v) && v.length <= 12)
-    onChange({ target: { name: 'uanNumber', value: v } });
+    onChange({ target: { name: "uanNumber", value: v } });
 };
 
 /* ─────────────────────────────────────────────
@@ -95,29 +95,29 @@ const handleUanChange = (e, onChange) => {
 const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
   /* Aadhaar formatter */
   const formatAadhar = (v) => {
-    const c = v.replace(/\s/g, '');
+    const c = v.replace(/\s/g, "");
     const m = c.match(/(\d{0,4})(\d{0,4})(\d{0,4})/);
-    return m ? [m[1], m[2], m[3]].filter(Boolean).join(' ') : v;
+    return m ? [m[1], m[2], m[3]].filter(Boolean).join(" ") : v;
   };
   const handleAadharChange = (e) => {
-    const v = e.target.value.replace(/\s/g, '');
+    const v = e.target.value.replace(/\s/g, "");
     if (/^\d*$/.test(v) && v.length <= 12)
-      onChange({ target: { name: 'aadhar', value: v } });
+      onChange({ target: { name: "aadhar", value: v } });
   };
 
   /* Same-as-permanent handler */
   const handleSameAsPermanent = (e) => {
     const checked = e.target.checked;
-    onChange({ target: { name: 'localSameAsPermanent', value: checked } });
+    onChange({ target: { name: "localSameAsPermanent", value: checked } });
     if (checked) {
-      ['Address', 'Phone', 'Landmark', 'LatLong'].forEach((f) =>
+      ["Address", "Phone", "Landmark", "LatLong"].forEach((f) =>
         onChange({
-          target: { name: `local${f}`, value: formData[`permanent${f}`] || '' },
+          target: { name: `local${f}`, value: formData[`permanent${f}`] || "" },
         }),
       );
     } else {
-      ['Address', 'Phone', 'Landmark', 'LatLong'].forEach((f) =>
-        onChange({ target: { name: `local${f}`, value: '' } }),
+      ["Address", "Phone", "Landmark", "LatLong"].forEach((f) =>
+        onChange({ target: { name: `local${f}`, value: "" } }),
       );
     }
   };
@@ -125,14 +125,12 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
   return (
     <div className="space-y-8">
-
       {/* ══════════════════════════════════════
           1. Personal Details
       ══════════════════════════════════════ */}
       <section className="space-y-4">
         <SubHeading icon={User} title="1. Personal Details" color="blue" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">
               First Name <span className="text-red-500">*</span>
@@ -140,7 +138,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             <input
               type="text"
               name="firstName"
-              value={formData.firstName || ''}
+              value={formData.firstName || ""}
               onChange={onChange}
               className={inputCls(errors.firstName)}
               placeholder="John"
@@ -150,13 +148,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <User className="w-4 h-4 text-gray-500" /> Father / Husband Name{' '}
+              <User className="w-4 h-4 text-gray-500" /> Father / Husband Name{" "}
               <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="fatherHusbandName"
-              value={formData.fatherHusbandName || ''}
+              value={formData.fatherHusbandName || ""}
               onChange={onChange}
               className={inputCls(errors.fatherHusbandName)}
               placeholder="Enter father's or husband's name"
@@ -171,7 +169,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             <input
               type="text"
               name="lastName"
-              value={formData.lastName || ''}
+              value={formData.lastName || ""}
               onChange={onChange}
               className={inputCls(errors.lastName)}
               placeholder="Doe"
@@ -181,18 +179,18 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Calendar className="w-4 h-4 text-gray-500" /> Date of Birth{' '}
+              <Calendar className="w-4 h-4 text-gray-500" /> Date of Birth{" "}
               <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
               name="dob"
-              value={formData.dob || ''}
+              value={formData.dob || ""}
               onChange={onChange}
               max={
                 new Date(new Date().setFullYear(new Date().getFullYear() - 18))
                   .toISOString()
-                  .split('T')[0]
+                  .split("T")[0]
               }
               className={inputCls(errors.dob)}
             />
@@ -205,13 +203,15 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             </label>
             <select
               name="gender"
-              value={formData.gender || ''}
+              value={formData.gender || ""}
               onChange={onChange}
               className={selectCls(errors.gender)}
             >
               <option value="">Select Gender</option>
               {genders.map((g) => (
-                <option key={g} value={g}>{g}</option>
+                <option key={g} value={g}>
+                  {g}
+                </option>
               ))}
             </select>
             <Err msg={errors.gender} />
@@ -223,13 +223,15 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             </label>
             <select
               name="maritalStatus"
-              value={formData.maritalStatus || ''}
+              value={formData.maritalStatus || ""}
               onChange={onChange}
               className={selectCls(errors.maritalStatus)}
             >
               <option value="">Select Status</option>
               {maritalStatuses.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
             <Err msg={errors.maritalStatus} />
@@ -237,13 +239,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2 md:col-span-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <BookOpen className="w-4 h-4 text-gray-500" /> Educational Qualification{' '}
-              <span className="text-red-500">*</span>
+              <BookOpen className="w-4 h-4 text-gray-500" /> Educational
+              Qualification <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="educationalQualification"
-              value={formData.educationalQualification || ''}
+              value={formData.educationalQualification || ""}
               onChange={onChange}
               className={inputCls(errors.educationalQualification)}
               placeholder="e.g. B.E. Computer Engineering"
@@ -253,18 +255,20 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Droplets className="w-4 h-4 text-gray-500" /> Blood Group{' '}
+              <Droplets className="w-4 h-4 text-gray-500" /> Blood Group{" "}
               <span className="text-red-500">*</span>
             </label>
             <select
               name="bloodGroup"
-              value={formData.bloodGroup || ''}
+              value={formData.bloodGroup || ""}
               onChange={onChange}
               className={selectCls(errors.bloodGroup)}
             >
               <option value="">Select Blood Group</option>
               {bloodGroups.map((bg) => (
-                <option key={bg} value={bg}>{bg}</option>
+                <option key={bg} value={bg}>
+                  {bg}
+                </option>
               ))}
             </select>
             <Err msg={errors.bloodGroup} />
@@ -272,13 +276,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2 md:col-span-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Mail className="w-4 h-4 text-gray-500" /> Email Address{' '}
+              <Mail className="w-4 h-4 text-gray-500" /> Email Address{" "}
               <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
               name="email"
-              value={formData.email || ''}
+              value={formData.email || ""}
               onChange={onChange}
               className={inputCls(errors.email)}
               placeholder="john.doe@example.com"
@@ -288,13 +292,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Phone className="w-4 h-4 text-gray-500" /> Phone{' '}
+              <Phone className="w-4 h-4 text-gray-500" /> Phone{" "}
               <span className="text-red-500">*</span>
             </label>
             <PhoneField
               name="phone"
-              value={formData.phone || ''}
-              onChange={(e) => hp(e, 'phone', onChange)}
+              value={formData.phone || ""}
+              onChange={(e) => hp(e, "phone", onChange)}
               error={errors.phone}
             />
           </div>
@@ -305,20 +309,20 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             </label>
             <PhoneField
               name="altPhone"
-              value={formData.altPhone || ''}
-              onChange={(e) => hp(e, 'altPhone', onChange)}
+              value={formData.altPhone || ""}
+              onChange={(e) => hp(e, "altPhone", onChange)}
             />
           </div>
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <FileText className="w-4 h-4 text-gray-500" /> PAN Number{' '}
+              <FileText className="w-4 h-4 text-gray-500" /> PAN Number{" "}
               <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="panNumber"
-              value={formData.panNumber || ''}
+              value={formData.panNumber || ""}
               onChange={onChange}
               maxLength={10}
               placeholder="ABCDE1234F"
@@ -334,7 +338,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             <input
               type="text"
               name="nameOnPan"
-              value={formData.nameOnPan || ''}
+              value={formData.nameOnPan || ""}
               onChange={onChange}
               className={inputCls(errors.nameOnPan)}
               placeholder="Name as printed on PAN card"
@@ -344,13 +348,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <CreditCard className="w-4 h-4 text-gray-500" /> Aadhaar Number{' '}
+              <CreditCard className="w-4 h-4 text-gray-500" /> Aadhaar Number{" "}
               <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="aadhar"
-              value={formatAadhar(formData.aadhar || '')}
+              value={formatAadhar(formData.aadhar || "")}
               onChange={handleAadharChange}
               placeholder="1234 5678 9012"
               className={`${inputCls(errors.aadhar)} font-mono tracking-wide`}
@@ -365,7 +369,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             <input
               type="text"
               name="nameOnAadhar"
-              value={formData.nameOnAadhar || ''}
+              value={formData.nameOnAadhar || ""}
               onChange={onChange}
               className={inputCls(errors.nameOnAadhar)}
               placeholder="Name as printed on Aadhaar card"
@@ -381,7 +385,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             <input
               type="text"
               name="uanNumber"
-              value={formData.uanNumber || ''}
+              value={formData.uanNumber || ""}
               onChange={(e) => handleUanChange(e, onChange)}
               maxLength={12}
               placeholder="123456789012"
@@ -404,16 +408,15 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
       <section className="space-y-4">
         <SubHeading icon={Users} title="2. Family Details" color="purple" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
           <div className="space-y-2 md:col-span-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Users className="w-4 h-4 text-gray-500" /> Father / Mother / Spouse Name{' '}
-              <span className="text-red-500">*</span>
+              <Users className="w-4 h-4 text-gray-500" /> Father / Mother /
+              Spouse Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="familyMemberName"
-              value={formData.familyMemberName || ''}
+              value={formData.familyMemberName || ""}
               onChange={onChange}
               className={inputCls(errors.familyMemberName)}
               placeholder="Enter full name"
@@ -423,13 +426,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Phone className="w-4 h-4 text-gray-500" /> Contact No.{' '}
+              <Phone className="w-4 h-4 text-gray-500" /> Contact No.{" "}
               <span className="text-red-500">*</span>
             </label>
             <PhoneField
               name="familyContactNo"
-              value={formData.familyContactNo || ''}
-              onChange={(e) => hp(e, 'familyContactNo', onChange)}
+              value={formData.familyContactNo || ""}
+              onChange={(e) => hp(e, "familyContactNo", onChange)}
               error={errors.familyContactNo}
             />
           </div>
@@ -440,14 +443,18 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             </label>
             <select
               name="familyWorkingStatus"
-              value={formData.familyWorkingStatus || ''}
+              value={formData.familyWorkingStatus || ""}
               onChange={onChange}
               className={selectCls(errors.familyWorkingStatus)}
             >
               <option value="">Select Status</option>
-              {['Working', 'Not Working', 'Retired', 'Self Employed'].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              {["Working", "Not Working", "Retired", "Self Employed"].map(
+                (s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ),
+              )}
             </select>
             <Err msg={errors.familyWorkingStatus} />
           </div>
@@ -459,7 +466,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             <input
               type="text"
               name="familyEmployerName"
-              value={formData.familyEmployerName || ''}
+              value={formData.familyEmployerName || ""}
               onChange={onChange}
               className={inputCls()}
               placeholder="Enter employer name (if applicable)"
@@ -472,8 +479,8 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             </label>
             <PhoneField
               name="familyEmployerContact"
-              value={formData.familyEmployerContact || ''}
-              onChange={(e) => hp(e, 'familyEmployerContact', onChange)}
+              value={formData.familyEmployerContact || ""}
+              onChange={(e) => hp(e, "familyEmployerContact", onChange)}
             />
           </div>
         </div>
@@ -483,18 +490,21 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
           3. Emergency Contact Details
       ══════════════════════════════════════ */}
       <section className="space-y-4">
-        <SubHeading icon={Phone} title="3. Emergency Contact Details" color="red" />
+        <SubHeading
+          icon={Phone}
+          title="3. Emergency Contact Details"
+          color="red"
+        />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
           <div className="space-y-2 md:col-span-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <User className="w-4 h-4 text-gray-500" /> Contact Person Name{' '}
+              <User className="w-4 h-4 text-gray-500" /> Contact Person Name{" "}
               <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="emergencyContactName"
-              value={formData.emergencyContactName || ''}
+              value={formData.emergencyContactName || ""}
               onChange={onChange}
               className={inputCls(errors.emergencyContactName)}
               placeholder="Full name"
@@ -504,25 +514,25 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Phone className="w-4 h-4 text-gray-500" /> Contact No.{' '}
+              <Phone className="w-4 h-4 text-gray-500" /> Contact No.{" "}
               <span className="text-red-500">*</span>
             </label>
             <PhoneField
               name="emergencyContactNo"
-              value={formData.emergencyContactNo || ''}
-              onChange={(e) => hp(e, 'emergencyContactNo', onChange)}
+              value={formData.emergencyContactNo || ""}
+              onChange={(e) => hp(e, "emergencyContactNo", onChange)}
               error={errors.emergencyContactNo}
             />
           </div>
 
           <div className="space-y-2 md:col-span-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Home className="w-4 h-4 text-gray-500" /> Contact Person Address{' '}
+              <Home className="w-4 h-4 text-gray-500" /> Contact Person Address{" "}
               <span className="text-red-500">*</span>
             </label>
             <textarea
               name="emergencyContactAddress"
-              value={formData.emergencyContactAddress || ''}
+              value={formData.emergencyContactAddress || ""}
               onChange={onChange}
               rows={3}
               placeholder="Full address"
@@ -533,18 +543,29 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <Users className="w-4 h-4 text-gray-500" /> Relation{' '}
+              <Users className="w-4 h-4 text-gray-500" /> Relation{" "}
               <span className="text-red-500">*</span>
             </label>
             <select
               name="emergencyContactRelation"
-              value={formData.emergencyContactRelation || ''}
+              value={formData.emergencyContactRelation || ""}
               onChange={onChange}
               className={selectCls(errors.emergencyContactRelation)}
             >
               <option value="">Select Relation</option>
-              {['Father', 'Mother', 'Spouse', 'Sibling', 'Friend', 'Sister', 'Brother', 'Other'].map((r) => (
-                <option key={r} value={r}>{r}</option>
+              {[
+                "Father",
+                "Mother",
+                "Spouse",
+                "Sibling",
+                "Friend",
+                "Sister",
+                "Brother",
+                "Other",
+              ].map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
               ))}
             </select>
             <Err msg={errors.emergencyContactRelation} />
@@ -558,7 +579,6 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
       <section className="space-y-4">
         <SubHeading icon={Home} title="4. Address Details" color="green" />
         <div className="space-y-4">
-
           {/* Permanent Address */}
           <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50 space-y-4">
             <h5 className="text-sm font-bold text-gray-600 flex items-center gap-2">
@@ -567,12 +587,12 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="space-y-2 md:col-span-3">
                 <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-                  <MapPin className="w-4 h-4 text-gray-500" /> Address{' '}
+                  <MapPin className="w-4 h-4 text-gray-500" /> Address{" "}
                   <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="permanentAddress"
-                  value={formData.permanentAddress || ''}
+                  value={formData.permanentAddress || ""}
                   onChange={onChange}
                   rows={3}
                   placeholder="Full address"
@@ -582,13 +602,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
               </div>
               <div className="space-y-2">
                 <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-                  <Phone className="w-4 h-4 text-gray-500" /> Phone{' '}
+                  <Phone className="w-4 h-4 text-gray-500" /> Phone{" "}
                   <span className="text-red-500">*</span>
                 </label>
                 <PhoneField
                   name="permanentPhone"
-                  value={formData.permanentPhone || ''}
-                  onChange={(e) => hp(e, 'permanentPhone', onChange)}
+                  value={formData.permanentPhone || ""}
+                  onChange={(e) => hp(e, "permanentPhone", onChange)}
                   error={errors.permanentPhone}
                 />
               </div>
@@ -599,7 +619,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                 <input
                   type="text"
                   name="permanentLandmark"
-                  value={formData.permanentLandmark || ''}
+                  value={formData.permanentLandmark || ""}
                   onChange={onChange}
                   className={inputCls()}
                   placeholder="Nearby landmark"
@@ -612,7 +632,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                 <input
                   type="text"
                   name="permanentLatLong"
-                  value={formData.permanentLatLong || ''}
+                  value={formData.permanentLatLong || ""}
                   onChange={onChange}
                   className={`${inputCls()} font-mono`}
                   placeholder="e.g. 18.5204° N, 73.8567° E"
@@ -638,8 +658,8 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                   <div
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                       sameAddr
-                        ? 'bg-blue-600 border-blue-600'
-                        : 'border-gray-400 bg-white group-hover:border-blue-400'
+                        ? "bg-blue-600 border-blue-600"
+                        : "border-gray-400 bg-white group-hover:border-blue-400"
                     }`}
                   >
                     {sameAddr && (
@@ -650,28 +670,33 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                         stroke="currentColor"
                         strokeWidth={3}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     )}
                   </div>
                 </div>
                 <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5">
-                  <Copy className="w-3.5 h-3.5 text-blue-500" /> Same as Permanent Address
+                  <Copy className="w-3.5 h-3.5 text-blue-500" /> Same as
+                  Permanent Address
                 </span>
               </label>
             </div>
 
             <div
-              className={`grid grid-cols-1 md:grid-cols-3 gap-5 transition-opacity duration-200 ${sameAddr ? 'opacity-50 pointer-events-none' : ''}`}
+              className={`grid grid-cols-1 md:grid-cols-3 gap-5 transition-opacity duration-200 ${sameAddr ? "opacity-50 pointer-events-none" : ""}`}
             >
               <div className="space-y-2 md:col-span-3">
                 <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-                  <MapPin className="w-4 h-4 text-gray-500" /> Address{' '}
+                  <MapPin className="w-4 h-4 text-gray-500" /> Address{" "}
                   <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="localAddress"
-                  value={formData.localAddress || ''}
+                  value={formData.localAddress || ""}
                   onChange={onChange}
                   rows={3}
                   placeholder="Full address"
@@ -682,13 +707,13 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
               </div>
               <div className="space-y-2">
                 <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-                  <Phone className="w-4 h-4 text-gray-500" /> Phone{' '}
+                  <Phone className="w-4 h-4 text-gray-500" /> Phone{" "}
                   <span className="text-red-500">*</span>
                 </label>
                 <PhoneField
                   name="localPhone"
-                  value={formData.localPhone || ''}
-                  onChange={(e) => hp(e, 'localPhone', onChange)}
+                  value={formData.localPhone || ""}
+                  onChange={(e) => hp(e, "localPhone", onChange)}
                   error={errors.localPhone}
                   disabled={sameAddr}
                 />
@@ -700,7 +725,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                 <input
                   type="text"
                   name="localLandmark"
-                  value={formData.localLandmark || ''}
+                  value={formData.localLandmark || ""}
                   onChange={onChange}
                   disabled={sameAddr}
                   className={inputCls()}
@@ -714,7 +739,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                 <input
                   type="text"
                   name="localLatLong"
-                  value={formData.localLatLong || ''}
+                  value={formData.localLatLong || ""}
                   onChange={onChange}
                   disabled={sameAddr}
                   className={`${inputCls()} font-mono`}
@@ -730,15 +755,20 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
           5. Reference Details
       ══════════════════════════════════════ */}
       <section className="space-y-4">
-        <SubHeading icon={FileText} title="5. Reference Details" color="orange" />
+        <SubHeading
+          icon={FileText}
+          title="5. Reference Details"
+          color="orange"
+        />
         <p className="text-sm text-gray-500">
-          Provide 3 personal references — one from relevant industry, one local, one non-relative.
+          Provide 3 personal references — one from relevant industry, one local,
+          one non-relative. Designation and Organization are optional.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { key: 'ref1', label: 'Reference 1', sub: 'Relevant Industry' },
-            { key: 'ref2', label: 'Reference 2', sub: 'Local Area' },
-            { key: 'ref3', label: 'Reference 3', sub: 'Other than Relative' },
+            { key: "ref1", label: "Reference 1", sub: "Relevant Industry" },
+            { key: "ref2", label: "Reference 2", sub: "Local Area" },
+            { key: "ref3", label: "Reference 3", sub: "Other than Relative" },
           ].map(({ key, label, sub }) => (
             <div
               key={key}
@@ -749,58 +779,110 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                 <p className="text-xs text-gray-500">({sub})</p>
               </div>
               {[
-                { name: 'Name', key: 'Name', placeholder: 'Full name' },
-                { name: 'Designation', key: 'Designation', placeholder: 'Job designation' },
-                { name: 'Organization', key: 'Organization', placeholder: 'Company name' },
-                { name: 'Address', key: 'Address', placeholder: 'Address', textarea: true },
-                { name: 'City, State, Pin', key: 'CityStatePin', placeholder: 'Pune, Maharashtra, 411001' },
-                { name: 'Contact No.', key: 'ContactNo', phone: true },
-                { name: 'Email ID', key: 'Email', placeholder: 'official@example.com', email: true },
-              ].map(({ name, key: fKey, placeholder, textarea, phone, email }) => {
-                const fn = `${key}${fKey}`;
-                const err = errors[fn];
-                return (
-                  <div key={fKey} className="space-y-1">
-                    <label className="block text-xs font-semibold text-gray-600">{name}</label>
-                    {textarea ? (
-                      <textarea
-                        name={fn}
-                        value={formData[fn] || ''}
-                        onChange={onChange}
-                        rows={2}
-                        placeholder={placeholder}
-                        className={`${inputCls(err)} resize-none text-sm`}
-                      />
-                    ) : phone ? (
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">
-                          +91
-                        </span>
-                        <input
-                          type="tel"
+                {
+                  name: "Name",
+                  key: "Name",
+                  placeholder: "Full name",
+                  required: true,
+                },
+                {
+                  name: "Designation",
+                  key: "Designation",
+                  placeholder: "Job designation",
+                  required: false,
+                },
+                {
+                  name: "Organization",
+                  key: "Organization",
+                  placeholder: "Company name",
+                  required: false,
+                },
+                {
+                  name: "Address",
+                  key: "Address",
+                  placeholder: "Address",
+                  textarea: true,
+                  required: true,
+                },
+                {
+                  name: "City, State, Pin",
+                  key: "CityStatePin",
+                  placeholder: "Pune, Maharashtra, 411001",
+                  required: true,
+                },
+                {
+                  name: "Contact No.",
+                  key: "ContactNo",
+                  phone: true,
+                  required: true,
+                },
+                {
+                  name: "Email ID",
+                  key: "Email",
+                  placeholder: "official@example.com",
+                  email: true,
+                  required: true,
+                },
+              ].map(
+                ({
+                  name,
+                  key: fKey,
+                  placeholder,
+                  textarea,
+                  phone,
+                  email,
+                  required,
+                }) => {
+                  const fn = `${key}${fKey}`;
+                  const err = errors[fn];
+                  return (
+                    <div key={fKey} className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-600">
+                        {name}{" "}
+                        {required && <span className="text-red-500">*</span>}
+                      </label>
+                      {textarea ? (
+                        <textarea
                           name={fn}
-                          value={formData[fn] || ''}
-                          onChange={(e) => hp(e, fn, onChange)}
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border-2 ${
-                            err ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          } focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none font-mono text-sm`}
-                          placeholder="9876543210"
+                          value={formData[fn] || ""}
+                          onChange={onChange}
+                          rows={2}
+                          placeholder={placeholder}
+                          className={`${inputCls(err)} resize-none text-sm`}
                         />
-                      </div>
-                    ) : (
-                      <input
-                        type={email ? 'email' : 'text'}
-                        name={fn}
-                        value={formData[fn] || ''}
-                        onChange={onChange}
-                        placeholder={placeholder}
-                        className={`${inputCls(err)} text-sm`}
-                      />
-                    )}
-                    <Err msg={err} />
-                  </div>
-                );
-              })}
+                      ) : phone ? (
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">
+                            +91
+                          </span>
+                          <input
+                            type="tel"
+                            name={fn}
+                            value={formData[fn] || ""}
+                            onChange={(e) => hp(e, fn, onChange)}
+                            className={`w-full pl-10 pr-3 py-2 rounded-lg border-2 ${
+                              err
+                                ? "border-red-500 bg-red-50"
+                                : "border-gray-300"
+                            } focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none font-mono text-sm`}
+                            placeholder="9876543210"
+                          />
+                        </div>
+                      ) : (
+                        <input
+                          type={email ? "email" : "text"}
+                          name={fn}
+                          value={formData[fn] || ""}
+                          onChange={onChange}
+                          placeholder={placeholder}
+                          className={`${inputCls(err)} text-sm`}
+                        />
+                      )}
+                      <Err msg={err} />
+                    </div>
+                  );
+                },
+              )}
             </div>
           ))}
         </div>
@@ -809,8 +891,9 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
       {/* Info banner */}
       <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
         <p className="text-sm text-blue-800 font-medium">
-          Please ensure all information is accurate and matches official documents. Fields marked
-          with <span className="text-red-600 font-bold">*</span> are mandatory.
+          Please ensure all information is accurate and matches official
+          documents. Fields marked with{" "}
+          <span className="text-red-600 font-bold">*</span> are mandatory.
         </p>
       </div>
     </div>
