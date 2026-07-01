@@ -1,46 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE: src/utils/s3Utils.js  (Frontend)
-// PATH: C:\Users\Admin\OneDrive\Desktop\FinanceApp\insta-finance-fe\src\utils\s3Utils.js
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
-/**
- * Fetches a short-lived presigned URL from the backend for a private S3 file.
- *
- * Handles three input cases:
- *   1. S3 key  (e.g. "uploads/advance-payment/abc.png")
- *   2. Full S3 URL (extracts the key automatically)
- *   3. null / undefined / "" → returns null
- *
- * @param {string|null|undefined} keyOrUrl
- * @param {number} [expiresIn=3600] — seconds, passed to backend
- * @returns {Promise<string|null>} presigned URL or null on failure
- *
- * @example
- *   const url = await getPresignedUrl("uploads/advance-payment/abc.png");
- *   // → "https://bucket.s3.amazonaws.com/uploads/...?X-Amz-Signature=..."
- */
 export async function getPresignedUrl(keyOrUrl, expiresIn = 3600) {
   if (!keyOrUrl) return null;
 
-  // Extract key from full S3 URL if a full URL was passed
-  let key = String(keyOrUrl);
-  if (key.startsWith("http")) {
+  let key = String(keyOrUrl).trim();
+
+  // Full S3 URL → extract just the key
+  if (key.startsWith("http://") || key.startsWith("https://")) {
     try {
-      const urlObj = new URL(key);
-      key = urlObj.pathname.replace(/^\//, ""); // strip leading slash
+      key = new URL(key).pathname.replace(/^\//, "");
     } catch {
       console.warn("[s3Utils] Could not parse URL:", keyOrUrl);
       return null;
     }
   } else {
-    key = key.replace(/^\/+/, ""); // strip leading slashes from raw key
+    key = key.replace(/^\/+/, "");
   }
 
   try {
+    // ✅ No extra "/api" here — API_BASE already contains it
     const res = await fetch(
-      `${API_BASE}/api/s3/presigned-url?key=${encodeURIComponent(key)}&expires=${expiresIn}`,
+      `${API_BASE}/s3/presigned-url?key=${encodeURIComponent(key)}&expires=${expiresIn}`,
     );
 
     if (!res.ok) {
@@ -62,12 +46,7 @@ export async function getPresignedUrl(keyOrUrl, expiresIn = 3600) {
 
 /**
  * Synchronous helper — builds a public S3 URL from a key.
- *
- * ⚠️  Only use this if your bucket is PUBLIC.
- * For private buckets (recommended), use getPresignedUrl() instead.
- *
- * @param {string|null|undefined} keyOrUrl
- * @returns {string|null}
+ * Use this if your bucket is PUBLIC and you don't need presigned URLs.
  */
 export function getS3Url(keyOrUrl) {
   if (!keyOrUrl) return null;
@@ -76,7 +55,7 @@ export function getS3Url(keyOrUrl) {
     String(keyOrUrl).startsWith("http://") ||
     String(keyOrUrl).startsWith("https://")
   ) {
-    return keyOrUrl;
+    return keyOrUrl; // already a full URL
   }
 
   const BUCKET = import.meta.env.VITE_AWS_BUCKET_NAME || "";
@@ -103,6 +82,4 @@ export function isFullUrl(value) {
   );
 }
 
-// Default export is the async presigned URL function (used by DocCard/resolveFileUrl)
 export default getPresignedUrl;
-// Change in front end file
