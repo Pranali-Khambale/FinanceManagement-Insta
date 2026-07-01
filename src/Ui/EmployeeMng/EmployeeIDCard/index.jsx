@@ -10,7 +10,7 @@ import PhotoCropEditor from "./components/PhotoCropEditor";
 import { addMonths, formatDate, toInputValue } from "./utils/dateUtils";
 import { uploadPhotoToDb } from "./utils/photoUtils";
 
-import { CW, CH, LOGO_SRC, SIGNATURE_SRC, VALIDITY_OPTIONS } from "./constants";
+import { CW, CH, LOGO_SRC, SIGNATURE_SRC, SIGNATURE_WIDTH, VALIDITY_OPTIONS } from "./constants";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useCardScale
@@ -68,6 +68,7 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
   const [validityDate, setValidityDate] = useState(addMonths(12));
   const [selectedValidity, setSelectedValidity] = useState("1 Year");
   const [customDate, setCustomDate] = useState("");
+  const [printing, setPrinting] = useState(false);
 
   // ── Responsive card preview scale ──────────────────────────────────────────
   const cardScale = useCardScale(CW);
@@ -185,7 +186,24 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
   };
 
   // ── Print ──────────────────────────────────────────────────────────────────
+  // NOTE: these pixel positions must stay in lockstep with CardFront/CardBack
+  // (CW/CH). If you change the preview layout, mirror it here.
+  //
+  // FIX: previously the photo <img> had crossorigin="anonymous", which makes
+  // the browser require a proper Access-Control-Allow-Origin header from the
+  // photo proxy endpoint — if that header isn't present the image silently
+  // fails to render (blank box) in the print window. We don't draw this image
+  // to a canvas in the print popup, so crossorigin isn't needed here at all.
+  //
+  // FIX: previously we called window.print() on a blind setTimeout(400ms).
+  // If the photo/logo/signature hadn't finished loading yet (especially the
+  // photoProxyUrl, which requires a network round trip + redirect), the
+  // print/PDF output could be missing images even though the on-screen
+  // preview looked correct a moment later. Now we explicitly wait for every
+  // <img> in the print document to finish loading (or fail) before calling
+  // window.print(), with a safety-net timeout so it never hangs forever.
   const handlePrint = () => {
+    setPrinting(true);
     const fatherName =
       employee.father_husband_name || employee.fatherHusbandName || "";
     const middleName = employee.middle_name || employee.middleName || "";
@@ -206,54 +224,59 @@ const EmployeeIDCardModal = ({ employee, onClose, onPhotoUpdated }) => {
       window.location.origin +
       (SIGNATURE_SRC.startsWith("/") ? SIGNATURE_SRC : "/" + SIGNATURE_SRC);
 
+    // No crossorigin attribute — we're just displaying the image in a plain
+    // print window, not reading its pixels via canvas, so CORS headers on
+    // the photo proxy endpoint are irrelevant here and shouldn't gate
+    // whether the image renders.
     const photoHtml = photoSrc
-      ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;display:block" crossorigin="anonymous"/>`
+      ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'"/>`
       : `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
            <span style="font-size:28px;font-weight:bold;color:#bbb">${(firstName[0] || "?").toUpperCase()}</span>
          </div>`;
 
-    const pw = window.open("", "_blank", "width=720,height=660");
+    const pw = window.open("", "_blank", "width=720,height=580");
     pw.document
       .write(`<!DOCTYPE html><html><head><title>ID Card – ${fullPrintName}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:center;align-items:flex-start;font-family:'Calibri','Segoe UI',Arial,sans-serif;flex-wrap:wrap}
-.card{width:260px;height:430px;background:#fff;border:1px solid #ddd;position:relative;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.2);page-break-inside:avoid;flex-shrink:0}
+.card{width:${CW}px;height:${CH}px;background:#fff;border:1px solid #ddd;position:relative;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.2);page-break-inside:avoid;flex-shrink:0}
 @media print{body{background:#fff;padding:10px;gap:20px}.card{box-shadow:none}}
 </style></head><body>
 
 <!-- FRONT CARD -->
 <div class="card">
-  <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
-  <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
-  <div style="position:absolute;top:30px;right:45px;z-index:2">
-    <img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
+  <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="134" viewBox="0 0 230 134"><path d="M0 0 L230 0 A152 152 0 0 0 0 134 Z" fill="#F5C100"/></svg>
+  <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="134" viewBox="0 0 230 134"><path d="M230 134 L0 134 A152 152 0 0 0 230 0 Z" fill="#1565C0"/></svg>
+<div style="position:absolute;top:14px;right:50px;z-index:2">
+    <img src="${logoUrl}" style="width:110px;height:auto;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
+</div>
+  <!-- FIXED — matches PhotoBox.jsx (80×100) -->
+<div style="position:absolute;top:122px;left:50%;transform:translateX(-50%);z-index:2;width:80px;height:100px;border:2px solid #aaa;border-radius:2px;overflow:hidden;background:#f5f5f5">
+  ${photoHtml}
+</div>
+<div style="position:absolute;top:229px;left:50%;transform:translateX(-50%);font-weight:700;font-size:15px;letter-spacing:0.2px;line-height:1.2;color:#111;z-index:2;text-align:center;white-space:nowrap">
+  ${fullPrintName || "EMPLOYEE NAME"}
+</div>
+<div style="position:absolute;top:250px;left:50%;transform:translateX(-50%);font-size:13px;color:#111;z-index:2;line-height:1.2;white-space:nowrap">
+  <div style="display:flex"><span style="width:78px">Employee ID</span><span style="width:14px;text-align:center">:</span><span>${empId}</span></div>
+  <div style="display:flex"><span style="width:78px">Designation</span><span style="width:14px;text-align:center">:</span><span>${designation}</span></div>
+  <div style="display:flex"><span style="width:78px">Valid Till</span><span style="width:14px;text-align:center">:</span><span>${validTill}</span></div>
+  <div style="margin-top:8px">
+    <img src="${signUrl}" style="width:${SIGNATURE_WIDTH}px;height:34px;object-fit:contain;display:block;margin-bottom:-8px" onerror="this.style.display='none'" alt="Signature"/>
+    <div style="font-size:13px;color:#111;line-height:1.2;font-weight:500">Authorised Sign</div>
   </div>
-  <div style="position:absolute;top:148px;left:50%;transform:translateX(-50%);z-index:2;width:90px;height:108px;border:2px solid #aaa;border-radius:2px;overflow:hidden;background:#f5f5f5">
-    ${photoHtml}
-  </div>
-  <div style="position:absolute;top:275px;left:50%;transform:translateX(-50%);font-weight:700;font-size:15px;letter-spacing:0.2px;line-height:1.2;color:#111;z-index:2;text-align:center;white-space:nowrap">
-    ${fullPrintName || "EMPLOYEE NAME"}
-  </div>
-  <div style="position:absolute;top:292px;left:50%;transform:translateX(-50%);font-size:13px;color:#111;z-index:2;line-height:1.35;white-space:nowrap">
-    <div style="display:flex"><span style="width:78px">Employee ID</span><span style="width:14px;text-align:center">:</span><span>${empId}</span></div>
-    <div style="display:flex"><span style="width:78px">Designation</span><span style="width:14px;text-align:center">:</span><span>${designation}</span></div>
-    <div style="display:flex"><span style="width:78px">Valid Till</span><span style="width:14px;text-align:center">:</span><span>${validTill}</span></div>
-    <div style="margin-top:14px">
-      <img src="${signUrl}" style="width:130px;height:50px;object-fit:contain;display:block;margin-bottom:-12px" onerror="this.style.display='none'" alt="Signature"/>
-      <div style="font-size:13px;color:#111;line-height:1.2;font-weight:500">Authorised Sign</div>
-    </div>
-  </div>
+</div>
 </div>
 
 <!-- BACK CARD -->
 <div class="card">
-  <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M0 0 L230 0 A190 190 0 0 0 0 170 Z" fill="#F5C100"/></svg>
-  <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="170" viewBox="0 0 230 170"><path d="M230 170 L0 170 A190 190 0 0 0 230 0 Z" fill="#1565C0"/></svg>
-  <div style="position:absolute;top:30px;right:45px;z-index:2">
-    <img src="${logoUrl}" style="height:100px;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
-  </div>
-  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2;padding:0 18px;padding-top:100px">
+  <svg style="position:absolute;top:0;left:0;z-index:1" width="230" height="134" viewBox="0 0 230 134"><path d="M0 0 L230 0 A152 152 0 0 0 0 134 Z" fill="#F5C100"/></svg>
+  <svg style="position:absolute;bottom:0;right:0;z-index:1" width="230" height="134" viewBox="0 0 230 134"><path d="M230 134 L0 134 A152 152 0 0 0 230 0 Z" fill="#1565C0"/></svg>
+<div style="position:absolute;top:14px;right:50px;z-index:2">
+    <img src="${logoUrl}" style="width:110px;height:auto;object-fit:contain;max-width:99%" onerror="this.style.display='none'" alt="Logo"/>
+</div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2;padding:0 18px;padding-top:54px">
     <div style="font-weight:700;font-size:16px;color:#111;margin-bottom:2px">Insta ICT Solutions Pvt. Ltd.</div>
     <div style="font-size:13px;color:#333;line-height:1.3">201 &amp; 202, Imperial Plaza,</div>
     <div style="font-size:13px;color:#333;line-height:1.3;margin-bottom:4px">Jijai Nagar, Kothrud, Pune 411 038</div>
@@ -267,9 +290,52 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
   </div>
 </div>
 
-<script>setTimeout(()=>window.print(),400)</script>
+<script>
+  // Wait for every image on the page (photo, logo, signature — front & back)
+  // to finish loading (success OR error) before opening the print dialog.
+  // This guarantees the printed/PDF output always matches what was visible
+  // on screen, instead of racing a fixed timeout against network latency.
+  window.addEventListener('load', function () {
+    var imgs = Array.prototype.slice.call(document.images);
+    var pending = imgs.filter(function (img) { return !img.complete; });
+
+    function go() {
+      // Small extra delay so the browser has time to finish layout/paint
+      // after the last image swaps in, before the print dialog steals focus.
+      setTimeout(function () { window.print(); }, 150);
+    }
+
+    if (pending.length === 0) {
+      go();
+      return;
+    }
+
+    var remaining = pending.length;
+    function done() {
+      remaining -= 1;
+      if (remaining <= 0) go();
+    }
+    pending.forEach(function (img) {
+      img.addEventListener('load', done);
+      img.addEventListener('error', done); // don't hang forever on a broken image
+    });
+
+    // Safety net in case an image never fires load/error (e.g. a stalled
+    // redirect from the photo proxy endpoint).
+    setTimeout(go, 2500);
+  });
+</script>
 </body></html>`);
     pw.document.close();
+
+    // Reset the "Printing…" state on the button once the popup regains
+    // control (best-effort — some browsers block visibility on cross-window
+    // print dialogs, so this also gets a timeout fallback).
+    const resetPrinting = () => setPrinting(false);
+    if (pw) {
+      pw.addEventListener?.("afterprint", resetPrinting);
+    }
+    setTimeout(resetPrinting, 4000);
   };
 
   // ── Status badge ───────────────────────────────────────────────────────────
@@ -453,6 +519,10 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
         }
         @media (max-width: 420px) {
           .idcard-flip-row { flex-direction: column; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
 
@@ -907,8 +977,25 @@ body{background:#f0f4f8;display:flex;gap:28px;padding:36px;justify-content:cente
                   >
                     <FlipHorizontal size={14} /> Flip Card
                   </button>
-                  <button onClick={handlePrint} style={styles.actionBtn(true)}>
-                    <Printer size={14} /> Print / Save PDF
+                  <button
+                    onClick={handlePrint}
+                    disabled={printing}
+                    style={{
+                      ...styles.actionBtn(true),
+                      opacity: printing ? 0.75 : 1,
+                      cursor: printing ? "wait" : "pointer",
+                    }}
+                  >
+                    {printing ? (
+                      <>
+                        <Loader size={14} style={{ animation: "spin 1s linear infinite" }} />
+                        Preparing…
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={14} /> Print / Save PDF
+                      </>
+                    )}
                   </button>
                 </div>
                 <div

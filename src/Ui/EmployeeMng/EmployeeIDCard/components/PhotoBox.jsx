@@ -34,8 +34,8 @@ const PhotoBox = ({
     <div
       className="photo-box"
       style={{
-        width: 90,
-        height: 108,
+        width: 80,
+       height: 100,
         border: "2px solid #aaa",
         borderRadius: 2,
         overflow: "hidden",
