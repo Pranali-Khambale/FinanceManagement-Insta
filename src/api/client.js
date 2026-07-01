@@ -78,17 +78,15 @@ export async function apiFetch(path, options = {}) {
     headers: buildHeaders(options),
   });
 
-  // Only redirect to /login on 401 if there is no token at all (genuine
-  // session expiry). If we got a 401 with a token present, let parseResponse
-  // throw so the caller can show the error message instead of a silent redirect.
+  // Any 401 here means the backend has rejected the current session —
+  // whether that's because there was no token, or because the token it
+  // had is expired/invalid/revoked. Either way the user is no longer
+  // authenticated, so route through the same handleUnauthorized() cleanup
+  // + redirect that axiosClient uses, instead of leaving the app in a
+  // half-logged-in state.
   if (response.status === 401) {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      handleUnauthorized();
-      return;
-    }
-    // Token exists but backend still returned 401 — fall through to
-    // parseResponse which will throw with the backend's error message.
+    handleUnauthorized();
+    return;
   }
 
   return parseResponse(response);

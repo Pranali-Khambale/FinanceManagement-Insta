@@ -6,11 +6,6 @@ import { AuthProvider } from "./context/AuthContext";
 import App from "./App.jsx";
 import "./styles/globals.css";
 
-// NOTE: PendingCountProvider used to be mounted here, wrapping the entire
-// app — including public routes like /registration/:linkId. It now lives
-// inside App.jsx's `Protected` wrapper instead, so it only ever runs for
-// authenticated admin pages. See the comment above `Protected` in App.jsx
-// for why that matters.
 
 const queryClient = new QueryClient({
   defaultOptions: {
