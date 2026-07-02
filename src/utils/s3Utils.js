@@ -4,7 +4,20 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-export async function getPresignedUrl(keyOrUrl, expiresIn = 3600) {
+/**
+ * @param {string} keyOrUrl - S3 key or full S3 URL
+ * @param {number} expiresIn - seconds the URL stays valid
+ * @param {object} [options]
+ * @param {string} [options.filename] - if provided, the presigned URL will
+ *        force the browser to download (not preview) the file, saved under
+ *        this filename. Pass this whenever the URL is used for a "Download"
+ *        button. Omit it for preview/lightbox usage so it displays inline.
+ */
+export async function getPresignedUrl(
+  keyOrUrl,
+  expiresIn = 3600,
+  options = {},
+) {
   if (!keyOrUrl) return null;
 
   let key = String(keyOrUrl).trim();
@@ -22,9 +35,15 @@ export async function getPresignedUrl(keyOrUrl, expiresIn = 3600) {
   }
 
   try {
+    const params = new URLSearchParams({
+      key,
+      expires: String(expiresIn),
+    });
+    if (options.filename) params.set("filename", options.filename);
+
     // ✅ No extra "/api" here — API_BASE already contains it
     const res = await fetch(
-      `${API_BASE}/s3/presigned-url?key=${encodeURIComponent(key)}&expires=${expiresIn}`,
+      `${API_BASE}/s3/presigned-url?${params.toString()}`,
     );
 
     if (!res.ok) {
