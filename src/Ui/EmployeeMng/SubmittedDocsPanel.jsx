@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 
 import { BASE_URL } from "../../api/client";
+import { downloadFile, buildDownloadFilename } from "../../utils/downloadFile";
 
 // ── Module-level presign cache (shared across all panel instances) ─────────────
 // key = S3 object key, value = { url, expiresAt }
@@ -129,10 +130,25 @@ const getFileType = (path, mime) => {
 // ── Doc Lightbox ──────────────────────────────────────────────────────────────
 const DocLightbox = ({ docs, resolvedUrls, startIndex, onClose }) => {
   const [idx, setIdx] = useState(startIndex || 0);
+  const [downloading, setDownloading] = useState(false);
   const doc = docs[idx];
   const url = resolvedUrls[doc?.file_path] || null;
   const ft = getFileType(doc?.file_path, doc?.mime_type);
   const meta = DOC_META[doc?.document_type] || DOC_META.other;
+  const metaLabel = typeof meta.label === "string" ? meta.label : "Document";
+
+  const handleDownload = async () => {
+    if (!url || downloading) return;
+    setDownloading(true);
+    try {
+      const filename = buildDownloadFilename(doc, metaLabel);
+      await downloadFile(url, filename);
+    } catch {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     const h = (e) => {
@@ -166,15 +182,18 @@ const DocLightbox = ({ docs, resolvedUrls, startIndex, onClose }) => {
         <div className="flex items-center gap-2">
           {url && (
             <>
-              <a
-                href={url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-medium transition-all"
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-medium transition-all disabled:opacity-60 disabled:cursor-wait"
               >
-                <Download className="w-3.5 h-3.5" /> Download
-              </a>
+                {downloading ? (
+                  <Loader className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}{" "}
+                {downloading ? "Downloading…" : "Download"}
+              </button>
               <a
                 href={url}
                 target="_blank"
@@ -228,13 +247,18 @@ const DocLightbox = ({ docs, resolvedUrls, startIndex, onClose }) => {
               Preview not available
             </p>
             {url && (
-              <a
-                href={url}
-                download
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold transition-all"
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-wait"
               >
-                <Download className="w-4 h-4" /> Download File
-              </a>
+                {downloading ? (
+                  <Loader className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}{" "}
+                {downloading ? "Downloading…" : "Download File"}
+              </button>
             )}
           </div>
         )}
@@ -259,6 +283,24 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
   const [lightbox, setLightbox] = useState(null);
   const [marking, setMarking] = useState({});
   const [downloading, setDownloading] = useState(false);
+  const [rowDownloading, setRowDownloading] = useState({});
+
+  const handleRowDownload = async (doc) => {
+    const url = resolvedUrls[doc.file_path];
+    if (!url || rowDownloading[doc.id]) return;
+    setRowDownloading((prev) => ({ ...prev, [doc.id]: true }));
+    try {
+      const meta = DOC_META[doc.document_type] || DOC_META.other;
+      const metaLabel =
+        typeof meta.label === "string" ? meta.label : "Document";
+      const filename = buildDownloadFilename(doc, metaLabel);
+      await downloadFile(url, filename);
+    } catch {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setRowDownloading((prev) => ({ ...prev, [doc.id]: false }));
+    }
+  };
 
   // resolvedUrls: { [file_path]: presignedUrl }
   // Populated async after docs load — never cleared on re-fetch
@@ -332,16 +374,18 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
         const url =
           resolvedUrls[doc.file_path] || (await resolveUrl(doc.file_path));
         if (url) {
-          // Open in new tab — browser will download if Content-Disposition is attachment
-          const a = document.createElement("a");
-          a.href = url;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
           const meta = DOC_META[doc.document_type] || DOC_META.other;
-          a.download = doc.file_name || `${meta.label}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          const metaLabel =
+            typeof meta.label === "string" ? meta.label : "Document";
+          const filename = buildDownloadFilename(doc, metaLabel);
+          try {
+            // Blob-based download so it actually saves to disk instead of
+            // opening in a new tab (presigned S3 URLs are cross-origin, so
+            // a plain <a download> is ignored by the browser).
+            await downloadFile(url, filename);
+          } catch {
+            window.open(url, "_blank", "noopener,noreferrer");
+          }
           // Small delay between downloads so browser doesn't block them
           await new Promise((r) => setTimeout(r, 300));
         }
@@ -576,16 +620,18 @@ export const SubmittedDocsPanel = ({ empDbId, employeeName, showToast }) => {
                   </button>
                 )}
                 {url && (
-                  <a
-                    href={url}
-                    download
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-300 hover:bg-green-50 transition-all"
+                  <button
+                    onClick={() => handleRowDownload(doc)}
+                    disabled={rowDownloading[doc.id]}
+                    className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-300 hover:bg-green-50 transition-all disabled:opacity-60 disabled:cursor-wait"
                     title="Download"
                   >
-                    <Download className="w-4 h-4" />
-                  </a>
+                    {rowDownloading[doc.id] ? (
+                      <Loader className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                  </button>
                 )}
                 {!doc.reviewed ? (
                   <button

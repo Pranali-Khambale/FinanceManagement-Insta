@@ -6,10 +6,12 @@ import {
   Upload,
   Trash2,
   CheckCircle,
+  Loader,
 } from "lucide-react";
 import { DOC_TYPE_META } from "./constants";
 import { getPresignedUrl } from "@/utils/presignUtils";
 import { getFileType } from "@/utils/fileUtils";
+import { downloadFile, buildDownloadFilename } from "@/utils/downloadFile";
 
 const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
   const meta = DOC_TYPE_META[doc.document_type] || DOC_TYPE_META.other;
@@ -18,6 +20,7 @@ const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
   const ft = getFileType(doc.file_path, mime);
   const label = doc._regLabel || meta.label;
   const [url, setUrl] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!doc.file_path) return;
@@ -25,6 +28,21 @@ const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
       .then(setUrl)
       .catch(() => {});
   }, [doc.file_path]);
+
+  const handleDownload = async () => {
+    if (!url || downloading) return;
+    setDownloading(true);
+    try {
+      const filename = buildDownloadFilename(doc, label);
+      await downloadFile(url, filename);
+    } catch (err) {
+      // Fallback: open in a new tab if the blob fetch fails (e.g. CORS
+      // blocked on the bucket) so the user can still save it manually.
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div
@@ -127,16 +145,18 @@ const DocCard = ({ doc, index, onView, onEdit, onDelete }) => {
             </button>
           )}
           {url && (
-            <a
-              href={url}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
               title="Download"
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border border-white/60 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border border-white/60 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-60 disabled:cursor-wait"
             >
-              <Download size={14} className="text-gray-600" />
-            </a>
+              {downloading ? (
+                <Loader size={14} className="text-gray-600 animate-spin" />
+              ) : (
+                <Download size={14} className="text-gray-600" />
+              )}
+            </button>
           )}
           {onEdit && (
             <button

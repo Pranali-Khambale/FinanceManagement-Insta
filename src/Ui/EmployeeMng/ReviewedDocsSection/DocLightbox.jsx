@@ -6,15 +6,18 @@ import {
   X as XIcon,
   ChevronLeft,
   ChevronRight,
+  Loader,
 } from "lucide-react";
 import { DOC_TYPE_META } from "./constants";
 import { getPresignedUrl, extractS3Key } from "@/utils/presignUtils";
 import { getFileType } from "@/utils/fileUtils";
+import { downloadFile, buildDownloadFilename } from "@/utils/downloadFile";
 
 const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
   const [idx, setIdx] = useState(startIndex);
   const [imgError, setImgError] = useState(false);
   const [presignedUrls, setPresignedUrls] = useState({});
+  const [downloading, setDownloading] = useState(false);
 
   const doc = docs[idx];
   const mime = doc?.mime_type || doc?.mimeType || "";
@@ -56,6 +59,19 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
     return () => window.removeEventListener("keydown", h);
   }, [docs.length, onClose]);
 
+  const handleDownload = async () => {
+    if (!url || downloading) return;
+    setDownloading(true);
+    try {
+      const filename = buildDownloadFilename(doc, label);
+      await downloadFile(url, filename);
+    } catch {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex flex-col"
@@ -88,15 +104,18 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
         <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
           {url && (
             <>
-              <a
-                href={url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium border border-white/10 transition-all"
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium border border-white/10 transition-all disabled:opacity-60 disabled:cursor-wait"
               >
-                <Download size={13} /> Download
-              </a>
+                {downloading ? (
+                  <Loader size={13} className="animate-spin" />
+                ) : (
+                  <Download size={13} />
+                )}{" "}
+                {downloading ? "Downloading…" : "Download"}
+              </button>
               <a
                 href={url}
                 target="_blank"
@@ -106,15 +125,17 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
                 <ExternalLink size={13} /> Open
               </a>
               {/* Mobile icon-only */}
-              <a
-                href={url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="sm:hidden w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/10 transition-all"
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="sm:hidden w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/10 transition-all disabled:opacity-60"
               >
-                <Download size={14} />
-              </a>
+                {downloading ? (
+                  <Loader size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
+              </button>
             </>
           )}
           <button
@@ -160,13 +181,18 @@ const DocLightbox = ({ docs, startIndex = 0, onClose }) => {
             </div>
             <p className="text-sm opacity-70">Preview not available</p>
             {url && (
-              <a
-                href={url}
-                download
-                className="inline-flex items-center gap-2 px-4 py-2.5 sm:px-5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold text-white transition-all"
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="inline-flex items-center gap-2 px-4 py-2.5 sm:px-5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60 disabled:cursor-wait"
               >
-                <Download size={16} /> Download File
-              </a>
+                {downloading ? (
+                  <Loader size={16} className="animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}{" "}
+                {downloading ? "Downloading…" : "Download File"}
+              </button>
             )}
           </div>
         )}

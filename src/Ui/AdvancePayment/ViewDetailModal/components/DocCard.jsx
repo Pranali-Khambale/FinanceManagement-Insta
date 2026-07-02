@@ -12,7 +12,11 @@ import {
   ZoomOut,
   RotateCcw,
 } from "lucide-react";
-import { resolveFileUrl } from "../utils";
+import {
+  resolveFileUrl,
+  triggerDownload,
+  buildDownloadFilename,
+} from "../utils";
 
 const DOCCARD_CSS = `
 /* ── DocCard responsive ── */
@@ -269,7 +273,7 @@ function sniffType(name, url) {
 }
 
 // ── InlineLightbox ────────────────────────────────────────────────────────────
-function InlineLightbox({ src, name, onClose }) {
+function InlineLightbox({ src, name, onClose, onDownload }) {
   const kind = sniffType(name, src);
   const isImg = kind === "image";
   const isPdf = kind === "pdf";
@@ -283,6 +287,7 @@ function InlineLightbox({ src, name, onClose }) {
   const [imgError, setImgError] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [hintFade, setHintFade] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const bodyRef = useRef(null);
   const imgRef = useRef(null);
@@ -403,16 +408,15 @@ function InlineLightbox({ src, name, onClose }) {
     triggerHint();
   };
 
-  const handleDownload = (e) => {
+  const handleDownload = async (e) => {
     e?.stopPropagation();
-    const a = document.createElement("a");
-    a.href = src;
-    a.download = name || "download";
-    a.target = "_blank";
-    a.rel = "noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if (!onDownload || downloading) return;
+    setDownloading(true);
+    try {
+      await onDownload();
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const pct = Math.round(zoom * 100);
@@ -466,9 +470,14 @@ function InlineLightbox({ src, name, onClose }) {
           <button
             className="ph-lb-btn"
             onClick={handleDownload}
+            disabled={downloading}
             title="Download"
           >
-            <Download size={14} />
+            {downloading ? (
+              <Loader size={14} className="animate-spin" />
+            ) : (
+              <Download size={14} />
+            )}
           </button>
           <button
             className="ph-lb-btn ph-lb-btn-close"
@@ -561,6 +570,7 @@ function InlineLightbox({ src, name, onClose }) {
             </p>
             <button
               className="ph-lb-btn"
+              disabled={downloading}
               style={{
                 width: "auto",
                 padding: "9px 18px",
@@ -573,7 +583,7 @@ function InlineLightbox({ src, name, onClose }) {
               }}
               onClick={handleDownload}
             >
-              Download file
+              {downloading ? "Downloading…" : "Download file"}
             </button>
           </div>
         )}
@@ -601,6 +611,7 @@ export default function DocCard({
 }) {
   const [open, setOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // blob URL for local File objects
   const blobUrl = useMemo(() => {
@@ -655,17 +666,42 @@ export default function DocCard({
 
   if (!displayName && !resolvedUrl && !resolving) return null;
 
-  const handleDownload = (e) => {
-    e.stopPropagation();
-    if (!resolvedUrl) return;
-    const a = document.createElement("a");
-    a.href = resolvedUrl;
-    a.download = displayName || "download";
-    a.target = "_blank";
-    a.rel = "noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = async (e) => {
+    e?.stopPropagation();
+    if (downloading) return;
+    const filename = buildDownloadFilename(
+      displayName,
+      resolvedUrl,
+      label || "document",
+    );
+
+    // Local (not-yet-uploaded) File — blobUrl is already a same-origin blob:
+    // URL, so a plain download click works with no server round-trip.
+    if (blobUrl) {
+      triggerDownload(blobUrl, filename);
+      return;
+    }
+
+    const rawSource = urlProp || filePath;
+    if (!rawSource) return;
+
+    setDownloading(true);
+    try {
+      // Request a FRESH presigned URL that includes the filename — this is
+      // what makes S3 send Content-Disposition: attachment, so the browser
+      // actually saves the file instead of opening it in a new tab. (The
+      // `resolvedUrl` used for preview does NOT have this header, since we
+      // want that one to display inline.)
+      const dlUrl = await resolveFileUrl(rawSource, { filename });
+      if (!dlUrl) throw new Error("Could not get download URL");
+      triggerDownload(dlUrl, filename);
+    } catch {
+      // Fallback: at least open the preview URL so the user can save manually
+      if (resolvedUrl)
+        window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -841,6 +877,7 @@ export default function DocCard({
               {/* Download */}
               <button
                 onClick={handleDownload}
+                disabled={downloading}
                 title="Download"
                 style={{
                   display: "flex",
@@ -853,7 +890,8 @@ export default function DocCard({
                   color: pt.color,
                   fontSize: 12,
                   fontWeight: 700,
-                  cursor: "pointer",
+                  cursor: downloading ? "wait" : "pointer",
+                  opacity: downloading ? 0.7 : 1,
                   boxShadow: `0 2px 8px ${pt.color}15`,
                   whiteSpace: "nowrap",
                 }}
@@ -866,8 +904,14 @@ export default function DocCard({
                   e.currentTarget.style.borderColor = `${pt.color}55`;
                 }}
               >
-                <Download size={12} />
-                <span className="hidden sm:inline">Download</span>
+                {downloading ? (
+                  <Loader size={12} className="animate-spin" />
+                ) : (
+                  <Download size={12} />
+                )}
+                <span className="hidden sm:inline">
+                  {downloading ? "Downloading…" : "Download"}
+                </span>
               </button>
             </div>
           ) : (
@@ -883,6 +927,7 @@ export default function DocCard({
           src={resolvedUrl}
           name={displayName}
           onClose={() => setOpen(false)}
+          onDownload={handleDownload}
         />
       )}
     </>

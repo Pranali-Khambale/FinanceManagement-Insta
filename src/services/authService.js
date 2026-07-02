@@ -7,6 +7,9 @@ const USER_KEY     = 'user';
 const AUTH_KEY     = 'isAuthenticated';
 const REMEMBER_KEY = 'rememberMe';
 
+
+
+
 function persistSession(data, rememberMe = false) {
   localStorage.setItem(TOKEN_KEY, data.token);
   localStorage.setItem(USER_KEY, JSON.stringify(data.user));
@@ -15,6 +18,7 @@ function persistSession(data, rememberMe = false) {
 }
 
 function clearSession() {
+  
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(AUTH_KEY);
