@@ -119,6 +119,7 @@ const FILE_FIELDS = new Set([
 const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
 
 const STEP_LABELS = [
+  
   "Personal Info",
   "Employment Details",
   "Bank Details",
