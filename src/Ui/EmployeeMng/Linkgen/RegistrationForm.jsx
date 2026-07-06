@@ -119,7 +119,6 @@ const FILE_FIELDS = new Set([
 const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
 
 const STEP_LABELS = [
-  
   "Personal Info",
   "Employment Details",
   "Bank Details",
@@ -183,7 +182,7 @@ const RegistrationForm = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
 
-  // ── NEW: ref used to scroll the user to the top of the step content
+  // ── ref used to scroll the user to the top of the step content
   //    (where the validation summary banner renders) whenever a
   //    Save & Continue / Submit click fails validation.
   const contentRef = useRef(null);
@@ -476,8 +475,7 @@ const RegistrationForm = () => {
         const val = (formData[key] || "").trim();
         if (!val) return;
         if (seenPhones[val]) {
-          e[key] =
-            `Same as ${seenPhones[val]} — please enter a different number`;
+          e[key] = `Same as ${seenPhones[val]} — please enter a different number`;
         } else {
           seenPhones[val] = label;
         }
@@ -496,8 +494,7 @@ const RegistrationForm = () => {
         const val = (formData[key] || "").trim().toLowerCase();
         if (!val) return;
         if (seenEmails[val]) {
-          e[key] =
-            `Same as ${seenEmails[val]} — please enter a different email`;
+          e[key] = `Same as ${seenEmails[val]} — please enter a different email`;
         } else {
           seenEmails[val] = label;
         }
@@ -548,12 +545,7 @@ const RegistrationForm = () => {
   // ── Save & Continue ───────────────────────────────────────────────────────
   const handleSaveAndContinue = () => {
     if (!validateStep(currentStep)) {
-      // ── NEW: scroll the user up to the validation summary banner so
-      //    they immediately see the full list of missing/invalid fields.
-      contentRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -576,11 +568,7 @@ const RegistrationForm = () => {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!validateStep(currentStep)) {
-      // ── NEW: same scroll-to-summary behavior on final submit ──
-      contentRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -617,8 +605,6 @@ const RegistrationForm = () => {
       if (res?.success) {
         clearDraft(draftKey);
 
-        // ── FIX: Pass one-time state so the success page can verify
-        //    the user arrived via a real submission, not a direct URL visit.
         navigate("/success", {
           replace: true,
           state: {
@@ -690,19 +676,27 @@ const RegistrationForm = () => {
       ? "Your previously submitted information has been pre-filled — please correct any issues and re-upload your documents."
       : null;
 
-  // ── NEW: build a flat list of current validation errors for the
-  //    summary banner (excludes the generic "submit" error, which
-  //    already has its own dedicated banner below).
   const validationEntries = Object.entries(errors).filter(
     ([key, msg]) => key !== "submit" && !!msg,
   );
 
   // ── Main render ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 py-6 px-3 sm:py-12 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    // NOTE: added `overflow-y-auto` here as a safety net so this page can
+    // always scroll on its own even if a parent layout constrains height.
+  <div className="h-screen w-screen overflow-y-auto bg-slate-50 py-6 px-3 sm:py-12 sm:px-6 lg:px-8">
+      {/*
+        FIX: removed `overflow-hidden` from this outer card wrapper.
+        `overflow-hidden` here was clipping the card's content any time its
+        height got constrained by a parent flex/height rule (e.g. `h-screen`
+        or `overflow:hidden` on #root/body/a layout shell) — that's almost
+        always the real source of a form that "can't scroll". The rounded
+        corners are now handled per-section instead of on this outer div,
+        so nothing here can trap scroll.
+      */}
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md">
         {/* ── Header ───────────────────────────────────────────────────────── */}
-        <div className={`px-4 sm:px-6 py-4 ${headerBg}`}>
+        <div className={`px-4 sm:px-6 py-4 rounded-t-xl ${headerBg}`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="min-w-0">
               <span className="text-white font-bold text-base sm:text-lg block truncate">
@@ -762,7 +756,7 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        <div className="p-4 sm:p-8" ref={contentRef}>
+        <div className="p-4 sm:p-8 rounded-b-xl" ref={contentRef}>
           {/* ── Rejection reason banner ───────────────────────────────────── */}
           {isResubmit && rejectionReason && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3">
@@ -781,10 +775,7 @@ const RegistrationForm = () => {
             </div>
           )}
 
-          {/* ── NEW: Validation summary banner ──────────────────────────────
-              Shows every mandatory / invalid field for the CURRENT step in
-              one place, so the employee doesn't have to scroll and hunt
-              through the form to find what's missing. */}
+          {/* ── Validation summary banner ──────────────────────────────── */}
           {validationEntries.length > 0 && (
             <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
               <div className="flex items-center gap-3">
@@ -850,7 +841,6 @@ const RegistrationForm = () => {
 
               {/* Right-side action */}
               {currentStep < steps.length ? (
-                // ── Save & Continue ──────────────────────────────────────────
                 <button
                   type="button"
                   onClick={handleSaveAndContinue}
@@ -878,7 +868,6 @@ const RegistrationForm = () => {
                   )}
                 </button>
               ) : (
-                // ── Final step: Submit ───────────────────────────────────────
                 <button
                   type="button"
                   onClick={handleSubmit}
