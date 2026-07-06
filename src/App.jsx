@@ -197,14 +197,14 @@ function App() {
       <Route path="/register" element={<AdminRegistration />} />
       <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
-    <Route
-  path="/registration/:linkId"
-  element={
-    <Suspense fallback={<LoadingSpinner />}>
-      <RegistrationForm />
-    </Suspense>
-  }
-/>
+      <Route
+        path="/registration/:linkId"
+        element={
+          <Suspense fallback={<LoadingSpinner />}>
+            <RegistrationForm />
+          </Suspense>
+        }
+      />
       <Route
         path="/registration/resubmit/:token"
         element={
