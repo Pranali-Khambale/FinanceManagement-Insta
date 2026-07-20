@@ -1,6 +1,4 @@
-
 import { apiFetch, publicFetch, BASE_URL } from "../api/client";
-
 
 const SCALAR_FIELDS = [
   // Personal
@@ -362,26 +360,56 @@ const employeeRepository = {
       .catch(() => 0),
 
   // ── Email helpers ────────────────────────────────────────────────────────
-  sendRegistrationEmail: (payload) =>
-    fetch(`${BASE_URL}/employees/send-registration-email`, {
+  // NOTE: The registration email itself is already sent server-side by the
+  // POST /api/registration-links controller (generateLink) the moment a
+  // link is created. These helpers are ONLY for optional manual resend
+  // actions elsewhere in the UI — do NOT call sendRegistrationEmail right
+  // after generateRegistrationLink, that would (attempt to) send it twice.
+  //
+  // All three now properly check r.ok so a 404/500 rejects the promise
+  // instead of silently resolving with success=false and letting the UI
+  // show a false "sent" toast.
+  sendRegistrationEmail: async (payload) => {
+    const r = await fetch(`${BASE_URL}/employees/send-registration-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }).then((r) => r.json()),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.success === false) {
+      throw new Error(data.message || `Request failed (${r.status})`);
+    }
+    return data;
+  },
 
-  sendFormSubmissionConfirmation: (payload) =>
-    fetch(`${BASE_URL}/employees/send-submission-confirmation`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).then((r) => r.json()),
+  sendFormSubmissionConfirmation: async (payload) => {
+    const r = await fetch(
+      `${BASE_URL}/employees/send-submission-confirmation`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.success === false) {
+      throw new Error(data.message || `Request failed (${r.status})`);
+    }
+    return data;
+  },
 
-  sendHRSubmissionNotification: (payload) =>
-    fetch(`${BASE_URL}/employees/send-hr-notification`, {
+  sendHRSubmissionNotification: async (payload) => {
+    const r = await fetch(`${BASE_URL}/employees/send-hr-notification`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }).then((r) => r.json()),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.success === false) {
+      throw new Error(data.message || `Request failed (${r.status})`);
+    }
+    return data;
+  },
 };
 
 export default employeeRepository;
