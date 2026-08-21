@@ -12,7 +12,8 @@ import PaymentHistory from "../Ui/AdvancePayment/PaymentHistory/index.jsx";
 
 function fmtDate(raw) {
   if (!raw) return "—";
-  const d = new Date(raw);
+  const d = new Date(
+    raw);
   if (isNaN(d)) return String(raw).slice(0, 10);
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }

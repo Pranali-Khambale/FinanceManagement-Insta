@@ -13,6 +13,45 @@ export const AuthProvider = ({ children }) => {
   // and against the request resolving after the component has unmounted.
   const hasVerifiedRef = useRef(false);
 
+  const verifySession = useCallback(async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setIsAuthenticated(false);
+      setUser(null);
+      return false;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/auth/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const profile = data?.data?.user || data?.data || null;
+        if (profile) {
+          setUser(profile);
+          localStorage.setItem("user", JSON.stringify(profile));
+        }
+        setIsAuthenticated(true);
+        return true;
+      }
+
+      if (res.status === 401 || res.status === 403) {
+        authService.logout();
+        setIsAuthenticated(false);
+        setUser(null);
+        return false;
+      }
+
+      // Other server errors — keep existing local session
+      setIsAuthenticated(true);
+      return true;
+    } catch {
+      // Network error — keep existing local session
+      return isAuthenticated;
+    }
+  }, [isAuthenticated]);
+
   // On mount — verify the stored token is still valid against the server
   useEffect(() => {
     if (hasVerifiedRef.current) return; // StrictMode double-invoke guard
@@ -36,30 +75,23 @@ export const AuthProvider = ({ children }) => {
 
         if (res.ok) {
           const data = await res.json();
-          // Handle either { data: { user: {...} } } or { data: {...} }
           const profile = data?.data?.user || data?.data || null;
           if (profile) {
             setUser(profile);
             localStorage.setItem("user", JSON.stringify(profile));
             setIsAuthenticated(true);
           } else {
-            // Unexpected shape — keep existing stored user, don't log out
             setIsAuthenticated(true);
           }
         } else if (res.status === 401 || res.status === 403) {
-          // Token genuinely rejected by server — clear everything
           authService.logout();
           setIsAuthenticated(false);
           setUser(null);
         } else {
-          // Some other server error (404, 500, etc.) — don't log the user out,
-          // just keep the locally stored session
           setIsAuthenticated(true);
         }
       } catch (err) {
-        // Aborted on unmount — not a real error, ignore silently
         if (err.name === "AbortError") return;
-        // Network error — keep the stored state, don't log out
       } finally {
         setIsInitializing(false);
       }
@@ -71,8 +103,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (credentials) => {
     const data = await authService.login(credentials);
-    setUser(data.data.user);
-    setIsAuthenticated(true);
+    // STEP 1 only — no session yet, OTP still pending. Don't touch auth state here.
+    return data;
+  }, []);
+
+  // STEP 2 — completes login. Persists session via authService AND updates
+  // context state so ProtectedRoute sees isAuthenticated=true immediately.
+  const verifyOtp = useCallback(async ({ pendingToken, otp, rememberMe = false }) => {
+    const data = await authService.verifyOtp({ pendingToken, otp, rememberMe });
+    if (data.success) {
+      setUser(data.data.user);
+      setIsAuthenticated(true);
+    }
     return data;
   }, []);
 
@@ -83,7 +125,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isInitializing, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated, isInitializing, login, verifyOtp, logout, verifySession }}
+    >
       {children}
     </AuthContext.Provider>
   );
