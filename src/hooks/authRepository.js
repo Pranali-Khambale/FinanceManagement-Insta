@@ -1,4 +1,4 @@
-// src/repositories/authRepository.js
+// src/hooks/authRepository.js
 // ─── Raw API calls for auth endpoints ─────────────────────────────────────────
 import { BASE_URL, apiFetch } from '../api/client';
 
@@ -8,6 +8,22 @@ const authRepository = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        const err = new Error(data.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      return data;
+    }),
+
+  // STEP 2 of login: submit the OTP + pendingToken, get back the real session.
+  verifyOtp: (pendingToken, otp) =>
+    fetch(`${BASE_URL}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pendingToken, otp }),
     }).then(async (res) => {
       const data = await res.json();
       if (!res.ok) {
@@ -39,8 +55,6 @@ const authRepository = {
       return data;
     }),
 
-  // Sends a 6-digit OTP to the given email address.
-  // Always resolves (server never reveals whether the email exists).
   forgotPassword: (email) =>
     fetch(`${BASE_URL}/auth/forgot-password`, {
       method:  'POST',
@@ -56,7 +70,6 @@ const authRepository = {
       return data;
     }),
 
-  // Validates email + OTP and sets a new password.
   resetPassword: (email, otp, newPassword) =>
     fetch(`${BASE_URL}/auth/reset-password`, {
       method:  'POST',
@@ -79,7 +92,7 @@ const authRepository = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${localStorage.getItem('authToken')}`,
       },
-    }).catch(() => {}), // swallow network errors on logout
+    }).catch(() => {}),
 };
 
 export default authRepository;

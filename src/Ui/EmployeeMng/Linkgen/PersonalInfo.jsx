@@ -733,6 +733,7 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
         <SubHeading icon={FileText} title="5. Reference Details" color="orange" />
         <p className="text-sm text-gray-500">
           Provide 3 personal references — one from relevant industry, one local, one non-relative.
+          Designation and Organization are optional.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
@@ -749,19 +750,21 @@ const PersonalInfoStep = ({ formData, errors = {}, onChange }) => {
                 <p className="text-xs text-gray-500">({sub})</p>
               </div>
               {[
-                { name: 'Name', key: 'Name', placeholder: 'Full name' },
-                { name: 'Designation', key: 'Designation', placeholder: 'Job designation' },
-                { name: 'Organization', key: 'Organization', placeholder: 'Company name' },
-                { name: 'Address', key: 'Address', placeholder: 'Address', textarea: true },
-                { name: 'City, State, Pin', key: 'CityStatePin', placeholder: 'Pune, Maharashtra, 411001' },
-                { name: 'Contact No.', key: 'ContactNo', phone: true },
-                { name: 'Email ID', key: 'Email', placeholder: 'official@example.com', email: true },
-              ].map(({ name, key: fKey, placeholder, textarea, phone, email }) => {
+                { name: 'Name', key: 'Name', placeholder: 'Full name', required: true },
+                { name: 'Designation', key: 'Designation', placeholder: 'Job designation', required: false },
+                { name: 'Organization', key: 'Organization', placeholder: 'Company name', required: false },
+                { name: 'Address', key: 'Address', placeholder: 'Address', textarea: true, required: true },
+                { name: 'City, State, Pin', key: 'CityStatePin', placeholder: 'Pune, Maharashtra, 411001', required: true },
+                { name: 'Contact No.', key: 'ContactNo', phone: true, required: true },
+                { name: 'Email ID', key: 'Email', placeholder: 'official@example.com', email: true, required: true },
+              ].map(({ name, key: fKey, placeholder, textarea, phone, email, required }) => {
                 const fn = `${key}${fKey}`;
                 const err = errors[fn];
                 return (
                   <div key={fKey} className="space-y-1">
-                    <label className="block text-xs font-semibold text-gray-600">{name}</label>
+                    <label className="block text-xs font-semibold text-gray-600">
+                      {name} {required && <span className="text-red-500">*</span>}
+                    </label>
                     {textarea ? (
                       <textarea
                         name={fn}

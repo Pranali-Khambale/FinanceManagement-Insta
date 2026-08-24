@@ -3,9 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from "react";
 import payrollService from "../services/payrollService";
-import PayrollTable from "../Ui/Payroll/PayrollTable";
+import PayrollTable from "../Ui/Payroll/PayrollTable/PayrollTable";
 import AdvanceEffectsPanel from "../Ui/Payroll/AdvanceEffectsPanel";
-import PayrollHistoryModal from "../Ui/Payroll/PayrollHistoryModal";
+import PayrollHistoryModal from "../Ui/Payroll/PayrollHistory/PayrollHistoryModal";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtINR(val) {

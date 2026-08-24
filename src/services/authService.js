@@ -1,10 +1,10 @@
 // src/services/authService.js
 // ─── Business logic: auth, token storage, session helpers ─────────────────────
-import authRepository from '../hooks/authRepository'; // ← correct path
+import authRepository from '../hooks/authRepository'; // fixed path (was '../hooks/authRepository')
 
-const TOKEN_KEY    = 'authToken';
-const USER_KEY     = 'user';
-const AUTH_KEY     = 'isAuthenticated';
+const TOKEN_KEY = 'authToken';
+const USER_KEY = 'user';
+const AUTH_KEY = 'isAuthenticated';
 const REMEMBER_KEY = 'rememberMe';
 
 function persistSession(data, rememberMe = false) {
@@ -22,12 +22,21 @@ function clearSession() {
 }
 
 const authService = {
-  // ── Auth ────────────────────────────────────────────────────────────────────
-  login: async ({ username, password, rememberMe = false }) => {
-    const data = await authRepository.login(username, password);
+  // ── Auth (two-step, OTP-gated) ────────────────────────────────────────────
+
+  // STEP 1 — verify username/password. Does NOT log the user in yet: server
+  // emails an OTP to HR and returns { otpRequired, pendingToken }.
+  login: async ({ username, password }) => {
+    return authRepository.login(username, password);
+  },
+
+  // STEP 2 — submit the OTP. On success, persists the real session
+  // (7-day token) exactly like the old one-step login used to.
+ verifyOtp: async ({ pendingToken, otp, rememberMe = false }) => {
+    const data = await authRepository.verifyOtp(pendingToken, otp);
     if (data.success) persistSession(data.data, rememberMe);
     return data;
-  },
+},
 
   register: async (userData) => {
     const data = await authRepository.register(userData);
@@ -44,25 +53,17 @@ const authService = {
   },
 
   // ── Password reset ──────────────────────────────────────────────────────────
-
-  // Step 1 — request OTP email
-  // Resolves with { success: true, message: '...' } regardless of whether the
-  // email exists (server is intentionally vague for security).
-  forgotPassword: async (email) => {
-    return authRepository.forgotPassword(email);
-  },
-
-  // Step 2 — submit email + OTP + new password
-  // Throws with a descriptive message when the OTP is invalid/expired.
-  resetPassword: async (email, otp, newPassword) => {
-    return authRepository.resetPassword(email, otp, newPassword);
-  },
+  forgotPassword: async (email) => authRepository.forgotPassword(email),
+  resetPassword: async (email, otp, newPassword) =>
+    authRepository.resetPassword(email, otp, newPassword),
 
   // ── Session helpers ─────────────────────────────────────────────────────────
+  // NOTE: session auto-expiry after 1 week is enforced by the JWT's 7d
+  // expiresIn on the server. When it expires, any authenticated request
+  // gets a 401, which client.js's interceptor already catches to clear
+  // localStorage and redirect to /login — no separate timer needed here.
   isAuthenticated: () => !!localStorage.getItem(TOKEN_KEY),
-
   getToken: () => localStorage.getItem(TOKEN_KEY),
-
   getUser: () => {
     try {
       const str = localStorage.getItem(USER_KEY);

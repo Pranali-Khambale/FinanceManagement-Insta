@@ -1,11 +1,6 @@
 // src/Ui/EmployeeMng/Linkgen/RegistrationForm.jsx
-// ✅ FIXED:
-//   1. useEffect on mount calls validateLink → detects isRejoin flag from backend
-//   2. prefillData returned by validateLink is applied to formData state
-//   3. isRejoin is no longer hardcoded false — it is set from the link's metadata
-//   4. isRejoin=true + linkId appended to FormData on submit (rejoin flow)
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -14,6 +9,9 @@ import {
   ChevronRight,
   Loader,
   UserCheck,
+  Info,
+  Save,
+  CheckCircle2,
 } from "lucide-react";
 import employeeService from "../../../services/employeeService";
 import PersonalInfo from "./PersonalInfo";
@@ -21,11 +19,9 @@ import EmploymentDetails from "./EmploymentDetails";
 import BankDetailsinfo from "./BankDetailsinfo";
 import Documents from "./Documents";
 
-// Medical Certificate + FARM-ToCli mandatory ONLY for these three roles in Telecom
 const FARM_TO_CLI_POSITIONS = ["dt engineer", "rigger", "technician"];
 
 const EMPTY_FORM = {
-  // ── Personal ──────────────────────────────────────────────────────────────
   firstName: "",
   fatherHusbandName: "",
   lastName: "",
@@ -42,29 +38,24 @@ const EMPTY_FORM = {
   aadhar: "",
   nameOnAadhar: "",
   uanNumber: "",
-  // ── Family ────────────────────────────────────────────────────────────────
   familyMemberName: "",
   familyContactNo: "",
   familyWorkingStatus: "",
   familyEmployerName: "",
   familyEmployerContact: "",
-  // ── Emergency ─────────────────────────────────────────────────────────────
   emergencyContactName: "",
   emergencyContactNo: "",
   emergencyContactAddress: "",
   emergencyContactRelation: "",
-  // ── Permanent address ─────────────────────────────────────────────────────
   permanentAddress: "",
   permanentPhone: "",
   permanentLandmark: "",
   permanentLatLong: "",
-  // ── Local address ─────────────────────────────────────────────────────────
   localSameAsPermanent: false,
   localAddress: "",
   localPhone: "",
   localLandmark: "",
   localLatLong: "",
-  // ── References ────────────────────────────────────────────────────────────
   ref1Name: "",
   ref1Designation: "",
   ref1Organization: "",
@@ -86,7 +77,7 @@ const EMPTY_FORM = {
   ref3CityStatePin: "",
   ref3ContactNo: "",
   ref3Email: "",
-  // ── Employment ────────────────────────────────────────────────────────────
+  employeeId: "",
   joiningDate: "",
   department: "",
   position: "",
@@ -94,14 +85,12 @@ const EMPTY_FORM = {
   circle: "",
   reportingManager: "",
   employmentType: "",
-  // ── Bank ──────────────────────────────────────────────────────────────────
   bankName: "",
   accountHolderName: "",
   accountNumber: "",
   confirmAccountNumber: "",
   ifscCode: "",
   bankBranch: "",
-  // ── Documents (File objects — never prefilled) ────────────────────────────
   idPhoto: null,
   aadharCard: null,
   panCard: null,
@@ -114,78 +103,94 @@ const EMPTY_FORM = {
   otherCertificates: null,
 };
 
+const FILE_FIELDS = new Set([
+  "idPhoto",
+  "aadharCard",
+  "panCard",
+  "resume",
+  "bankPassbook",
+  "medicalCertificate",
+  "academicRecords",
+  "payslip",
+  "farmToCli",
+  "otherCertificates",
+]);
+
+const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
+
+const STEP_LABELS = [
+  "Personal Info",
+  "Employment Details",
+  "Bank Details",
+  "Documents",
+];
+
+// ── Draft helpers ─────────────────────────────────────────────────────────────
+const getDraftKey = (id) => `reg_draft_${id || "unknown"}`;
+
+const saveDraft = (draftKey, formData, step) => {
+  try {
+    const scalarData = {};
+    Object.entries(formData).forEach(([k, v]) => {
+      if (!FILE_FIELDS.has(k)) scalarData[k] = v;
+    });
+    localStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        formData: scalarData,
+        savedStep: step,
+        savedAt: Date.now(),
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const loadDraft = (draftKey) => {
+  try {
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const clearDraft = (draftKey) => {
+  try {
+    localStorage.removeItem(draftKey);
+  } catch {}
+};
+
 const RegistrationForm = () => {
   const { linkId, token } = useParams();
   const navigate = useNavigate();
   const isResubmit = Boolean(token);
+  const draftKey = getDraftKey(linkId || token);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRejoin, setIsRejoin] = useState(false); // ✅ FIX: no longer hardcoded false
-  const [linkLoading, setLinkLoading] = useState(!isResubmit); // show spinner while validating link
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isRejoin, setIsRejoin] = useState(false);
+  const [linkLoading, setLinkLoading] = useState(true);
   const [linkError, setLinkError] = useState("");
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [hasDraft, setHasDraft] = useState(false);
 
-  // ── FIX: validate the link on mount and apply prefillData for rejoin ──────
-  useEffect(() => {
-    // Resubmit flow uses a token, not a linkId — no need to validate here.
-    if (isResubmit) {
-      // Optionally: fetch prefill for resubmit via getPrefillData(token)
-      return;
-    }
-    if (!linkId) return;
+  // ── ref used to scroll the user to the top of the step content
+  //    (where the validation summary banner renders) whenever a
+  //    Save & Continue / Submit click fails validation.
+  const contentRef = useRef(null);
 
-    const validateAndPrefill = async () => {
-      setLinkLoading(true);
-      setLinkError("");
-      try {
-        const response = await employeeService.validateLink(linkId);
-
-        if (!response?.valid) {
-          setLinkError(
-            response?.message ||
-              (response?.expired
-                ? "This registration link has expired."
-                : response?.used
-                  ? "This registration link has already been used."
-                  : "Invalid registration link."),
-          );
-          return;
-        }
-
-        // ── Detect rejoin and apply prefill ──────────────────────────────
-        const rejoin = response.isRejoin === true;
-        setIsRejoin(rejoin);
-
-        if (rejoin) {
-          // Backend returns prefillData at top level AND inside data{}
-          const prefill = response.prefillData || response.data?.prefillData;
-          if (prefill) {
-            applyPrefillData(prefill);
-          }
-        }
-      } catch (err) {
-        setLinkError(
-          "Failed to validate the registration link. Please try again.",
-        );
-        console.error("[RegistrationForm] validateLink error:", err);
-      } finally {
-        setLinkLoading(false);
-      }
-    };
-
-    validateAndPrefill();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkId, isResubmit]);
-
-  // ── Apply all prefill fields from validateLink response ───────────────────
-  // Keys match exactly what buildPrefillData() returns in the backend controller.
-  // File fields (idPhoto etc.) are intentionally excluded — employee must re-upload.
-  const applyPrefillData = (prefill) => {
+  // ── applyPrefillData ───────────────────────────────────────────────────────
+  const applyPrefillData = useCallback((prefill) => {
     setFormData((prev) => ({
       ...prev,
-      // Personal
       firstName: prefill.firstName ?? prev.firstName,
       lastName: prefill.lastName ?? prev.lastName,
       fatherHusbandName: prefill.fatherHusbandName ?? prev.fatherHusbandName,
@@ -200,23 +205,19 @@ const RegistrationForm = () => {
       aadhar: prefill.aadhar ?? prev.aadhar,
       nameOnAadhar: prefill.nameOnAadhar ?? prev.nameOnAadhar,
       uanNumber: prefill.uanNumber ?? prev.uanNumber,
-      // Contact
       email: prefill.email ?? prev.email,
       phone: prefill.phone ?? prev.phone,
       altPhone: prefill.altPhone ?? prev.altPhone,
-      // Permanent address
       permanentAddress: prefill.permanentAddress ?? prev.permanentAddress,
       permanentPhone: prefill.permanentPhone ?? prev.permanentPhone,
       permanentLandmark: prefill.permanentLandmark ?? prev.permanentLandmark,
       permanentLatLong: prefill.permanentLatLong ?? prev.permanentLatLong,
-      // Local address
       localSameAsPermanent:
         prefill.localSameAsPermanent ?? prev.localSameAsPermanent,
       localAddress: prefill.localAddress ?? prev.localAddress,
       localPhone: prefill.localPhone ?? prev.localPhone,
       localLandmark: prefill.localLandmark ?? prev.localLandmark,
       localLatLong: prefill.localLatLong ?? prev.localLatLong,
-      // Family
       familyMemberName: prefill.familyMemberName ?? prev.familyMemberName,
       familyContactNo: prefill.familyContactNo ?? prev.familyContactNo,
       familyWorkingStatus:
@@ -224,7 +225,6 @@ const RegistrationForm = () => {
       familyEmployerName: prefill.familyEmployerName ?? prev.familyEmployerName,
       familyEmployerContact:
         prefill.familyEmployerContact ?? prev.familyEmployerContact,
-      // Emergency
       emergencyContactName:
         prefill.emergencyContactName ?? prev.emergencyContactName,
       emergencyContactNo: prefill.emergencyContactNo ?? prev.emergencyContactNo,
@@ -232,7 +232,6 @@ const RegistrationForm = () => {
         prefill.emergencyContactAddress ?? prev.emergencyContactAddress,
       emergencyContactRelation:
         prefill.emergencyContactRelation ?? prev.emergencyContactRelation,
-      // References
       ref1Name: prefill.ref1Name ?? prev.ref1Name,
       ref1Designation: prefill.ref1Designation ?? prev.ref1Designation,
       ref1Organization: prefill.ref1Organization ?? prev.ref1Organization,
@@ -254,7 +253,7 @@ const RegistrationForm = () => {
       ref3CityStatePin: prefill.ref3CityStatePin ?? prev.ref3CityStatePin,
       ref3ContactNo: prefill.ref3ContactNo ?? prev.ref3ContactNo,
       ref3Email: prefill.ref3Email ?? prev.ref3Email,
-      // Employment
+      employeeId: prefill.employeeId ?? prev.employeeId,
       department: prefill.department ?? prev.department,
       position: prefill.position ?? prev.position,
       joiningDate: prefill.joiningDate ?? prev.joiningDate,
@@ -262,17 +261,120 @@ const RegistrationForm = () => {
       reportingManager: prefill.reportingManager ?? prev.reportingManager,
       circle: prefill.circle ?? prev.circle,
       projectName: prefill.projectName ?? prev.projectName,
-      // Bank
       bankName: prefill.bankName ?? prev.bankName,
       accountNumber: prefill.accountNumber ?? prev.accountNumber,
       ifscCode: prefill.ifscCode ?? prev.ifscCode,
       accountHolderName: prefill.accountHolderName ?? prev.accountHolderName,
       bankBranch: prefill.bankBranch ?? prev.bankBranch,
-      // confirmAccountNumber mirrors accountNumber so the bank step validates cleanly
       confirmAccountNumber: prefill.accountNumber ?? prev.confirmAccountNumber,
-      // File fields intentionally omitted — employee must re-upload documents
     }));
-  };
+  }, []);
+
+  // ── Load data on mount ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isResubmit) {
+      if (!token) {
+        setLinkError("Invalid resubmission link — token is missing.");
+        setLinkLoading(false);
+        return;
+      }
+
+      const fetchPrefill = async () => {
+        setLinkLoading(true);
+        setLinkError("");
+        try {
+          const response = await employeeService.getPrefillData(token);
+          if (!response?.success) {
+            setLinkError(
+              response?.message ||
+                "This resubmission link is invalid or has expired.",
+            );
+            return;
+          }
+          const data = response.data;
+          if (data) {
+            if (data.rejectionReason) setRejectionReason(data.rejectionReason);
+            applyPrefillData(data);
+            clearDraft(draftKey);
+          }
+        } catch (err) {
+          const draft = loadDraft(draftKey);
+          if (draft?.formData) {
+            applyPrefillData(draft.formData);
+            if (draft.savedStep) setCurrentStep(draft.savedStep);
+            setHasDraft(true);
+          }
+          setLinkError(
+            "Failed to load your previous submission data. Please try again.",
+          );
+          console.error("[RegistrationForm] getPrefillData error:", err);
+        } finally {
+          setLinkLoading(false);
+        }
+      };
+
+      fetchPrefill();
+      return;
+    }
+
+    if (!linkId) {
+      const draft = loadDraft(draftKey);
+      if (draft?.formData) {
+        applyPrefillData(draft.formData);
+        if (draft.savedStep) setCurrentStep(draft.savedStep);
+        setHasDraft(true);
+      }
+      setLinkLoading(false);
+      return;
+    }
+
+    const validateAndPrefill = async () => {
+      setLinkLoading(true);
+      setLinkError("");
+      try {
+        const response = await employeeService.validateLink(linkId);
+        if (!response?.valid) {
+          setLinkError(
+            response?.message ||
+              (response?.expired
+                ? "This registration link has expired."
+                : response?.used
+                  ? "This registration link has already been used."
+                  : "Invalid registration link."),
+          );
+          return;
+        }
+
+        const rejoin = response.isRejoin === true;
+        setIsRejoin(rejoin);
+
+        if (rejoin) {
+          const prefill = response.prefillData || response.data?.prefillData;
+          if (prefill) {
+            applyPrefillData(prefill);
+            clearDraft(draftKey);
+          }
+        } else {
+          const draft = loadDraft(draftKey);
+          if (draft?.formData) {
+            applyPrefillData(draft.formData);
+            if (draft.savedStep) setCurrentStep(draft.savedStep);
+            setHasDraft(true);
+          }
+        }
+      } catch (err) {
+        setLinkError(
+          "Failed to validate the registration link. Please try again.",
+        );
+        console.error("[RegistrationForm] validateLink error:", err);
+      } finally {
+        setLinkLoading(false);
+      }
+    };
+
+    validateAndPrefill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkId, token, isResubmit]);
 
   const steps = [
     { id: 1, name: "Personal Info" },
@@ -298,12 +400,22 @@ const RegistrationForm = () => {
     return dept === "telecom" && FARM_TO_CLI_POSITIONS.includes(pos);
   };
 
+  // ── Validation ────────────────────────────────────────────────────────────
   const validateStep = (step) => {
     const e = {};
+
     if (step === 1) {
       if (!formData.firstName) e.firstName = "First name is required";
+      if (!formData.fatherHusbandName)
+        e.fatherHusbandName = "Father / Husband name is required";
       if (!formData.lastName) e.lastName = "Last name is required";
       if (!formData.dob) e.dob = "Date of birth is required";
+      if (!formData.gender) e.gender = "Gender is required";
+      if (!formData.maritalStatus)
+        e.maritalStatus = "Marital status is required";
+      if (!formData.educationalQualification)
+        e.educationalQualification = "Educational qualification is required";
+      if (!formData.bloodGroup) e.bloodGroup = "Blood group is required";
       if (!formData.email) e.email = "Email is required";
       if (!formData.phone) e.phone = "Phone number is required";
       if (!formData.panNumber) e.panNumber = "PAN number is required";
@@ -329,14 +441,78 @@ const RegistrationForm = () => {
         e.permanentAddress = "Permanent address is required";
       if (!formData.permanentPhone)
         e.permanentPhone = "Permanent phone is required";
+
+      // ── Reference Details — Designation & Organization are optional;
+      //    Name, Address, City/State/Pin, Contact No. and Email remain
+      //    mandatory for all 3 references ──
+      ["ref1", "ref2", "ref3"].forEach((refKey, idx) => {
+        const refLabel = `Reference ${idx + 1}`;
+        if (!formData[`${refKey}Name`]?.trim())
+          e[`${refKey}Name`] = `${refLabel} name is required`;
+        if (!formData[`${refKey}Address`]?.trim())
+          e[`${refKey}Address`] = `${refLabel} address is required`;
+        if (!formData[`${refKey}CityStatePin`]?.trim())
+          e[`${refKey}CityStatePin`] = `${refLabel} city/state/pin is required`;
+        if (!formData[`${refKey}ContactNo`]?.trim())
+          e[`${refKey}ContactNo`] = `${refLabel} contact number is required`;
+        if (!formData[`${refKey}Email`]?.trim())
+          e[`${refKey}Email`] = `${refLabel} email is required`;
+      });
+
+      // ── Duplicate guard — same phone number cannot be reused across
+      //    personal / family / emergency / reference contact fields ──
+      const phoneChecks = [
+        { key: "phone", label: "Phone" },
+        { key: "altPhone", label: "Alternate Phone" },
+        { key: "familyContactNo", label: "Family Contact No." },
+        { key: "emergencyContactNo", label: "Emergency Contact No." },
+        { key: "ref1ContactNo", label: "Reference 1 Contact No." },
+        { key: "ref2ContactNo", label: "Reference 2 Contact No." },
+        { key: "ref3ContactNo", label: "Reference 3 Contact No." },
+      ];
+      const seenPhones = {};
+      phoneChecks.forEach(({ key, label }) => {
+        const val = (formData[key] || "").trim();
+        if (!val) return;
+        if (seenPhones[val]) {
+          e[key] = `Same as ${seenPhones[val]} — please enter a different number`;
+        } else {
+          seenPhones[val] = label;
+        }
+      });
+
+      // ── Duplicate guard — same email cannot be reused across personal
+      //    and reference email fields ──
+      const emailChecks = [
+        { key: "email", label: "Email Address" },
+        { key: "ref1Email", label: "Reference 1 Email" },
+        { key: "ref2Email", label: "Reference 2 Email" },
+        { key: "ref3Email", label: "Reference 3 Email" },
+      ];
+      const seenEmails = {};
+      emailChecks.forEach(({ key, label }) => {
+        const val = (formData[key] || "").trim().toLowerCase();
+        if (!val) return;
+        if (seenEmails[val]) {
+          e[key] = `Same as ${seenEmails[val]} — please enter a different email`;
+        } else {
+          seenEmails[val] = label;
+        }
+      });
     }
+
     if (step === 2) {
+      if (!formData.employeeId?.trim())
+        e.employeeId = "Employee ID is required";
+      else if (!/^Insta-\d{8,}$/.test(formData.employeeId.trim()))
+        e.employeeId = "Format must be Insta-YYMMxxxx (e.g. Insta-26010001)";
       if (!formData.department) e.department = "Department is required";
       if (!formData.position) e.position = "Designation is required";
       if (!formData.joiningDate) e.joiningDate = "Joining date is required";
       if (!formData.employmentType)
         e.employmentType = "Employment type is required";
     }
+
     if (step === 3) {
       if (!formData.bankName) e.bankName = "Bank name is required";
       if (!formData.accountHolderName)
@@ -347,6 +523,7 @@ const RegistrationForm = () => {
         e.confirmAccountNumber = "Account numbers do not match";
       if (!formData.ifscCode) e.ifscCode = "IFSC code is required";
     }
+
     if (step === 4) {
       if (!formData.idPhoto) e.idPhoto = "Photo is required";
       if (!formData.aadharCard) e.aadharCard = "Aadhaar card copy is required";
@@ -360,45 +537,51 @@ const RegistrationForm = () => {
             "Medical Certificate is mandatory for this role";
       }
     }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const handleNext = () => {
-    if (validateStep(currentStep)) setCurrentStep((p) => p + 1);
+  // ── Save & Continue ───────────────────────────────────────────────────────
+  const handleSaveAndContinue = () => {
+    if (!validateStep(currentStep)) {
+      contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    setIsSaving(true);
+    const ok = saveDraft(draftKey, formData, currentStep + 1);
+    setIsSaving(false);
+
+    if (ok) setHasDraft(true);
+
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setCurrentStep((p) => p + 1);
+    }, 700);
   };
+
   const handlePrev = () => setCurrentStep((p) => p - 1);
 
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!validateStep(currentStep)) return;
+    if (!validateStep(currentStep)) {
+      contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const fd = new FormData();
 
-      // ── Routing tokens (required by resolveSubmissionContext middleware) ──
       if (isResubmit) {
         fd.append("resubmitToken", token);
       } else {
         fd.append("linkId", linkId);
-        if (isRejoin) fd.append("isRejoin", "true"); // ✅ now actually true for rejoin links
+        if (isRejoin) fd.append("isRejoin", "true");
       }
-
-      // ── Scalar fields ─────────────────────────────────────────────────────
-      const FRONTEND_ONLY = new Set(["confirmAccountNumber"]);
-      const FILE_FIELDS = new Set([
-        "idPhoto",
-        "aadharCard",
-        "panCard",
-        "resume",
-        "bankPassbook",
-        "medicalCertificate",
-        "academicRecords",
-        "payslip",
-        "farmToCli",
-        "otherCertificates",
-      ]);
 
       Object.entries(formData).forEach(([key, val]) => {
         if (FRONTEND_ONLY.has(key)) return;
@@ -407,13 +590,11 @@ const RegistrationForm = () => {
         fd.append(key, String(val));
       });
 
-      // ── File fields ───────────────────────────────────────────────────────
       FILE_FIELDS.forEach((key) => {
         if (formData[key] instanceof File)
           fd.append(key, formData[key], formData[key].name);
       });
 
-      // ── Dispatch ──────────────────────────────────────────────────────────
       let res;
       if (isResubmit) {
         res = await employeeService.resubmitRegistration(token, fd);
@@ -422,7 +603,16 @@ const RegistrationForm = () => {
       }
 
       if (res?.success) {
-        navigate("/success");
+        clearDraft(draftKey);
+
+        navigate("/success", {
+          replace: true,
+          state: {
+            verified: true,
+            submittedAt: Date.now(),
+            type: isRejoin ? "rejoin" : isResubmit ? "resubmit" : "new",
+          },
+        });
       } else {
         setErrors({
           submit: res?.message || "Submission failed. Please try again.",
@@ -437,14 +627,16 @@ const RegistrationForm = () => {
     }
   };
 
-  // ── Link validation loading / error states ────────────────────────────────
+  // ── Loading / error screens ───────────────────────────────────────────────
   if (linkLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Loader className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-3" />
           <p className="text-slate-600 font-medium">
-            Validating your registration link…
+            {isResubmit
+              ? "Loading your previous submission…"
+              : "Validating your registration link…"}
           </p>
         </div>
       </div>
@@ -458,51 +650,152 @@ const RegistrationForm = () => {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Link Invalid</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {isResubmit ? "Link Expired" : "Link Invalid"}
+          </h2>
           <p className="text-gray-600">{linkError}</p>
         </div>
       </div>
     );
   }
 
+  // ── Derive header metadata ────────────────────────────────────────────────
+  const headerBg = isRejoin
+    ? "bg-indigo-900"
+    : isResubmit
+      ? "bg-red-900"
+      : "bg-slate-900";
+  const headerTitle = isRejoin
+    ? "Rejoin Registration"
+    : isResubmit
+      ? "Resubmit Registration"
+      : "Employee Portal Registration";
+  const headerNote = isRejoin
+    ? "Your previous information has been pre-filled — please review and update as needed."
+    : isResubmit
+      ? "Your previously submitted information has been pre-filled — please correct any issues and re-upload your documents."
+      : null;
+
+  const validationEntries = Object.entries(errors).filter(
+    ([key, msg]) => key !== "submit" && !!msg,
+  );
+
+  // ── Main render ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-        {/* Step header */}
-        <div
-          className={`px-6 py-4 flex items-center justify-between ${isRejoin ? "bg-indigo-900" : "bg-slate-900"}`}
-        >
-          <div>
-            <span className="text-white font-bold text-lg">
-              {isRejoin
-                ? "Rejoin Registration"
-                : "Employee Portal Registration"}
-            </span>
-            {isRejoin && (
-              <p className="text-indigo-300 text-xs mt-0.5">
-                Your previous information has been pre-filled — please review
-                and update as needed.
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {steps.map((s) => (
-              <div
-                key={s.id}
-                className={`w-3 h-3 rounded-full ${currentStep >= s.id ? "bg-blue-400" : "bg-slate-700"}`}
-              />
-            ))}
+    // NOTE: added `overflow-y-auto` here as a safety net so this page can
+    // always scroll on its own even if a parent layout constrains height.
+  <div className="h-screen w-screen overflow-y-auto bg-slate-50 py-6 px-3 sm:py-12 sm:px-6 lg:px-8">
+      {/*
+        FIX: removed `overflow-hidden` from this outer card wrapper.
+        `overflow-hidden` here was clipping the card's content any time its
+        height got constrained by a parent flex/height rule (e.g. `h-screen`
+        or `overflow:hidden` on #root/body/a layout shell) — that's almost
+        always the real source of a form that "can't scroll". The rounded
+        corners are now handled per-section instead of on this outer div,
+        so nothing here can trap scroll.
+      */}
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md">
+        {/* ── Header ───────────────────────────────────────────────────────── */}
+        <div className={`px-4 sm:px-6 py-4 rounded-t-xl ${headerBg}`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-white font-bold text-base sm:text-lg block truncate">
+                {headerTitle}
+              </span>
+              {headerNote && (
+                <p
+                  className={`text-xs mt-0.5 ${isRejoin ? "text-indigo-300" : "text-red-300"}`}
+                >
+                  {headerNote}
+                </p>
+              )}
+            </div>
+
+            {/* Step progress */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              {steps.map((s, idx) => (
+                <React.Fragment key={s.id}>
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                        currentStep > s.id
+                          ? "bg-green-400 text-white"
+                          : currentStep === s.id
+                            ? "bg-blue-400 text-white ring-2 ring-white ring-offset-1 ring-offset-transparent"
+                            : "bg-slate-600 text-slate-400"
+                      }`}
+                    >
+                      {currentStep > s.id ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        s.id
+                      )}
+                    </div>
+                    <span className="hidden lg:block text-xs mt-1 text-slate-400 whitespace-nowrap">
+                      {s.name}
+                    </span>
+                  </div>
+                  {idx < steps.length - 1 && (
+                    <div
+                      className={`h-0.5 w-4 sm:w-6 rounded-full transition-all ${
+                        currentStep > s.id ? "bg-green-400" : "bg-slate-600"
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="p-8">
-          {errors.submit && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-              <span>{errors.submit}</span>
+        {/* ── Draft restored notice ─────────────────────────────────────────── */}
+        {hasDraft && !isRejoin && !isResubmit && (
+          <div className="mx-4 sm:mx-6 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm text-blue-700">
+            <Info className="w-4 h-4 flex-shrink-0" />
+            <span>Your previously saved progress has been restored.</span>
+          </div>
+        )}
+
+        <div className="p-4 sm:p-8 rounded-b-xl" ref={contentRef}>
+          {/* ── Rejection reason banner ───────────────────────────────────── */}
+          {isResubmit && rejectionReason && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3">
+              <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800 mb-0.5">
+                  Your previous submission was rejected
+                </p>
+                <p className="text-sm text-amber-700">{rejectionReason}</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Please review the reason above, make the necessary
+                  corrections, and re-upload all required documents before
+                  resubmitting.
+                </p>
+              </div>
             </div>
           )}
 
+          {/* ── Validation summary banner ──────────────────────────────── */}
+          {validationEntries.length > 0 && (
+            <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <p className="text-sm font-bold text-red-800">
+                  Please fill all required fields
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Submit error ──────────────────────────────────────────────── */}
+          {errors.submit && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm">{errors.submit}</span>
+            </div>
+          )}
+
+          {/* ── Step content ──────────────────────────────────────────────── */}
           {currentStep === 1 && (
             <PersonalInfo
               formData={formData}
@@ -533,55 +826,86 @@ const RegistrationForm = () => {
             />
           )}
 
-          {/* Navigation */}
-          <div className="mt-8 pt-6 border-t flex justify-between items-center">
-            <button
-              type="button"
-              onClick={handlePrev}
-              disabled={currentStep === 1 || isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 text-slate-600 rounded-lg font-medium hover:bg-slate-100 transition-all disabled:opacity-30"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous
-            </button>
+          {/* ── Navigation ────────────────────────────────────────────────── */}
+          <div className="mt-8 pt-6 border-t">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3">
+              {/* Previous */}
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={currentStep === 1 || isSubmitting || isSaving}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 text-slate-600 rounded-lg font-medium hover:bg-slate-100 transition-all disabled:opacity-30 w-full sm:w-auto"
+              >
+                <ChevronLeft className="w-4 h-4" /> Previous
+              </button>
 
-            {currentStep < steps.length ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all shadow-sm"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-lg font-medium transition-all disabled:opacity-50 shadow-sm ${
-                  isRejoin
-                    ? "bg-indigo-600 hover:bg-indigo-700"
-                    : "bg-green-600 hover:bg-green-700"
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" /> Submitting…
-                  </>
-                ) : isRejoin ? (
-                  <>
-                    <UserCheck className="w-4 h-4" /> Submit Rejoin Request
-                  </>
-                ) : isResubmit ? (
-                  <>
-                    <Check className="w-4 h-4" /> Resubmit Registration
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" /> Submit Registration
-                  </>
-                )}
-              </button>
-            )}
+              {/* Right-side action */}
+              {currentStep < steps.length ? (
+                <button
+                  type="button"
+                  onClick={handleSaveAndContinue}
+                  disabled={isSaving || isSubmitting}
+                  className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm w-full sm:w-auto text-sm ${
+                    saveSuccess
+                      ? "bg-green-500 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" /> Saving…
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Saved!
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save & Continue
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || isSaving}
+                  className={`flex items-center justify-center gap-2 px-6 py-2.5 text-white rounded-lg font-medium transition-all disabled:opacity-50 shadow-sm w-full sm:w-auto ${
+                    isRejoin
+                      ? "bg-indigo-600 hover:bg-indigo-700"
+                      : isResubmit
+                        ? "bg-orange-600 hover:bg-orange-700"
+                        : "bg-green-600 hover:bg-green-700"
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" /> Submitting…
+                    </>
+                  ) : isRejoin ? (
+                    <>
+                      <UserCheck className="w-4 h-4" /> Submit Rejoin Request
+                    </>
+                  ) : isResubmit ? (
+                    <>
+                      <Check className="w-4 h-4" /> Resubmit Registration
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" /> Submit Registration
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Step indicator text */}
+            <p className="text-center text-xs text-slate-400 mt-4">
+              Step {currentStep} of {steps.length} —{" "}
+              {STEP_LABELS[currentStep - 1]}
+            </p>
           </div>
         </div>
       </div>

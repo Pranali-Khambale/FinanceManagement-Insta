@@ -2,6 +2,45 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Users, UserCheck, UserX, Clock } from "lucide-react";
 import employeeService from "../../services/employeeService";
 
+const cardConfig = [
+  {
+    key: "total",
+    title: "Total employees",
+    icon: Users,
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-600",
+    trend: "All registered",
+    trendColor: "text-blue-500",
+  },
+  {
+    key: "active",
+    title: "Active",
+    icon: UserCheck,
+    iconBg: "bg-green-50",
+    iconColor: "text-green-600",
+    trend: "Currently working",
+    trendColor: "text-green-500",
+  },
+  {
+    key: "pending",
+    title: "Pending",
+    icon: Clock,
+    iconBg: "bg-amber-50",
+    iconColor: "text-amber-600",
+    trend: "Awaiting approval",
+    trendColor: "text-amber-500",
+  },
+  {
+    key: "inactive",
+    title: "Inactive",
+    icon: UserX,
+    iconBg: "bg-red-50",
+    iconColor: "text-red-500",
+    trend: "Deactivated",
+    trendColor: "text-red-400",
+  },
+];
+
 const StatsCards = () => {
   const [stats, setStats] = useState({
     total: 0,
@@ -14,20 +53,14 @@ const StatsCards = () => {
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-
-      // ── Fetch both in parallel ──
-      const [empResponse, pendingResponse] = await Promise.all([
-        employeeService.getAllEmployees(), // active + inactive only
-        employeeService.getPendingSubmissions(), // pending only
+      const [empRes, pendingRes] = await Promise.all([
+        employeeService.getAllEmployees(),
+        employeeService.getPendingSubmissions(),
       ]);
-
-      const employees = empResponse.success ? empResponse.data || [] : [];
-      const pending = pendingResponse.success
-        ? pendingResponse.data?.length || 0
-        : 0;
-
+      const employees = empRes.success ? (empRes.data ?? []) : [];
+      const pending = pendingRes.success ? (pendingRes.data?.length ?? 0) : 0;
       setStats({
-        total: employees.length + pending, // total includes pending
+        total: employees.length + pending,
         active: employees.filter((e) =>
           ["active", "approved"].includes(e.status?.toLowerCase()),
         ).length,
@@ -47,97 +80,44 @@ const StatsCards = () => {
     fetchStats();
   }, [fetchStats]);
 
-  const cards = [
-    {
-      title: "Total Employees",
-      value: stats.total,
-      icon: Users,
-      iconColor: "text-blue-600",
-      iconBg: "bg-blue-100",
-      trend: "All registered",
-      trendColor: "text-blue-500",
-    },
-    {
-      title: "Active",
-      value: stats.active,
-      icon: UserCheck,
-      iconColor: "text-green-600",
-      iconBg: "bg-green-100",
-      trend: "Currently working",
-      trendColor: "text-green-500",
-    },
-    {
-      title: "Pending",
-      value: stats.pending,
-      icon: Clock,
-      iconColor: "text-amber-600",
-      iconBg: "bg-amber-100",
-      trend: "Awaiting approval",
-      trendColor: "text-amber-500",
-    },
-    {
-      title: "Inactive",
-      value: stats.inactive,
-      icon: UserX,
-      iconColor: "text-red-600",
-      iconBg: "bg-red-100",
-      trend: "Deactivated",
-      trendColor: "text-red-400",
-    },
-  ];
-
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {cards.map((card, index) => {
-        const Icon = card.icon;
-        return (
+    /* 1 col → 2 col sm → 4 col lg */
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
+      {cardConfig.map(
+        ({ key, title, icon: Icon, iconBg, iconColor, trend, trendColor }) => (
           <div
-            key={card.title}
-            className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 cursor-pointer group"
-            style={{
-              animationDelay: `${index * 100}ms`,
-              animation: "fadeInUp 0.5s ease-out forwards",
-              opacity: 0,
-            }}
+            key={key}
+            className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4
+                     hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
           >
-            {/* Icon + spinner */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
               <div
-                className={`${card.iconBg} p-2 rounded-lg group-hover:scale-110 transition-transform duration-300`}
+                className={`${iconBg} w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center
+                             group-hover:scale-110 transition-transform duration-200 shrink-0`}
               >
-                <Icon className={card.iconColor} size={18} />
+                <Icon className={iconColor} size={16} />
               </div>
               {loading && (
                 <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
               )}
             </div>
 
-            {/* Label */}
-            <p className="text-xs text-slate-500 font-medium mb-0.5">
-              {card.title}
+            <p className="text-xs text-slate-500 font-medium mb-0.5 truncate">
+              {title}
             </p>
 
-            {/* Value */}
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">
+            <p className="text-xl sm:text-2xl font-semibold text-slate-800 tracking-tight">
               {loading ? (
-                <span className="inline-block w-8 h-6 bg-gray-200 animate-pulse rounded" />
+                <span className="inline-block w-8 h-5 bg-gray-200 animate-pulse rounded" />
               ) : (
-                card.value
+                stats[key].toLocaleString()
               )}
             </p>
 
-            {/* Trend */}
-            <p className={`text-xs mt-1 ${card.trendColor}`}>{card.trend}</p>
+            <p className={`text-xs mt-1 truncate ${trendColor}`}>{trend}</p>
           </div>
-        );
-      })}
-
-      <style>{`
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+        ),
+      )}
     </div>
   );
 };

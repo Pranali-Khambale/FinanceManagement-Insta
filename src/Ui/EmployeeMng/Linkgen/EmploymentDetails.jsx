@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Building2, Calendar, Layers, MapPin,
+  Building2, Calendar, Hash, Layers, MapPin,
   UserCircle, Users, AlertCircle,
 } from 'lucide-react';
 
@@ -10,23 +10,23 @@ const EmploymentDetailsStep = ({ formData, errors = {}, onChange }) => {
     'Corporate Office Manager', 'Coordinator', 'Report Maker', 'DT Engineer',
     'Service Engineer', 'HR & Admin', 'HSW Lead', 'Intern', 'IT Manager',
     'Manager', 'Operations Head', 'Project Manager', 'Operations Lead',
-    'Rigger', 'Software Engineer', 'Store Manager', 'Technician', 'Accountant','other',
+    'Rigger', 'Software Engineer', 'Store Manager', 'Technician', 'Accountant', 'other',
   ];
 
   const departments = ['IT', 'Telecom', 'Corporate Office'];
 
- const circles = [
-  'Not Applicable',
-  'Gujarat', 'HP (Himachal Pradesh)', 'MH (Maharashtra)', 'MH (Pune Office)',
-  'MH Nagpur', 'MH_Ahilyanagar', 'MH_Nagpur', 'MH_Pen', 'MPCG',
-  'Mumbai', 'Punjab', 'Pune', 'Other',
-];
+  const circles = [
+    'Not Applicable',
+    'Gujarat', 'HP (Himachal Pradesh)', 'MH (Maharashtra)', 'MH (Pune Office)',
+    'MH Nagpur', 'MH_Ahilyanagar', 'MH_Nagpur', 'MH_Pen', 'MPCG',
+    'Mumbai', 'Punjab', 'Pune', 'Other',
+  ];
 
-const projectNames = [
-  'Not Applicable',
-  'Corporate', 'E// JIO', 'E// JIO EMF', 'E// JIO TI', 'E// JIO UBR',
-  'E// VIL', 'IGR', 'IT', 'Smart Intelligent Village', 'VIL MM',
-];
+  const projectNames = [
+    'Not Applicable',
+    'Corporate', 'E// JIO', 'E// JIO EMF', 'E// JIO TI', 'E// JIO UBR',
+    'E// VIL', 'IGR', 'IT', 'Smart Intelligent Village', 'VIL MM',
+  ];
 
   const employmentTypes = ['Full-time', 'Part-time', 'Contract', 'Internship', 'Temporary'];
 
@@ -41,18 +41,33 @@ const projectNames = [
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* ── Employee ID — shown as info only, assigned after approval ── */}
+        {/* ── Employee ID — editable by employee ── */}
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-gray-700">Employee ID</label>
+          <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+            <Hash className="w-4 h-4 text-gray-500" />
+            Employee ID <span className="text-red-500">*</span>
+          </label>
           <input
             type="text"
-            value="Will be assigned upon approval"
-            readOnly
-            className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 bg-gray-50 outline-none font-mono text-gray-400 cursor-not-allowed"
+            name="employeeId"
+            value={formData.employeeId || ''}
+            onChange={onChange}
+            placeholder="e.g. Insta-26010001"
+            className={`w-full px-4 py-3 rounded-lg border-2 font-mono tracking-wide ${
+              errors.employeeId
+                ? 'border-red-500 bg-red-50'
+                : 'border-gray-300'
+            } focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none`}
           />
-          <p className="text-xs text-gray-400">
-            Format: <span className="font-mono">Insta-YYMMxxxx</span>
-          </p>
+          {errors.employeeId ? (
+            <p className="text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />{errors.employeeId}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400">
+              Format: <span className="font-mono">Insta-YYMMxxxx</span> — provided by HR
+            </p>
+          )}
         </div>
 
         {/* ── Joining Date ── */}
